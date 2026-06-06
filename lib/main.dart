@@ -231,73 +231,86 @@ class _LandingPageState extends State<LandingPage> {
 
   OverlayEntry _createOverlayEntry() {
     final sc = context.snapgroveColors;
+    final width = MediaQuery.of(context).size.width;
+
+    double menuWidth;
+    if (width >= 1100) {
+      menuWidth = 240;
+    } else if (width >= 720) {
+      menuWidth = 220;
+    } else {
+      menuWidth = 200;
+    }
+
     return OverlayEntry(
       builder: (context) {
-        return GestureDetector(
-          onTap: () => _removeMenu(),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Container(color: Colors.transparent),
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: () => _removeMenu(),
+              child: Container(
+                color: Colors.transparent,
+                width: double.infinity,
+                height: double.infinity,
               ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: CompositedTransformFollower(
-                  link: _layerLink,
-                  showWhenUnlinked: false,
-                  offset: const Offset(-18, 56),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: sc.surfaceElevated,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
-                            blurRadius: 40,
-                            offset: const Offset(0, 18),
-                          ),
-                        ],
-                        border: Border.all(color: sc.border),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(minWidth: 200),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _MenuButton(
-                            icon: Icons.palette,
-                            label: 'Themes',
-                            onTap: () {
-                              _removeMenu();
-                              _showThemeDialog();
-                            },
-                          ),
-                          _MenuButton(
-                            icon: Icons.shield,
-                            label: 'Privacy Policy',
-                            onTap: () => _removeMenu(),
-                          ),
-                          _MenuButton(
-                            icon: Icons.info_outline,
-                            label: 'About',
-                            onTap: () => _removeMenu(),
-                          ),
-                          _MenuButton(
-                            icon: Icons.code,
-                            label: 'Source code',
-                            onTap: () => _removeMenu(),
-                          ),
-                        ],
-                      ),
+            ),
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomRight,
+              followerAnchor: Alignment.topRight,
+              offset: const Offset(0, 10),
+              child: Container(
+                width: menuWidth,
+                decoration: BoxDecoration(
+                  color: sc.surfaceElevated,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.16),
+                      blurRadius: 40,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                  border: Border.all(color: sc.border),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _MenuButton(
+                          icon: Icons.palette,
+                          label: 'Themes',
+                          onTap: () {
+                            _removeMenu();
+                            _showThemeDialog();
+                          },
+                        ),
+                        _MenuButton(
+                          icon: Icons.shield,
+                          label: 'Privacy Policy',
+                          onTap: () => _removeMenu(),
+                        ),
+                        _MenuButton(
+                          icon: Icons.info_outline,
+                          label: 'About',
+                          onTap: () => _removeMenu(),
+                        ),
+                        _MenuButton(
+                          icon: Icons.code,
+                          label: 'Source code',
+                          onTap: () => _removeMenu(),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -446,14 +459,16 @@ class _TopBar extends StatelessWidget {
           SizedBox(
             width: iconBtnSize,
             height: iconBtnSize,
-            child: Material(
-              color: sc.iconBg,
-              shape: const CircleBorder(),
-              elevation: 0,
+            child: Ink(
+              decoration: BoxDecoration(
+                color: sc.iconBg,
+                shape: BoxShape.circle,
+                border: Border.all(color: sc.iconBorder),
+              ),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onMoreTap,
-                splashColor: _rippleColor(sc.iconBg),
+                splashColor: sc.rippleColor,
                 child: Center(
                   child: Icon(
                     Icons.more_horiz,
@@ -506,9 +521,18 @@ class _BrowseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Material(
-      color: sc.primaryBtnBg,
-      borderRadius: BorderRadius.circular(999),
+    return Ink(
+      decoration: BoxDecoration(
+        color: sc.primaryBtnBg,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
         onTap: () {},
@@ -560,9 +584,11 @@ class _ScreenshotButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Material(
-      color: sc.accent,
-      borderRadius: BorderRadius.circular(5),
+    return Ink(
+      decoration: BoxDecoration(
+        color: sc.accent,
+        borderRadius: BorderRadius.circular(5),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(5),
         onTap: () {},
@@ -615,29 +641,28 @@ class _MenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final Color iconColor = isDark ? Colors.white : Colors.black;
+    final sc = context.snapgroveColors;
     return SizedBox(
       width: double.infinity,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          splashColor: _rippleColor(Theme.of(context).canvasColor),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: iconColor),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 14,
-                  ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        hoverColor: sc.menuHover,
+        splashColor: sc.rippleColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 14,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -674,65 +699,78 @@ class _ThemeDialogState extends State<ThemeDialog> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Center(
-      child: GestureDetector(
-        onTap: () {},
-        child: Container(
-          width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: sc.surfaceElevated,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Theme',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            color: Colors.transparent,
+            width: double.infinity,
+            height: double.infinity,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {},
+                child: Container(
+                  width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: sc.surfaceElevated,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 40,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Theme',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ThemeOption(
+                              icon: Icons.desktop_windows,
+                              label: 'System',
+                              isActive: _selected == ThemeMode.system,
+                              onTap: () => _selectTheme(ThemeMode.system),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _ThemeOption(
+                              icon: Icons.light_mode,
+                              label: 'Light',
+                              isActive: _selected == ThemeMode.light,
+                              onTap: () => _selectTheme(ThemeMode.light),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _ThemeOption(
+                              icon: Icons.dark_mode,
+                              label: 'Dark',
+                              isActive: _selected == ThemeMode.dark,
+                              onTap: () => _selectTheme(ThemeMode.dark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ThemeOption(
-                      icon: Icons.desktop_windows,
-                      label: 'System',
-                      isActive: _selected == ThemeMode.system,
-                      onTap: () => _selectTheme(ThemeMode.system),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: _ThemeOption(
-                      icon: Icons.light_mode,
-                      label: 'Light',
-                      isActive: _selected == ThemeMode.light,
-                      onTap: () => _selectTheme(ThemeMode.light),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: _ThemeOption(
-                      icon: Icons.dark_mode,
-                      label: 'Dark',
-                      isActive: _selected == ThemeMode.dark,
-                      onTap: () => _selectTheme(ThemeMode.dark),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -764,9 +802,11 @@ class _ThemeOption extends StatelessWidget {
     final sc = context.snapgroveColors;
     final Color bgColor = isActive ? sc.primaryBtnBg : sc.surfaceMuted;
     final Color fgColor = isActive ? sc.primaryBtnText : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black);
-    return Material(
-      color: bgColor,
-      borderRadius: BorderRadius.circular(5),
+    return Ink(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(5),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(5),
         onTap: onTap,
