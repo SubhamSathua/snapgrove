@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   runApp(const SnapgroveApp());
+}
+
+Color _rippleColor(Color bg) {
+  return bg.computeLuminance() > 0.5
+      ? Colors.black.withValues(alpha: 0.25)
+      : Colors.white.withValues(alpha: 0.35);
 }
 
 @immutable
@@ -263,7 +268,7 @@ class _LandingPageState extends State<LandingPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _MenuButton(
-                            iconPath: 'assets/icons/palette.svg',
+                            icon: Icons.palette,
                             label: 'Themes',
                             onTap: () {
                               _removeMenu();
@@ -271,17 +276,17 @@ class _LandingPageState extends State<LandingPage> {
                             },
                           ),
                           _MenuButton(
-                            iconPath: 'assets/icons/shield.svg',
+                            icon: Icons.shield,
                             label: 'Privacy Policy',
                             onTap: () => _removeMenu(),
                           ),
                           _MenuButton(
-                            iconPath: 'assets/icons/info-circle.svg',
+                            icon: Icons.info_outline,
                             label: 'About',
                             onTap: () => _removeMenu(),
                           ),
                           _MenuButton(
-                            iconPath: 'assets/icons/github.svg',
+                            icon: Icons.code,
                             label: 'Source code',
                             onTap: () => _removeMenu(),
                           ),
@@ -314,7 +319,8 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   void dispose() {
-    _removeMenu();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 
@@ -437,53 +443,23 @@ class _TopBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          GestureDetector(
-            onTap: onMoreTap,
-            child: Container(
-              width: iconBtnSize,
-              height: iconBtnSize,
-              decoration: BoxDecoration(
-                color: sc.iconBg,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: sc.iconBorder,
-                    blurRadius: 0,
-                    spreadRadius: 0,
+          SizedBox(
+            width: iconBtnSize,
+            height: iconBtnSize,
+            child: Material(
+              color: sc.iconBg,
+              shape: const CircleBorder(),
+              elevation: 0,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onMoreTap,
+                splashColor: _rippleColor(sc.iconBg),
+                child: Center(
+                  child: Icon(
+                    Icons.more_horiz,
+                    size: iconSize,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
-                ],
-              ),
-              child: ClipOval(
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: SvgPicture.asset(
-                          'assets/icons/more.svg',
-                          width: iconSize,
-                          height: iconSize,
-                          colorFilter: ColorFilter.mode(
-                            isDark ? Colors.white : Colors.black,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: onMoreTap,
-                          splashColor: sc.rippleColor,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -530,47 +506,38 @@ class _BrowseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: browsePaddingH,
-          vertical: browsePaddingV,
-        ),
-        decoration: BoxDecoration(
-          color: sc.primaryBtnBg,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SvgPicture.asset(
-              'assets/icons/browse.svg',
-              width: buttonIconSize,
-              height: buttonIconSize,
-              colorFilter: ColorFilter.mode(
-                sc.primaryBtnText,
-                BlendMode.srcIn,
-              ),
-            ),
-            SizedBox(width: actionFontSize * 0.67),
-            Text(
-              'Browse',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: actionFontSize,
-                letterSpacing: 0.2,
+    return Material(
+      color: sc.primaryBtnBg,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () {},
+        splashColor: _rippleColor(sc.primaryBtnBg),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: browsePaddingH,
+            vertical: browsePaddingV,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.drive_folder_upload,
+                size: buttonIconSize,
                 color: sc.primaryBtnText,
               ),
-            ),
-          ],
+              SizedBox(width: actionFontSize * 0.67),
+              Text(
+                'Browse',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: actionFontSize,
+                  letterSpacing: 0.2,
+                  color: sc.primaryBtnText,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -593,42 +560,40 @@ class _ScreenshotButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(
-          horizontal: ssPaddingH,
-          vertical: ssPaddingV,
-        ),
-        decoration: BoxDecoration(
-          color: sc.accent,
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/icons/screenshot.svg',
-              width: buttonIconSize,
-              height: buttonIconSize,
-              colorFilter: const ColorFilter.mode(
-                Color(0xFF000000),
-                BlendMode.srcIn,
-              ),
-            ),
-            SizedBox(width: actionFontSize * 0.67),
-            Text(
-              'Screenshot Folder',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: actionFontSize,
-                letterSpacing: 0.2,
+    return Material(
+      color: sc.accent,
+      borderRadius: BorderRadius.circular(5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(5),
+        onTap: () {},
+        splashColor: _rippleColor(sc.accent),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: ssPaddingH,
+            vertical: ssPaddingV,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.grid_view,
+                size: buttonIconSize,
                 color: const Color(0xFF000000),
               ),
-            ),
-          ],
+              SizedBox(width: actionFontSize * 0.67),
+              Text(
+                'Screenshot Folder',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: actionFontSize,
+                  letterSpacing: 0.2,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -636,20 +601,20 @@ class _ScreenshotButton extends StatelessWidget {
 }
 
 class _MenuButton extends StatelessWidget {
-  final String iconPath;
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
 
   const _MenuButton({
-    required this.iconPath,
+    required this.icon,
     required this.label,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color iconColor = isDark ? Colors.white : Colors.black;
     return SizedBox(
       width: double.infinity,
       child: Material(
@@ -657,21 +622,12 @@ class _MenuButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
-          hoverColor: sc.menuHover,
-          splashColor: sc.rippleColor,
+          splashColor: _rippleColor(Theme.of(context).canvasColor),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                SvgPicture.asset(
-                  iconPath,
-                  width: 18,
-                  height: 18,
-                  colorFilter: ColorFilter.mode(
-                    isDark ? Colors.white : Colors.black,
-                    BlendMode.srcIn,
-                  ),
-                ),
+                Icon(icon, size: 18, color: iconColor),
                 const SizedBox(width: 12),
                 Text(
                   label,
@@ -715,9 +671,8 @@ class _ThemeDialogState extends State<ThemeDialog> {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final screenWidth = MediaQuery.of(context).size.width;
+
     return Center(
       child: GestureDetector(
         onTap: () {},
@@ -751,30 +706,27 @@ class _ThemeDialogState extends State<ThemeDialog> {
                 children: [
                   Expanded(
                     child: _ThemeOption(
-                      iconPath: 'assets/icons/desktop.svg',
+                      icon: Icons.desktop_windows,
                       label: 'System',
                       isActive: _selected == ThemeMode.system,
-                      isDark: isDark,
                       onTap: () => _selectTheme(ThemeMode.system),
                     ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: _ThemeOption(
-                      iconPath: 'assets/icons/sun.svg',
+                      icon: Icons.light_mode,
                       label: 'Light',
                       isActive: _selected == ThemeMode.light,
-                      isDark: isDark,
                       onTap: () => _selectTheme(ThemeMode.light),
                     ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: _ThemeOption(
-                      iconPath: 'assets/icons/moon.svg',
+                      icon: Icons.dark_mode,
                       label: 'Dark',
                       isActive: _selected == ThemeMode.dark,
-                      isDark: isDark,
                       onTap: () => _selectTheme(ThemeMode.dark),
                     ),
                   ),
@@ -795,75 +747,50 @@ class _ThemeDialogState extends State<ThemeDialog> {
 }
 
 class _ThemeOption extends StatelessWidget {
-  final String iconPath;
+  final IconData icon;
   final String label;
   final bool isActive;
-  final bool isDark;
   final VoidCallback onTap;
 
   const _ThemeOption({
-    required this.iconPath,
+    required this.icon,
     required this.label,
     required this.isActive,
-    required this.isDark,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-        constraints: const BoxConstraints(minHeight: 86),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.transparent : sc.surfaceMuted,
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: isActive
-            ? Material(
-                color: sc.primaryBtnBg,
-                borderRadius: BorderRadius.circular(5),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                  child: _buildContent(sc),
+    final Color bgColor = isActive ? sc.primaryBtnBg : sc.surfaceMuted;
+    final Color fgColor = isActive ? sc.primaryBtnText : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black);
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(5),
+        onTap: onTap,
+        splashColor: _rippleColor(bgColor),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: fgColor),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 12,
+                  letterSpacing: 0.2,
+                  color: fgColor,
                 ),
-              )
-            : _buildContent(sc),
+              ),
+            ],
+          ),
+        ),
       ),
-    );
-  }
-
-  Widget _buildContent(SnapgroveColors sc) {
-    final effectiveIsDark = isActive ? sc.primaryBtnBg == const Color(0xFF000000) : isDark;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset(
-          iconPath,
-          width: 20,
-          height: 20,
-          colorFilter: ColorFilter.mode(
-            isActive
-                ? sc.primaryBtnText
-                : (effectiveIsDark ? Colors.white : Colors.black),
-            BlendMode.srcIn,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'JetBrains Mono',
-            fontSize: 12,
-            letterSpacing: 0.2,
-            color: isActive ? sc.primaryBtnText : null,
-          ),
-        ),
-      ],
     );
   }
 }
