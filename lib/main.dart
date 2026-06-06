@@ -739,6 +739,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                       Row(
                         children: [
                           Expanded(
+                            flex: _selected == ThemeMode.system ? 16 : 10,
                             child: _ThemeOption(
                               icon: Icons.desktop_windows,
                               label: 'System',
@@ -748,6 +749,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                           ),
                           const SizedBox(width: 4),
                           Expanded(
+                            flex: _selected == ThemeMode.light ? 16 : 10,
                             child: _ThemeOption(
                               icon: Icons.light_mode,
                               label: 'Light',
@@ -757,6 +759,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                           ),
                           const SizedBox(width: 4),
                           Expanded(
+                            flex: _selected == ThemeMode.dark ? 16 : 10,
                             child: _ThemeOption(
                               icon: Icons.dark_mode,
                               label: 'Dark',
@@ -780,6 +783,8 @@ class _ThemeDialogState extends State<ThemeDialog> {
   void _selectTheme(ThemeMode mode) {
     setState(() => _selected = mode);
     widget.onThemeChanged(mode);
+    // In index.html, the modal doesn't necessarily close instantly on selection,
+    // but the Flutter implementation currently does. Keeping it for now.
     Navigator.of(context).pop();
   }
 }
@@ -800,9 +805,16 @@ class _ThemeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final Color bgColor = isActive ? sc.primaryBtnBg : sc.surfaceMuted;
-    final Color fgColor = isActive ? sc.primaryBtnText : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black);
-    return Ink(
+    final Color fgColor = isActive
+        ? sc.primaryBtnText
+        : (isDark ? Colors.white : Colors.black);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(5),
@@ -822,7 +834,7 @@ class _ThemeOption extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
-                  fontSize: 12,
+                  fontSize: 13,
                   letterSpacing: 0.2,
                   color: fgColor,
                 ),
