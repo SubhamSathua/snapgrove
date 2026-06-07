@@ -164,6 +164,7 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
   ThemeData _buildLightTheme() {
     return ThemeData(
       useMaterial3: false,
+      splashFactory: InkRipple.splashFactory,
       brightness: Brightness.light,
       scaffoldBackgroundColor: const Color(0xFFffffff),
       fontFamily: 'Lora',
@@ -178,6 +179,7 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
   ThemeData _buildDarkTheme() {
     return ThemeData(
       useMaterial3: false,
+      splashFactory: InkRipple.splashFactory,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF000000),
       fontFamily: 'Lora',
@@ -223,10 +225,15 @@ class _LandingPageState extends State<LandingPage> {
     setState(() => _menuOpen = true);
   }
 
-  void _removeMenu() {
+  void _removeMenuSync() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    setState(() => _menuOpen = false);
+    if (mounted) setState(() => _menuOpen = false);
+  }
+
+  Future<void> _removeMenu() async {
+    await Future.delayed(const Duration(milliseconds: 120));
+    _removeMenuSync();
   }
 
   OverlayEntry _createOverlayEntry() {
@@ -247,7 +254,7 @@ class _LandingPageState extends State<LandingPage> {
         return Stack(
           children: [
             GestureDetector(
-              onTap: () => _removeMenu(),
+              onTap: () => _removeMenuSync(),
               child: Container(
                 color: Colors.transparent,
                 width: double.infinity,
@@ -284,8 +291,8 @@ class _LandingPageState extends State<LandingPage> {
                         _MenuButton(
                           icon: Icons.palette,
                           label: 'Themes',
-                          onTap: () {
-                            _removeMenu();
+                          onTap: () async {
+                            await _removeMenu();
                             _showThemeDialog();
                           },
                         ),
@@ -343,8 +350,7 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   void dispose() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _removeMenuSync();
     super.dispose();
   }
 
@@ -479,7 +485,7 @@ class _TopBar extends StatelessWidget {
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onMoreTap,
-                splashColor: sc.rippleColor,
+                splashColor: _rippleColor(sc.iconBg),
                 child: Center(
                   child: Icon(
                     Icons.more_horiz,
@@ -668,7 +674,7 @@ class _MenuButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         hoverColor: sc.menuHover,
-        splashColor: sc.rippleColor,
+        splashColor: _rippleColor(sc.surfaceElevated),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
