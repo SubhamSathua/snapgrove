@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:animations/animations.dart';
 import 'services/storage_service.dart';
 import 'services/picker_service.dart';
+import 'gallery_page.dart';
 
 late StorageService storage;
 
@@ -324,7 +326,7 @@ class _LandingPageState extends State<LandingPage> {
     }
   }
 
-  void _showFolderPromptDialog() {
+  void _showFolderPromptDialog({VoidCallback? onSuccess}) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -340,13 +342,17 @@ class _LandingPageState extends State<LandingPage> {
           
           if (dir != null) {
             debugPrint('LOG: Permanent Folder selected: $dir');
-            // Update the PERMANENT directory state
             widget.onPermanentDirChanged(dir);
-            // Small delay so user sees feedback if any (though here we just close)
-            await Future.delayed(const Duration(milliseconds: 200));
+            
+            if (mounted) Navigator.of(context).pop();
+            
+            // Trigger expansion transition after picking
+            if (onSuccess != null) {
+              Future.delayed(const Duration(milliseconds: 300), onSuccess);
+            }
+          } else {
+            if (mounted) Navigator.of(context).pop();
           }
-          
-          if (mounted) Navigator.of(context).pop();
         },
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -361,6 +367,10 @@ class _LandingPageState extends State<LandingPage> {
       },
     );
   }
+
+  // Note: _openScreenshotFolder is now integrated into the Screenshot button's onTap
+  // via OpenContainer logic. I'll keep the method if needed for other places,
+  // or I could remove it. I'll leave it for now but it's largely bypassed by action().
 
   void _showMenu() {
     _overlayEntry = _createOverlayEntry();
@@ -569,18 +579,32 @@ class _LandingPageState extends State<LandingPage> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: [
-                      _BrowseButton(
-                        actionFontSize: actionFontSize,
-                        buttonIconSize: buttonIconSize,
-                        browsePaddingH: browsePaddingH,
-                        browsePaddingV: browsePaddingV,
-                        currentDir: widget.screenshotDir,
-                        onTap: () async {
-                          final dir = await PickerService.pickDirectory();
-                          if (dir != null) {
-                            widget.onDirChanged(dir);
-                          }
-                        },
+                      OpenContainer(
+                        closedElevation: 0,
+                        openElevation: 0,
+                        closedColor: Colors.transparent,
+                        openColor: Theme.of(context).scaffoldBackgroundColor,
+                        transitionType: ContainerTransitionType.fadeThrough,
+                        transitionDuration: const Duration(milliseconds: 600),
+                        openBuilder: (context, action) => OrganizerGallery(
+                          path: widget.screenshotDir ?? '',
+                          title: 'Browse Gallery',
+                        ),
+                        closedBuilder: (context, action) => _BrowseButton(
+                          actionFontSize: actionFontSize,
+                          buttonIconSize: buttonIconSize,
+                          browsePaddingH: browsePaddingH,
+                          browsePaddingV: browsePaddingV,
+                          currentDir: widget.screenshotDir,
+                          onTap: () async {
+                            final dir = await PickerService.pickDirectory();
+                            if (dir != null) {
+                              widget.onDirChanged(dir);
+                              // Trigger expansion after picking
+                              Future.delayed(const Duration(milliseconds: 100), action);
+                            }
+                          },
+                        ),
                       ),
                       SizedBox(height: actionGap),
                       if (kIsWeb)
@@ -591,12 +615,31 @@ class _LandingPageState extends State<LandingPage> {
                           ssPaddingV: ssPaddingV,
                         )
                       else
-                        _ScreenshotButton(
-                          actionFontSize: actionFontSize,
-                          buttonIconSize: buttonIconSize,
-                          ssPaddingH: ssPaddingH,
-                          ssPaddingV: ssPaddingV,
-                          onTap: _openScreenshotFolder,
+                        OpenContainer(
+                          closedElevation: 0,
+                          openElevation: 0,
+                          closedColor: Colors.transparent,
+                          openColor: Theme.of(context).scaffoldBackgroundColor,
+                          transitionType: ContainerTransitionType.fadeThrough,
+                          transitionDuration: const Duration(milliseconds: 600),
+                          openBuilder: (context, action) => OrganizerGallery(
+                            path: widget.permanentScreenshotDir ?? '',
+                            title: 'Screenshot Folder',
+                          ),
+                          closedBuilder: (context, action) => _ScreenshotButton(
+                            actionFontSize: actionFontSize,
+                            buttonIconSize: buttonIconSize,
+                            ssPaddingH: ssPaddingH,
+                            ssPaddingV: ssPaddingV,
+                            onTap: () {
+                              if (widget.permanentScreenshotDir == null ||
+                                  widget.permanentScreenshotDir!.isEmpty) {
+                                _showFolderPromptDialog(onSuccess: action);
+                              } else {
+                                action();
+                              }
+                            },
+                          ),
                         ),
                     ],
                   ),
