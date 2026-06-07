@@ -7,6 +7,8 @@ import 'picker/picker_stub.dart'
 class PickerService {
   static Future<String?> pickDirectory() async {
     try {
+      // Calling the platform-specific implementation.
+      // This is now clean and type-safe.
       return await pickDirectoryPlatform();
     } catch (e) {
       debugPrint('Directory picking failed: $e');

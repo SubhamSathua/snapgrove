@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../storage_service.dart';
 
+StorageService createStorage() => SharedPrefsStorage();
+
 class SharedPrefsStorage implements StorageService {
   late SharedPreferences _prefs;
 

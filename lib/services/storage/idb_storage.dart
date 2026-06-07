@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:idb_shim/idb_shim.dart';
 import 'package:idb_shim/idb_browser.dart';
 import '../storage_service.dart';
+
+StorageService createStorage() => IndexedDBStorage();
 
 class IndexedDBStorage implements StorageService {
   late Database _db;

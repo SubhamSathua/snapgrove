@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'services/storage_service.dart';
-import 'services/storage/sp_storage.dart';
-import 'services/storage/idb_storage.dart';
 import 'services/picker_service.dart';
 
 late StorageService storage;
@@ -12,11 +10,7 @@ late StorageService storage;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (kIsWeb) {
-    storage = IndexedDBStorage();
-  } else {
-    storage = SharedPrefsStorage();
-  }
+  storage = StorageService();
   await storage.init();
 
   runApp(const SnapgroveApp());
@@ -323,13 +317,20 @@ class _LandingPageState extends State<LandingPage> {
           alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.2),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) => FolderPromptDialog(
-        onChoose: () async {
-          debugPrint('User clicked Choose in modal, opening picker...');
-          final dir = await PickerService.pickDirectory();
-          debugPrint('Picker result: $dir');
-          if (dir != null) {
-            widget.onDirChanged(dir);
-          }
+        onChoose: () {
+          // Dismiss the dialog first
+          Navigator.of(context).pop();
+          
+          // Small delay before opening picker to let the modal finish its transition
+          // and prevent Windows window-focus conflicts.
+          Future.delayed(const Duration(milliseconds: 300), () async {
+            debugPrint('Opening native picker...');
+            final dir = await PickerService.pickDirectory();
+            debugPrint('Picker result: $dir');
+            if (dir != null) {
+              widget.onDirChanged(dir);
+            }
+          });
         },
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -941,10 +942,7 @@ class FolderPromptDialog extends StatelessWidget {
                     child: _DialogButton(
                       label: 'Choose',
                       isPrimary: true,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        onChoose();
-                      },
+                      onTap: onChoose,
                     ),
                   ),
                 ],
@@ -971,7 +969,6 @@ class _DialogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // "Choose" button is solid accent (like Screenshot btn)
     // "Cancel" button is transparent text-only unless active/hovered
@@ -979,32 +976,34 @@ class _DialogButton extends StatelessWidget {
     final Color fgColor = isPrimary ? const Color(0xFF000000) : sc.muted;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 100),
+      constraints: const BoxConstraints(minWidth: 100, minHeight: 40),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(5),
+      ),
       child: Material(
         color: Colors.transparent,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(5),
-            hoverColor: isPrimary 
-                ? Colors.black.withValues(alpha: 0.08) 
-                : sc.menuHover,
-            splashColor: _rippleColor(isPrimary ? sc.accent : sc.surfaceElevated),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              alignment: Alignment.center,
+        child: InkWell(
+          onTap: () {
+            debugPrint('UI: Dialog Button clicked: $label');
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(5),
+          hoverColor: isPrimary 
+              ? Colors.black.withValues(alpha: 0.1) 
+              : sc.menuHover,
+          splashColor: _rippleColor(isPrimary ? sc.accent : sc.surfaceElevated),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            child: Center(
               child: Text(
                 label,
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: fgColor,
-                  letterSpacing: 0.2,
+                  letterSpacing: 0.4,
                 ),
               ),
             ),
