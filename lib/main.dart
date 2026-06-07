@@ -314,6 +314,7 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _showFolderPromptDialog() {
+    debugPrint('Showing folder prompt dialog...');
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -323,7 +324,9 @@ class _LandingPageState extends State<LandingPage> {
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) => FolderPromptDialog(
         onChoose: () async {
+          debugPrint('User clicked Choose in modal, opening picker...');
           final dir = await PickerService.pickDirectory();
+          debugPrint('Picker result: $dir');
           if (dir != null) {
             widget.onDirChanged(dir);
           }
@@ -968,25 +971,42 @@ class _DialogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Ink(
-      decoration: BoxDecoration(
-        color: isPrimary ? sc.primaryBtnBg : sc.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        splashColor: _rippleColor(isPrimary ? sc.primaryBtnBg : sc.surfaceMuted),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isPrimary ? sc.primaryBtnText : sc.muted,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // "Choose" button is solid accent (like Screenshot btn)
+    // "Cancel" button is transparent text-only unless active/hovered
+    final Color bgColor = isPrimary ? sc.accent : Colors.transparent;
+    final Color fgColor = isPrimary ? const Color(0xFF000000) : sc.muted;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 100),
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(5),
+            hoverColor: isPrimary 
+                ? Colors.black.withValues(alpha: 0.08) 
+                : sc.menuHover,
+            splashColor: _rippleColor(isPrimary ? sc.accent : sc.surfaceElevated),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: fgColor,
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
           ),
         ),
