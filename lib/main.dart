@@ -6,8 +6,8 @@ void main() {
 
 Color _rippleColor(Color bg) {
   return bg.computeLuminance() > 0.5
-      ? Colors.black.withValues(alpha: 0.25)
-      : Colors.white.withValues(alpha: 0.35);
+      ? Colors.black.withValues(alpha: 0.35)
+      : Colors.white.withValues(alpha: 0.45);
 }
 
 @immutable
@@ -317,14 +317,25 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _showThemeDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+    showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.2),
-      builder: (ctx) {
-        return ThemeDialog(
-          currentTheme: widget.currentTheme,
-          onThemeChanged: widget.onThemeChanged,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.2),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) => ThemeDialog(
+        currentTheme: widget.currentTheme,
+        onThemeChanged: widget.onThemeChanged,
+      ),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: 0.9 + (0.1 * curve),
+          child: Opacity(
+            opacity: anim1.value,
+            child: child,
+          ),
         );
       },
     );
@@ -489,16 +500,25 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final width = MediaQuery.of(context).size.width;
+
+    double percent;
+    if (width >= 1100) {
+      percent = 0.35;
+    } else if (width >= 720) {
+      percent = 0.50;
+    } else {
+      percent = 0.60;
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: 180,
-          maxWidth: 280,
-        ),
+      child: Align(
+        alignment: Alignment.centerLeft,
         child: Image.asset(
           isDark ? 'assets/images/logo-white.png' : 'assets/images/logo-black.png',
-          width: 280,
+          width: width * percent,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -697,17 +717,22 @@ class _ThemeDialogState extends State<ThemeDialog> {
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final screenWidth = MediaQuery.of(context).size.width;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Center(
       child: Material(
         color: Colors.transparent,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            color: Colors.transparent,
-            width: double.infinity,
-            height: double.infinity,
-            child: Center(
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                color: Colors.transparent,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Center(
               child: GestureDetector(
                 onTap: () {},
                 child: Container(
@@ -728,12 +753,32 @@ class _ThemeDialogState extends State<ThemeDialog> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Theme',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 16,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Theme',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(),
+                              borderRadius: BorderRadius.circular(999),
+                              splashColor: sc.rippleColor,
+                              child: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
                       Row(
@@ -774,7 +819,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -783,13 +828,10 @@ class _ThemeDialogState extends State<ThemeDialog> {
   void _selectTheme(ThemeMode mode) {
     setState(() => _selected = mode);
     widget.onThemeChanged(mode);
-    // In index.html, the modal doesn't necessarily close instantly on selection,
-    // but the Flutter implementation currently does. Keeping it for now.
-    Navigator.of(context).pop();
   }
 }
 
-class _ThemeOption extends StatelessWidget {
+class _ThemeOption extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isActive;
@@ -803,43 +845,93 @@ class _ThemeOption extends StatelessWidget {
   });
 
   @override
+  State<_ThemeOption> createState() => _ThemeOptionState();
+}
+
+class _ThemeOptionState extends State<_ThemeOption>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.02), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.02, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didUpdateWidget(_ThemeOption oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final Color bgColor = isActive ? sc.primaryBtnBg : sc.surfaceMuted;
-    final Color fgColor = isActive
+    final Color bgColor = widget.isActive ? sc.primaryBtnBg : sc.surfaceMuted;
+    final Color fgColor = widget.isActive
         ? sc.primaryBtnText
         : (isDark ? Colors.white : Colors.black);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(5),
-        onTap: onTap,
-        splashColor: _rippleColor(bgColor),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: fgColor),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  letterSpacing: 0.2,
-                  color: fgColor,
-                ),
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(5),
+            onTap: widget.onTap,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            hoverColor: sc.rippleColor,
+            focusColor: sc.rippleColor,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.icon, size: 20, color: fgColor),
+                  const SizedBox(height: 6),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.1,
+                        color: fgColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
