@@ -543,42 +543,60 @@ class _LandingPageState extends State<LandingPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: Center(
-          child: Container(
-            constraints: BoxConstraints(maxWidth: contentMax),
-            padding: EdgeInsets.fromLTRB(hPadding, vPaddingTop, hPadding, vPaddingBottom),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _TopBar(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, vPaddingBottom),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Row 1: More button on the Right
+              Align(
+                alignment: Alignment.topRight,
+                child: _TopBar(
                   iconBtnSize: iconBtnSize,
                   iconSize: iconSize,
                   layerLink: _layerLink,
                   onMoreTap: _toggleMenu,
                 ),
-                const SizedBox(height: 4),
-                _Brand(),
-                Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'Tap to move screenshots into folders (tags) instantly.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: instructionFontSize,
-                          height: 1.35,
-                          color: sc.muted,
-                          fontFamily: 'Lora',
-                        ),
+              ),
+              
+              // Responsive Gap
+              SizedBox(height: width > 720 ? 30 : 20),
+              
+              // Row 2: Logo on the Left
+              Align(
+                alignment: Alignment.topLeft,
+                child: _Brand(),
+              ),
+              
+              // Centered Instruction (Fills available space)
+              Expanded(
+                child: Center(
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: contentMax),
+                    child: Text(
+                      'Tap to move screenshots into folders (tags) instantly.',
+                      textAlign: TextAlign.center,
+                      maxLines: width > 720 ? 1 : null,
+                      style: TextStyle(
+                        fontSize: instructionFontSize,
+                        height: 1.35,
+                        color: sc.muted,
+                        fontFamily: 'Lora',
                       ),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              
+              // Sticky Bottom Buttons
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Browse button is now small/compact (Align center, no double.infinity)
                       OpenContainer(
                         closedElevation: 0,
                         openElevation: 0,
@@ -590,20 +608,21 @@ class _LandingPageState extends State<LandingPage> {
                           path: widget.screenshotDir ?? '',
                           title: 'Browse Gallery',
                         ),
-                        closedBuilder: (context, action) => _BrowseButton(
-                          actionFontSize: actionFontSize,
-                          buttonIconSize: buttonIconSize,
-                          browsePaddingH: browsePaddingH,
-                          browsePaddingV: browsePaddingV,
-                          currentDir: widget.screenshotDir,
-                          onTap: () async {
-                            final dir = await PickerService.pickDirectory();
-                            if (dir != null) {
-                              widget.onDirChanged(dir);
-                              // Trigger expansion after picking
-                              Future.delayed(const Duration(milliseconds: 100), action);
-                            }
-                          },
+                        closedBuilder: (context, action) => Center(
+                          child: _BrowseButton(
+                            actionFontSize: actionFontSize,
+                            buttonIconSize: buttonIconSize,
+                            browsePaddingH: browsePaddingH,
+                            browsePaddingV: browsePaddingV,
+                            currentDir: widget.screenshotDir,
+                            onTap: () async {
+                              final dir = await PickerService.pickDirectory();
+                              if (dir != null) {
+                                widget.onDirChanged(dir);
+                                Future.delayed(const Duration(milliseconds: 100), action);
+                              }
+                            },
+                          ),
                         ),
                       ),
                       SizedBox(height: actionGap),
@@ -644,8 +663,8 @@ class _LandingPageState extends State<LandingPage> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -672,37 +691,32 @@ class _TopBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return CompositedTransformTarget(
       link: layerLink,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          SizedBox(
-            width: iconBtnSize,
-            height: iconBtnSize,
-            child: Ink(
-              decoration: BoxDecoration(
-                color: sc.iconBg,
-                shape: BoxShape.circle,
-                border: Border.all(color: sc.iconBorder),
-              ),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onMoreTap,
-                splashColor: _rippleColor(sc.iconBg),
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/more.svg',
-                    width: iconSize,
-                    height: iconSize,
-                    colorFilter: ColorFilter.mode(
-                      isDark ? Colors.white : Colors.black,
-                      BlendMode.srcIn,
-                    ),
-                  ),
+      child: SizedBox(
+        width: iconBtnSize,
+        height: iconBtnSize,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: sc.iconBg,
+            shape: BoxShape.circle,
+            border: Border.all(color: sc.iconBorder),
+          ),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onMoreTap,
+            splashColor: _rippleColor(sc.iconBg),
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/icons/more.svg',
+                width: iconSize,
+                height: iconSize,
+                colorFilter: ColorFilter.mode(
+                  isDark ? Colors.white : Colors.black,
+                  BlendMode.srcIn,
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -716,23 +730,20 @@ class _Brand extends StatelessWidget {
 
     double percent;
     if (width >= 1100) {
-      percent = 0.35;
+      percent = 0.20; // Reduced on desktop
     } else if (width >= 720) {
-      percent = 0.50;
+      percent = 0.35;
     } else {
-      percent = 0.60;
+      percent = 0.50;
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: SvgPicture.asset(
-          isDark ? 'assets/icons/logo-white.svg' : 'assets/icons/logo-black.svg',
-          width: width * percent,
-          fit: BoxFit.contain,
-        ),
-      ),
+    // Cap the logo width to 280px so it doesn't get massive
+    final logoWidth = (width * percent).clamp(0.0, 280.0);
+
+    return SvgPicture.asset(
+      isDark ? 'assets/icons/logo-white.svg' : 'assets/icons/logo-black.svg',
+      width: logoWidth,
+      fit: BoxFit.contain,
     );
   }
 }
@@ -781,6 +792,7 @@ class _BrowseButton extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(
                 hasDir ? 'assets/icons/check.svg' : 'assets/icons/browse.svg',
