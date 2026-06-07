@@ -1,6 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'services/storage_service.dart';
+import 'services/storage/sp_storage.dart';
+import 'services/storage/idb_storage.dart';
+import 'services/picker_service.dart';
 
-void main() {
+late StorageService storage;
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    storage = IndexedDBStorage();
+  } else {
+    storage = SharedPrefsStorage();
+  }
+  await storage.init();
+
   runApp(const SnapgroveApp());
 }
 
@@ -144,9 +161,33 @@ class SnapgroveApp extends StatefulWidget {
 
 class _SnapgroveAppState extends State<SnapgroveApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  String? _screenshotDir;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final mode = await storage.getThemeMode();
+    final dir = await storage.getScreenshotDir();
+    if (mounted) {
+      setState(() {
+        _themeMode = mode;
+        _screenshotDir = dir;
+      });
+    }
+  }
 
   void _setThemeMode(ThemeMode mode) {
     setState(() => _themeMode = mode);
+    storage.saveThemeMode(mode);
+  }
+
+  void _setScreenshotDir(String path) {
+    setState(() => _screenshotDir = path);
+    storage.saveScreenshotDir(path);
   }
 
   @override
@@ -174,7 +215,12 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
       home: Stack(
         children: [
           BackgroundCurtain(themeMode: _themeMode),
-          LandingPage(onThemeChanged: _setThemeMode, currentTheme: _themeMode),
+          LandingPage(
+            onThemeChanged: _setThemeMode,
+            currentTheme: _themeMode,
+            screenshotDir: _screenshotDir,
+            onDirChanged: _setScreenshotDir,
+          ),
         ],
       ),
     );
@@ -214,11 +260,15 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
 class LandingPage extends StatefulWidget {
   final ValueChanged<ThemeMode> onThemeChanged;
   final ThemeMode currentTheme;
+  final String? screenshotDir;
+  final ValueChanged<String> onDirChanged;
 
   const LandingPage({
     super.key,
     required this.onThemeChanged,
     required this.currentTheme,
+    this.screenshotDir,
+    required this.onDirChanged,
   });
 
   @override
@@ -308,7 +358,7 @@ class _LandingPageState extends State<LandingPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _MenuButton(
-                          icon: Icons.palette,
+                          svgPath: 'assets/icons/palette.svg',
                           label: 'Themes',
                           onTap: () async {
                             await _removeMenu();
@@ -316,17 +366,17 @@ class _LandingPageState extends State<LandingPage> {
                           },
                         ),
                         _MenuButton(
-                          icon: Icons.shield,
+                          svgPath: 'assets/icons/shield.svg',
                           label: 'Privacy Policy',
                           onTap: () => _removeMenu(),
                         ),
                         _MenuButton(
-                          icon: Icons.info_outline,
+                          svgPath: 'assets/icons/info-circle.svg',
                           label: 'About',
                           onTap: () => _removeMenu(),
                         ),
                         _MenuButton(
-                          icon: Icons.code,
+                          svgPath: 'assets/icons/github.svg',
                           label: 'Source code',
                           onTap: () => _removeMenu(),
                         ),
@@ -450,6 +500,13 @@ class _LandingPageState extends State<LandingPage> {
                         buttonIconSize: buttonIconSize,
                         browsePaddingH: browsePaddingH,
                         browsePaddingV: browsePaddingV,
+                        currentDir: widget.screenshotDir,
+                        onTap: () async {
+                          final dir = await PickerService.pickDirectory();
+                          if (dir != null) {
+                            widget.onDirChanged(dir);
+                          }
+                        },
                       ),
                       SizedBox(height: actionGap),
                       _ScreenshotButton(
@@ -506,10 +563,14 @@ class _TopBar extends StatelessWidget {
                 onTap: onMoreTap,
                 splashColor: _rippleColor(sc.iconBg),
                 child: Center(
-                  child: Icon(
-                    Icons.more_horiz,
-                    size: iconSize,
-                    color: isDark ? Colors.white : Colors.black,
+                  child: SvgPicture.asset(
+                    'assets/icons/more.svg',
+                    width: iconSize,
+                    height: iconSize,
+                    colorFilter: ColorFilter.mode(
+                      isDark ? Colors.white : Colors.black,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ),
               ),
@@ -540,8 +601,8 @@ class _Brand extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Image.asset(
-          isDark ? 'assets/images/logo-white.png' : 'assets/images/logo-black.png',
+        child: SvgPicture.asset(
+          isDark ? 'assets/icons/logo-white.svg' : 'assets/icons/logo-black.svg',
           width: width * percent,
           fit: BoxFit.contain,
         ),
@@ -555,17 +616,22 @@ class _BrowseButton extends StatelessWidget {
   final double buttonIconSize;
   final double browsePaddingH;
   final double browsePaddingV;
+  final VoidCallback onTap;
+  final String? currentDir;
 
   const _BrowseButton({
     required this.actionFontSize,
     required this.buttonIconSize,
     required this.browsePaddingH,
     required this.browsePaddingV,
+    required this.onTap,
+    this.currentDir,
   });
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
+    final hasDir = currentDir != null;
     return Ink(
       decoration: BoxDecoration(
         color: sc.primaryBtnBg,
@@ -580,7 +646,7 @@ class _BrowseButton extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
-        onTap: () {},
+        onTap: onTap,
         splashColor: _rippleColor(sc.primaryBtnBg),
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -590,14 +656,18 @@ class _BrowseButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.drive_folder_upload,
-                size: buttonIconSize,
-                color: sc.primaryBtnText,
+              SvgPicture.asset(
+                hasDir ? 'assets/icons/check.svg' : 'assets/icons/browse.svg',
+                width: buttonIconSize,
+                height: buttonIconSize,
+                colorFilter: ColorFilter.mode(
+                  sc.primaryBtnText,
+                  BlendMode.srcIn,
+                ),
               ),
               SizedBox(width: actionFontSize * 0.67),
               Text(
-                'Browse',
+                hasDir ? 'Folder Selected' : 'Browse',
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: actionFontSize,
@@ -648,10 +718,14 @@ class _ScreenshotButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.grid_view,
-                size: buttonIconSize,
-                color: const Color(0xFF000000),
+              SvgPicture.asset(
+                'assets/icons/screenshot.svg',
+                width: buttonIconSize,
+                height: buttonIconSize,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFF000000),
+                  BlendMode.srcIn,
+                ),
               ),
               SizedBox(width: actionFontSize * 0.67),
               Text(
@@ -672,12 +746,12 @@ class _ScreenshotButton extends StatelessWidget {
 }
 
 class _MenuButton extends StatelessWidget {
-  final IconData icon;
+  final String svgPath;
   final String label;
   final VoidCallback onTap;
 
   const _MenuButton({
-    required this.icon,
+    required this.svgPath,
     required this.label,
     required this.onTap,
   });
@@ -698,7 +772,15 @@ class _MenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: iconColor),
+              SvgPicture.asset(
+                svgPath,
+                width: 18,
+                height: 18,
+                colorFilter: ColorFilter.mode(
+                  iconColor,
+                  BlendMode.srcIn,
+                ),
+              ),
               const SizedBox(width: 12),
               Text(
                 label,
@@ -797,10 +879,12 @@ class _ThemeDialogState extends State<ThemeDialog> {
                               borderRadius: BorderRadius.circular(999),
                               hoverColor: sc.menuHover,
                               splashColor: sc.rippleColor,
-                              child: Icon(
-                                Icons.close,
-                                size: 18,
-                                color: isDark ? Colors.white : Colors.black,
+                              child: Center(
+                                child: Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
                               ),
                             ),
                           ),
@@ -812,7 +896,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                           Expanded(
                             flex: _selected == ThemeMode.system ? 16 : 10,
                             child: _ThemeOption(
-                              icon: Icons.desktop_windows,
+                              svgPath: 'assets/icons/desktop.svg',
                               label: 'System',
                               isActive: _selected == ThemeMode.system,
                               onTap: () => _selectTheme(ThemeMode.system),
@@ -822,7 +906,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                           Expanded(
                             flex: _selected == ThemeMode.light ? 16 : 10,
                             child: _ThemeOption(
-                              icon: Icons.light_mode,
+                              svgPath: 'assets/icons/sun.svg',
                               label: 'Light',
                               isActive: _selected == ThemeMode.light,
                               onTap: () => _selectTheme(ThemeMode.light),
@@ -832,7 +916,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                           Expanded(
                             flex: _selected == ThemeMode.dark ? 16 : 10,
                             child: _ThemeOption(
-                              icon: Icons.dark_mode,
+                              svgPath: 'assets/icons/moon.svg',
                               label: 'Dark',
                               isActive: _selected == ThemeMode.dark,
                               onTap: () => _selectTheme(ThemeMode.dark),
@@ -858,13 +942,13 @@ class _ThemeDialogState extends State<ThemeDialog> {
 }
 
 class _ThemeOption extends StatefulWidget {
-  final IconData icon;
+  final String svgPath;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
 
   const _ThemeOption({
-    required this.icon,
+    required this.svgPath,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -940,7 +1024,15 @@ class _ThemeOptionState extends State<_ThemeOption>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(widget.icon, size: 20, color: fgColor),
+                  SvgPicture.asset(
+                    widget.svgPath,
+                    width: 20,
+                    height: 20,
+                    colorFilter: ColorFilter.mode(
+                      fgColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   FittedBox(
                     fit: BoxFit.scaleDown,

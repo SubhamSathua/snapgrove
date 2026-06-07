@@ -34,6 +34,12 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.5
+  file_picker: ^11.0.2
+  shared_storage: ^0.8.1
+  idb_shim: ^2.9.3
+  path_provider: ^2.1.5
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -58,7 +64,27 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/
+    - assets/images/logo-black.png
+    - assets/images/logo-white.png
+    - assets/icons/more.svg
+    - assets/icons/logo-black.svg
+    - assets/icons/logo-white.svg
+    - assets/icons/browse.svg
+    - assets/icons/check.svg
+    - assets/icons/screenshot.svg
+    - assets/icons/palette.svg
+    - assets/icons/shield.svg
+    - assets/icons/info-circle.svg
+    - assets/icons/github.svg
+    - assets/icons/desktop.svg
+    - assets/icons/sun.svg
+    - assets/icons/moon.svg
+    - assets/icons/Back-Btn.svg
+    - assets/icons/grid.svg
+    - assets/icons/sort.svg
+    - assets/icons/preview.svg
+    - assets/icons/folder-plus.svg
+    - assets/icons/icon.png
 
   fonts:
     - family: Lora
