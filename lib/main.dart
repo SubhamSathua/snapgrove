@@ -151,13 +151,32 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
 
   @override
   Widget build(BuildContext context) {
+    final Brightness platformBrightness =
+        View.of(context).platformDispatcher.platformBrightness;
+    final bool isDark = _themeMode == ThemeMode.dark ||
+        (_themeMode == ThemeMode.system && platformBrightness == Brightness.dark);
+    final theme = isDark ? _buildDarkTheme() : _buildLightTheme();
+
     return MaterialApp(
       title: 'Snapgrove',
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
-      home: LandingPage(onThemeChanged: _setThemeMode, currentTheme: _themeMode),
+      builder: (context, child) {
+        return AnimatedTheme(
+          data: theme,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutQuart,
+          child: child!,
+        );
+      },
+      home: Stack(
+        children: [
+          BackgroundCurtain(themeMode: _themeMode),
+          LandingPage(onThemeChanged: _setThemeMode, currentTheme: _themeMode),
+        ],
+      ),
     );
   }
 
@@ -388,7 +407,7 @@ class _LandingPageState extends State<LandingPage> {
     final double ssPaddingV = (width * 0.03).clamp(14.0, 18.0);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Center(
           child: Container(
@@ -776,6 +795,7 @@ class _ThemeDialogState extends State<ThemeDialog> {
                             child: InkWell(
                               onTap: () => Navigator.of(context).pop(),
                               borderRadius: BorderRadius.circular(999),
+                              hoverColor: sc.menuHover,
                               splashColor: sc.rippleColor,
                               child: Icon(
                                 Icons.close,
@@ -947,4 +967,74 @@ class _ThemeOptionState extends State<_ThemeOption>
 
 extension SnapgroveContext on BuildContext {
   SnapgroveColors get snapgroveColors => Theme.of(this).extension<SnapgroveColors>()!;
+}
+
+class BackgroundCurtain extends StatefulWidget {
+  final ThemeMode themeMode;
+
+  const BackgroundCurtain({super.key, required this.themeMode});
+
+  @override
+  State<BackgroundCurtain> createState() => _BackgroundCurtainState();
+}
+
+class _BackgroundCurtainState extends State<BackgroundCurtain> {
+  Color? _baseColor;
+  Color? _curtainColor;
+  bool _isAnimating = false;
+
+  @override
+  void didUpdateWidget(BackgroundCurtain oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.themeMode != oldWidget.themeMode) {
+      final Brightness platformBrightness =
+          View.of(context).platformDispatcher.platformBrightness;
+
+      final bool oldWasDark = oldWidget.themeMode == ThemeMode.dark ||
+          (oldWidget.themeMode == ThemeMode.system &&
+              platformBrightness == Brightness.dark);
+      final bool newIsDark = widget.themeMode == ThemeMode.dark ||
+          (widget.themeMode == ThemeMode.system &&
+              platformBrightness == Brightness.dark);
+
+      if (oldWasDark != newIsDark) {
+        _baseColor = oldWasDark ? const Color(0xFF000000) : const Color(0xFFffffff);
+        _curtainColor = newIsDark ? const Color(0xFF000000) : const Color(0xFFffffff);
+        _isAnimating = true;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Brightness platformBrightness =
+        View.of(context).platformDispatcher.platformBrightness;
+    final bool isDark = widget.themeMode == ThemeMode.dark ||
+        (widget.themeMode == ThemeMode.system && platformBrightness == Brightness.dark);
+    final Color currentColor =
+        isDark ? const Color(0xFF000000) : const Color(0xFFffffff);
+
+    if (!_isAnimating) {
+      return Container(color: currentColor);
+    }
+
+    return Stack(
+      children: [
+        Container(color: _baseColor),
+        TweenAnimationBuilder<double>(
+          key: ValueKey(widget.themeMode),
+          tween: Tween<double>(begin: -1.0, end: 0.0),
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOutQuart,
+          onEnd: () => setState(() => _isAnimating = false),
+          builder: (context, value, child) {
+            return FractionalTranslation(
+              translation: Offset(0, value),
+              child: Container(color: _curtainColor),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }
