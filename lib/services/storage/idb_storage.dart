@@ -17,6 +17,7 @@ class IndexedDBStorage implements StorageService {
       onUpgradeNeeded: (VersionChangeEvent event) {
         final db = event.database;
         db.createObjectStore(_settingsStore);
+        db.createObjectStore('folders', autoIncrement: true);
         // Future-proofing: Create a general data store
         db.createObjectStore('app_data');
       },

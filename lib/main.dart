@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'services/storage_service.dart';
 import 'services/storage/sp_storage.dart';
 import 'services/storage/idb_storage.dart';
@@ -288,6 +289,59 @@ class _LandingPageState extends State<LandingPage> {
     }
   }
 
+  Future<void> _openScreenshotFolder() async {
+    if (widget.screenshotDir == null) {
+      _showFolderPromptDialog();
+      return;
+    }
+
+    final Uri uri = Uri.directory(widget.screenshotDir!);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        // Fallback for some platforms/configurations
+        await launchUrl(Uri.parse('file://${widget.screenshotDir}'));
+      }
+    } catch (e) {
+      debugPrint('Could not open folder: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open folder automatically.')),
+        );
+      }
+    }
+  }
+
+  void _showFolderPromptDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.2),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) => FolderPromptDialog(
+        onChoose: () async {
+          final dir = await PickerService.pickDirectory();
+          if (dir != null) {
+            widget.onDirChanged(dir);
+          }
+        },
+      ),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: 0.9 + (0.1 * curve),
+          child: Opacity(
+            opacity: anim1.value,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   void _showMenu() {
     _overlayEntry = _createOverlayEntry();
     Overlay.of(context).insert(_overlayEntry!);
@@ -509,12 +563,21 @@ class _LandingPageState extends State<LandingPage> {
                         },
                       ),
                       SizedBox(height: actionGap),
-                      _ScreenshotButton(
-                        actionFontSize: actionFontSize,
-                        buttonIconSize: buttonIconSize,
-                        ssPaddingH: ssPaddingH,
-                        ssPaddingV: ssPaddingV,
-                      ),
+                      if (kIsWeb)
+                        _DownloadAppButton(
+                          actionFontSize: actionFontSize,
+                          buttonIconSize: buttonIconSize,
+                          ssPaddingH: ssPaddingH,
+                          ssPaddingV: ssPaddingV,
+                        )
+                      else
+                        _ScreenshotButton(
+                          actionFontSize: actionFontSize,
+                          buttonIconSize: buttonIconSize,
+                          ssPaddingH: ssPaddingH,
+                          ssPaddingV: ssPaddingV,
+                          onTap: _openScreenshotFolder,
+                        ),
                     ],
                   ),
                 ),
@@ -688,12 +751,14 @@ class _ScreenshotButton extends StatelessWidget {
   final double buttonIconSize;
   final double ssPaddingH;
   final double ssPaddingV;
+  final VoidCallback onTap;
 
   const _ScreenshotButton({
     required this.actionFontSize,
     required this.buttonIconSize,
     required this.ssPaddingH,
     required this.ssPaddingV,
+    required this.onTap,
   });
 
   @override
@@ -706,7 +771,7 @@ class _ScreenshotButton extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(5),
-        onTap: () {},
+        onTap: onTap,
         splashColor: _rippleColor(sc.accent),
         child: Container(
           width: double.infinity,
@@ -738,6 +803,191 @@ class _ScreenshotButton extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DownloadAppButton extends StatelessWidget {
+  final double actionFontSize;
+  final double buttonIconSize;
+  final double ssPaddingH;
+  final double ssPaddingV;
+
+  const _DownloadAppButton({
+    required this.actionFontSize,
+    required this.buttonIconSize,
+    required this.ssPaddingH,
+    required this.ssPaddingV,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    return Ink(
+      decoration: BoxDecoration(
+        color: sc.accent,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(5),
+        onTap: () {
+          // Future: link to download page
+        },
+        splashColor: _rippleColor(sc.accent),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: ssPaddingH,
+            vertical: ssPaddingV,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(
+                'assets/icons/desktop.svg',
+                width: buttonIconSize,
+                height: buttonIconSize,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFF000000),
+                  BlendMode.srcIn,
+                ),
+              ),
+              SizedBox(width: actionFontSize * 0.67),
+              Text(
+                'Download App',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: actionFontSize,
+                  letterSpacing: 0.2,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FolderPromptDialog extends StatelessWidget {
+  final VoidCallback onChoose;
+
+  const FolderPromptDialog({super.key, required this.onChoose});
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: sc.surfaceElevated,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 40,
+                offset: const Offset(0, 20),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Screenshot folder is not saved',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Please select the folder where your screenshots are saved.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lora',
+                  fontSize: 14,
+                  color: sc.muted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DialogButton(
+                      label: 'Cancel',
+                      isPrimary: false,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DialogButton(
+                      label: 'Choose',
+                      isPrimary: true,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        onChoose();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogButton extends StatelessWidget {
+  final String label;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _DialogButton({
+    required this.label,
+    required this.isPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    return Ink(
+      decoration: BoxDecoration(
+        color: isPrimary ? sc.primaryBtnBg : sc.surfaceMuted,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        splashColor: _rippleColor(isPrimary ? sc.primaryBtnBg : sc.surfaceMuted),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'JetBrains Mono',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isPrimary ? sc.primaryBtnText : sc.muted,
+            ),
           ),
         ),
       ),
