@@ -48,6 +48,16 @@ class IndexedDBStorage implements StorageService {
     await _saveSetting('screenshot_dir', path);
   }
 
+  @override
+  Future<String?> getPermanentScreenshotDir() async {
+    return await _readSetting('permanent_screenshot_dir') as String?;
+  }
+
+  @override
+  Future<void> savePermanentScreenshotDir(String path) async {
+    await _saveSetting('permanent_screenshot_dir', path);
+  }
+
   Future<void> _saveSetting(String key, dynamic value) async {
     final txn = _db.transaction(_settingsStore, idbModeReadWrite);
     final store = txn.objectStore(_settingsStore);

@@ -13,9 +13,13 @@ abstract class StorageService {
   Future<void> saveThemeMode(ThemeMode mode);
   Future<ThemeMode> getThemeMode();
   
-  // Screenshot Directory
+  // Screenshot Directory (Temporary/Current Session)
   Future<void> saveScreenshotDir(String path);
   Future<String?> getScreenshotDir();
+
+  // Screenshot Folder Path (Permanent/System Source)
+  Future<void> savePermanentScreenshotDir(String path);
+  Future<String?> getPermanentScreenshotDir();
   
   // Future-proofing: Generic data storage
   Future<void> write(String store, String key, dynamic value);

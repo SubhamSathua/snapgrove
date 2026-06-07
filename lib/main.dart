@@ -157,6 +157,7 @@ class SnapgroveApp extends StatefulWidget {
 class _SnapgroveAppState extends State<SnapgroveApp> {
   ThemeMode _themeMode = ThemeMode.system;
   String? _screenshotDir;
+  String? _permanentScreenshotDir;
 
   @override
   void initState() {
@@ -167,10 +168,12 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
   Future<void> _loadSettings() async {
     final mode = await storage.getThemeMode();
     final dir = await storage.getScreenshotDir();
+    final permDir = await storage.getPermanentScreenshotDir();
     if (mounted) {
       setState(() {
         _themeMode = mode;
         _screenshotDir = dir;
+        _permanentScreenshotDir = permDir;
       });
     }
   }
@@ -183,6 +186,11 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
   void _setScreenshotDir(String path) {
     setState(() => _screenshotDir = path);
     storage.saveScreenshotDir(path);
+  }
+
+  void _setPermanentScreenshotDir(String path) {
+    setState(() => _permanentScreenshotDir = path);
+    storage.savePermanentScreenshotDir(path);
   }
 
   @override
@@ -215,6 +223,8 @@ class _SnapgroveAppState extends State<SnapgroveApp> {
             currentTheme: _themeMode,
             screenshotDir: _screenshotDir,
             onDirChanged: _setScreenshotDir,
+            permanentScreenshotDir: _permanentScreenshotDir,
+            onPermanentDirChanged: _setPermanentScreenshotDir,
           ),
         ],
       ),
@@ -257,6 +267,8 @@ class LandingPage extends StatefulWidget {
   final ThemeMode currentTheme;
   final String? screenshotDir;
   final ValueChanged<String> onDirChanged;
+  final String? permanentScreenshotDir;
+  final ValueChanged<String> onPermanentDirChanged;
 
   const LandingPage({
     super.key,
@@ -264,6 +276,8 @@ class LandingPage extends StatefulWidget {
     required this.currentTheme,
     this.screenshotDir,
     required this.onDirChanged,
+    this.permanentScreenshotDir,
+    required this.onPermanentDirChanged,
   });
 
   @override
@@ -284,18 +298,21 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   Future<void> _openScreenshotFolder() async {
-    if (widget.screenshotDir == null) {
+    // Check for null or empty path to trigger modal
+    // Now uses permanentScreenshotDir which is independent of temporary Browse
+    if (widget.permanentScreenshotDir == null || widget.permanentScreenshotDir!.isEmpty) {
+      debugPrint('LOG: Permanent screenshot dir is unset, showing prompt...');
       _showFolderPromptDialog();
       return;
     }
 
-    final Uri uri = Uri.directory(widget.screenshotDir!);
+    debugPrint('LOG: Opening saved permanent folder: ${widget.permanentScreenshotDir}');
+    final Uri uri = Uri.directory(widget.permanentScreenshotDir!);
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        // Fallback for some platforms/configurations
-        await launchUrl(Uri.parse('file://${widget.screenshotDir}'));
+        await launchUrl(Uri.parse('file://${widget.permanentScreenshotDir}'));
       }
     } catch (e) {
       debugPrint('Could not open folder: $e');
@@ -308,7 +325,6 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _showFolderPromptDialog() {
-    debugPrint('Showing folder prompt dialog...');
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -317,20 +333,20 @@ class _LandingPageState extends State<LandingPage> {
           alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.2),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) => FolderPromptDialog(
-        onChoose: () {
-          // Dismiss the dialog first
-          Navigator.of(context).pop();
+        onChoose: () async {
+          // Open picker first while modal is still the active window
+          debugPrint('LOG: Triggering picker from modal...');
+          final dir = await PickerService.pickDirectory();
           
-          // Small delay before opening picker to let the modal finish its transition
-          // and prevent Windows window-focus conflicts.
-          Future.delayed(const Duration(milliseconds: 300), () async {
-            debugPrint('Opening native picker...');
-            final dir = await PickerService.pickDirectory();
-            debugPrint('Picker result: $dir');
-            if (dir != null) {
-              widget.onDirChanged(dir);
-            }
-          });
+          if (dir != null) {
+            debugPrint('LOG: Permanent Folder selected: $dir');
+            // Update the PERMANENT directory state
+            widget.onPermanentDirChanged(dir);
+            // Small delay so user sees feedback if any (though here we just close)
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
+          
+          if (mounted) Navigator.of(context).pop();
         },
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -970,9 +986,10 @@ class _DialogButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
 
-    // "Choose" button is solid accent (like Screenshot btn)
-    // "Cancel" button is transparent text-only unless active/hovered
-    final Color bgColor = isPrimary ? sc.accent : Colors.transparent;
+    // Hardcoding colors for absolute perfection and visibility on Windows 11
+    // Primary (Choose) is Solid Accent (Pink/Magenta) with Black text
+    // Secondary (Cancel) is Transparent with reveal-on-hover
+    final Color bgColor = isPrimary ? const Color(0xFFff2a7b) : Colors.transparent;
     final Color fgColor = isPrimary ? const Color(0xFF000000) : sc.muted;
 
     return Container(
@@ -992,7 +1009,9 @@ class _DialogButton extends StatelessWidget {
           hoverColor: isPrimary 
               ? Colors.black.withValues(alpha: 0.1) 
               : sc.menuHover,
-          splashColor: _rippleColor(isPrimary ? sc.accent : sc.surfaceElevated),
+          splashColor: isPrimary 
+              ? Colors.white.withValues(alpha: 0.2) 
+              : sc.rippleColor,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             child: Center(

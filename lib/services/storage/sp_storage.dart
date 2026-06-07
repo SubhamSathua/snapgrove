@@ -36,6 +36,16 @@ class SharedPrefsStorage implements StorageService {
   }
 
   @override
+  Future<String?> getPermanentScreenshotDir() async {
+    return _prefs.getString('permanent_screenshot_dir');
+  }
+
+  @override
+  Future<void> savePermanentScreenshotDir(String path) async {
+    await _prefs.setString('permanent_screenshot_dir', path);
+  }
+
+  @override
   Future<void> write(String store, String key, dynamic value) async {
     final compositeKey = '${store}_$key';
     if (value is String) {
