@@ -8,6 +8,11 @@ class SafHelper {
   static final _safStream = SafStream();
   static const _channel = MethodChannel('com.snapgrove.organizer/saf_utils');
   
+  // Simple in-memory cache for thumbnails to avoid redundant bridge calls
+  static final Map<String, Uint8List> _thumbnailCache = {};
+  static final List<String> _cacheOrder = [];
+  static const int _maxCacheSize = 500;
+
   static Future<List<String>> listImages(String uri) async {
     try {
       final contents = await SafUtil().list(uri);
@@ -30,17 +35,41 @@ class SafHelper {
 
   /// Calls native Android to get a high-performance thumbnail
   static Future<Uint8List?> getThumbnail(String uri, {int width = 300, int height = 400}) async {
+    // Check memory cache first
+    if (_thumbnailCache.containsKey(uri)) {
+      _touchCache(uri);
+      return _thumbnailCache[uri];
+    }
+
     try {
       final Uint8List? bytes = await _channel.invokeMethod('getThumbnail', {
         'uri': uri,
         'width': width,
         'height': height,
       });
+      
+      if (bytes != null) {
+        _addToCache(uri, bytes);
+      }
       return bytes;
     } catch (e) {
       debugPrint('SAF Error: Native thumbnail failed for $uri: $e');
       return null;
     }
+  }
+
+  static void _touchCache(String uri) {
+    _cacheOrder.remove(uri);
+    _cacheOrder.add(uri);
+  }
+
+  static void _addToCache(String uri, Uint8List bytes) {
+    if (_cacheOrder.length >= _maxCacheSize) {
+      final oldest = _cacheOrder.removeAt(0);
+      _thumbnailCache.remove(oldest);
+    }
+    _thumbnailCache[uri] = bytes;
+    _cacheOrder.add(uri);
   }
 
   static Future<Uint8List?> readFile(String uri) async {

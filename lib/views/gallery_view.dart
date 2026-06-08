@@ -29,14 +29,24 @@ class OrganizerGallery extends StatefulWidget {
   State<OrganizerGallery> createState() => _OrganizerGalleryState();
 }
 
-class _OrganizerGalleryState extends State<OrganizerGallery> {
+class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerProviderStateMixin {
   late GalleryViewModel _viewModel;
+  bool _isTransitioning = true;
 
   @override
   void initState() {
     super.initState();
     _viewModel = locator<GalleryViewModel>(param1: widget.path);
-    _viewModel.loadFiles();
+    
+    // Delay loading until transition finishes for smoother entrance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          setState(() => _isTransitioning = false);
+          _viewModel.loadFiles();
+        }
+      });
+    });
   }
 
   Future<bool> _showExitConfirmation(BuildContext context) async {
@@ -138,10 +148,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
       child: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, child) {
+          final isLoading = _viewModel.isLoading || _isTransitioning;
+          
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              cacheExtent: 1000, // Pre-render items outside viewport for smoother scrolling
               slivers: [
                 SliverAppBar(
                   expandedHeight: 120.0,
@@ -167,7 +180,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
                     },
                   ),
                   actions: [
-                    if (!_viewModel.isLoading && _viewModel.files.isNotEmpty)
+                    if (!isLoading && _viewModel.files.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: TextButton.icon(
@@ -198,9 +211,21 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
                     titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
                   ),
                 ),
-                if (_viewModel.isLoading)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
+                if (isLoading && _viewModel.files.isEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.85,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => const SkeletonLoader(),
+                        childCount: 8,
+                      ),
+                    ),
                   )
                 else if (_viewModel.files.isEmpty)
                   SliverFillRemaining(
@@ -231,58 +256,14 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final path = _viewModel.files[index];
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => ImagePreviewView(path: path),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: sc.surfaceElevated,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: sc.border),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                      child: Hero(
-                                        tag: path,
-                                        child: _buildImage(context, path),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Text(
-                                      p.basename(path).replaceAll('%2F', '/').split('/').last,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'JetBrains Mono',
-                                        fontSize: 10,
-                                        color: sc.muted,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          return _GalleryItem(
+                            path: path,
+                            buildImage: () => _buildImage(context, path),
                           );
                         },
                         childCount: _viewModel.files.length,
+                        addAutomaticKeepAlives: true,
+                        addRepaintBoundaries: true,
                       ),
                     ),
                   ),
@@ -297,61 +278,53 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
   Widget _buildImage(BuildContext context, String path) {
     if (kIsWeb) {
       return FutureBuilder<String?>(
+        key: ValueKey('web_$path'),
         future: WebImageUtils.getThumbnail(path),
         builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
+          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             return Image.network(
               snapshot.data!,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: context.snapgroveColors.surfaceMuted,
-                  child: Center(child: Icon(Icons.broken_image, color: context.snapgroveColors.muted)),
-                );
-              },
+              errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
             );
           }
-          return Container(
-            color: context.snapgroveColors.surfaceMuted,
-            child: const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
+          return const SkeletonLoader(isThumbnail: true);
         },
       );
     }
     if (path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
+        key: ValueKey('saf_$path'),
         future: SafHelper.getThumbnail(path),
         builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
+          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             return Image.memory(
               snapshot.data!,
               fit: BoxFit.cover,
               cacheWidth: 300,
               cacheHeight: 400,
+              gaplessPlayback: true,
             );
           }
-          // Fallback to full read if thumbnail fails
-          return FutureBuilder<Uint8List?>(
-            future: locator<FileService>().readFile(path),
-            builder: (context, snapshot) {
-              if (snapshot.hasData && snapshot.data != null) {
-                return Image.memory(
-                  snapshot.data!,
-                  fit: BoxFit.cover,
-                  cacheWidth: 300,
-                  cacheHeight: 400,
-                );
-              }
-              return Container(color: context.snapgroveColors.surfaceMuted);
-            },
-          );
+          if (snapshot.connectionState == ConnectionState.done && !snapshot.hasData) {
+            // Fallback to full read if thumbnail fails
+            return FutureBuilder<Uint8List?>(
+              future: locator<FileService>().readFile(path),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  return Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.cover,
+                    cacheWidth: 300,
+                    cacheHeight: 400,
+                  );
+                }
+                return _ErrorPlaceholder();
+              },
+            );
+          }
+          return const SkeletonLoader(isThumbnail: true);
         },
       );
     }
@@ -360,6 +333,144 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
       fit: BoxFit.cover,
       cacheWidth: 300,
       cacheHeight: 400,
+      errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
+    );
+  }
+}
+
+class _GalleryItem extends StatelessWidget {
+  final String path;
+  final Widget Function() buildImage;
+
+  const _GalleryItem({required this.path, required this.buildImage});
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ImagePreviewView(path: path),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: sc.surfaceElevated,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: sc.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Hero(
+                  tag: path,
+                  child: buildImage(),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                p.basename(path).replaceAll('%2F', '/').split('/').last,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 10,
+                  color: sc.muted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SkeletonLoader extends StatefulWidget {
+  final bool isThumbnail;
+  const SkeletonLoader({super.key, this.isThumbnail = false});
+
+  @override
+  State<SkeletonLoader> createState() => _SkeletonLoaderState();
+}
+
+class _SkeletonLoaderState extends State<SkeletonLoader> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _animation = Tween<double>(begin: -1, end: 2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final baseColor = sc.surfaceMuted;
+    final highlightColor = sc.surfaceElevated;
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: widget.isThumbnail ? null : BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              stops: [
+                _animation.value - 0.3,
+                _animation.value,
+                _animation.value + 0.3,
+              ],
+              colors: [
+                baseColor,
+                highlightColor,
+                baseColor,
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ErrorPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    return Container(
+      color: sc.surfaceMuted,
+      child: Center(child: Icon(Icons.broken_image, color: sc.muted)),
     );
   }
 }
