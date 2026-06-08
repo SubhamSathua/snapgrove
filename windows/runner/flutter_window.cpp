@@ -139,8 +139,8 @@ bool FlutterWindow::OnCreate() {
                 if (SUCCEEDED(hr)) {
                     SIZE size = { (LONG)width, (LONG)height };
                     HBITMAP hBitmap;
-                    // SIIGBF_RESIZETOFIT ensures we get a good thumbnail
-                    hr = pImageFactory->GetImage(size, SIIGBF_RESIZETOFIT, &hBitmap);
+                    // SIIGBF_CROP_TO_FIT (0x2) ensures a professional centered crop without stretching
+                    hr = pImageFactory->GetImage(size, (SIIGBF)0x00000002, &hBitmap);
                     if (SUCCEEDED(hr)) {
                         auto bytes = HBitmapToJpeg(hBitmap);
                         DeleteObject(hBitmap);
