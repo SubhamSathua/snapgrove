@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
+import '../services/notification_service.dart';
+import '../core/locator.dart';
 import 'landing_page.dart';
 
 class SnapgroveApp extends StatelessWidget {
@@ -23,6 +25,7 @@ class SnapgroveApp extends StatelessWidget {
         return MaterialApp(
           title: 'Snapgrove',
           debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: locator<NotificationService>().messengerKey,
           themeMode: viewModel.themeMode,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),

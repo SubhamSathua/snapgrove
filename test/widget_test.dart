@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:screenshot_organizer/views/app_view.dart';
 import 'package:screenshot_organizer/viewmodels/app_view_model.dart';
 import 'package:screenshot_organizer/services/storage_service.dart';
+import 'package:screenshot_organizer/services/notification_service.dart';
+import 'package:screenshot_organizer/core/locator.dart';
 
 class MockStorageService implements StorageService {
   @override
@@ -34,13 +36,16 @@ class MockStorageService implements StorageService {
 }
 
 void main() {
+  setUpAll(() {
+    locator.registerSingleton<NotificationService>(NotificationService());
+  });
+
   testWidgets('App renders landing page', (WidgetTester tester) async {
     final storage = MockStorageService();
-    final viewModel = AppViewModel(storage);
+    final notification = locator<NotificationService>();
+    final viewModel = AppViewModel(storage, notification);
     
     await tester.pumpWidget(SnapgroveApp(viewModel: viewModel));
-    // The landing page text is now slightly different, but the original test was looking for "Snapgrove" and finding nothing.
-    // LandingPage shows logo (SVG) and instruction text.
     expect(find.text('Snapgrove'), findsNothing);
   });
 }

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 
+import '../services/notification_service.dart';
+
 class AppViewModel extends ChangeNotifier {
   final StorageService _storage;
+  final NotificationService _notification;
   
   ThemeMode _themeMode = ThemeMode.system;
   String? _screenshotDir;
   String? _permanentScreenshotDir;
   bool _isLoading = true;
 
-  AppViewModel(this._storage);
+  AppViewModel(this._storage, this._notification);
 
   ThemeMode get themeMode => _themeMode;
   String? get screenshotDir => _screenshotDir;
@@ -17,9 +20,13 @@ class AppViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   Future<void> init() async {
-    _themeMode = await _storage.getThemeMode();
-    _screenshotDir = await _storage.getScreenshotDir();
-    _permanentScreenshotDir = await _storage.getPermanentScreenshotDir();
+    try {
+      _themeMode = await _storage.getThemeMode();
+      _screenshotDir = await _storage.getScreenshotDir();
+      _permanentScreenshotDir = await _storage.getPermanentScreenshotDir();
+    } catch (e) {
+      _notification.showSnackBar('Failed to load settings', isError: true);
+    }
     _isLoading = false;
     notifyListeners();
   }

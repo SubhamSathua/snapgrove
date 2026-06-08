@@ -2,10 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as p;
+import '../core/locator.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../theme/app_theme.dart';
-import '../services/saf_helper_stub.dart'
-    if (dart.library.io) '../services/saf_helper_native.dart';
+import '../services/file_service.dart';
+import 'image_preview_view.dart';
 
 class OrganizerGallery extends StatefulWidget {
   final String path;
@@ -27,7 +29,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
   @override
   void initState() {
     super.initState();
-    _viewModel = GalleryViewModel(path: widget.path);
+    _viewModel = locator<GalleryViewModel>(param1: widget.path);
     _viewModel.loadFiles();
   }
 
@@ -127,42 +129,54 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final path = _viewModel.files[index];
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: sc.surfaceElevated,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: sc.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ImagePreviewView(path: path),
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                  child: _buildImage(context, path),
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: sc.surfaceElevated,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: sc.border),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  path.split('/').last.split('%2F').last,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 10,
-                                    color: sc.muted,
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                    child: Hero(
+                                      tag: path,
+                                      child: _buildImage(context, path),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(
+                                    p.basename(path).replaceAll('%2F', '/').split('/').last,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 10,
+                                      color: sc.muted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -186,15 +200,25 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
     }
     if (path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
-        future: SafHelper.readFile(path),
+        future: locator<FileService>().readFile(path),
         builder: (context, snapshot) {
           if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(snapshot.data!, fit: BoxFit.cover);
+            return Image.memory(
+              snapshot.data!,
+              fit: BoxFit.cover,
+              cacheWidth: 300,
+              cacheHeight: 400,
+            );
           }
           return Container(color: context.snapgroveColors.surfaceMuted);
         },
       );
     }
-    return Image.file(File(path), fit: BoxFit.cover);
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      cacheWidth: 300, // Optimize memory usage for grid
+      cacheHeight: 400,
+    );
   }
 }

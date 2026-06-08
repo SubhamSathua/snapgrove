@@ -1,14 +1,17 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import '../services/saf_helper_stub.dart'
-    if (dart.library.io) '../services/saf_helper_native.dart';
+import '../services/file_service.dart';
 
 class GalleryViewModel extends ChangeNotifier {
   final String path;
+  final FileService _fileService;
+  
   List<String> _files = [];
   bool _isLoading = false;
 
-  GalleryViewModel({required this.path});
+  GalleryViewModel({
+    required this.path,
+    required FileService fileService,
+  }) : _fileService = fileService;
 
   List<String> get files => _files;
   bool get isLoading => _isLoading;
@@ -24,24 +27,7 @@ class GalleryViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (kIsWeb) {
-        _files = List.generate(12, (i) => 'Web Screenshot $i');
-      } else if (Platform.isAndroid) {
-        _files = await SafHelper.listImages(path);
-      } else {
-        final dir = Directory(path);
-        if (await dir.exists()) {
-          _files = dir
-              .listSync()
-              .where((f) =>
-                  f is File &&
-                  (f.path.toLowerCase().endsWith('.png') || 
-                   f.path.toLowerCase().endsWith('.jpg') ||
-                   f.path.toLowerCase().endsWith('.jpeg')))
-              .map((f) => f.path)
-              .toList();
-        }
-      }
+      _files = await _fileService.listImages(path);
     } catch (e) {
       debugPrint('Error loading files: $e');
     }
