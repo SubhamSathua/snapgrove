@@ -295,10 +295,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         },
       );
     }
-    if (path.startsWith('content://')) {
+    
+    // For both Windows and Android (SAF), use ThumbnailManager for high performance
+    if (Platform.isWindows || path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
-        key: ValueKey('saf_$path'),
-        // Use ThumbnailManager for parallel/queued loading
+        key: ValueKey('native_$path'),
         future: _thumbnailManager.getThumbnail(path),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
@@ -331,6 +332,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         },
       );
     }
+
     return Image.file(
       File(path),
       fit: BoxFit.cover,
