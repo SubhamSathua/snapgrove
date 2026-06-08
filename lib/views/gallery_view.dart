@@ -9,6 +9,7 @@ import '../viewmodels/gallery_view_model.dart';
 import '../theme/app_theme.dart';
 import '../services/file_service.dart';
 import '../services/web_image_utils.dart';
+import '../services/thumbnail_manager.dart';
 import 'image_preview_view.dart';
 
 // Import SafHelper for native thumbnail access
@@ -32,6 +33,7 @@ class OrganizerGallery extends StatefulWidget {
 class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerProviderStateMixin {
   late GalleryViewModel _viewModel;
   bool _isTransitioning = true;
+  final _thumbnailManager = ThumbnailManager();
 
   @override
   void initState() {
@@ -154,7 +156,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-              cacheExtent: 1000, // Pre-render items outside viewport for smoother scrolling
+              cacheExtent: 1500, // Increased cache for even smoother scrolling
               slivers: [
                 SliverAppBar(
                   expandedHeight: 120.0,
@@ -296,7 +298,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     if (path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
         key: ValueKey('saf_$path'),
-        future: SafHelper.getThumbnail(path),
+        // Use ThumbnailManager for parallel/queued loading
+        future: _thumbnailManager.getThumbnail(path),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             return Image.memory(

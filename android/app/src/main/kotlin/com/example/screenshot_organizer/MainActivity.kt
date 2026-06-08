@@ -7,9 +7,11 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.*
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.snapgrove.organizer/saf_utils"
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -20,11 +22,16 @@ class MainActivity: FlutterActivity() {
                 val height = call.argument<Int>("height") ?: 400
 
                 if (uriStr != null) {
-                    val thumbnail = getThumbnail(uriStr, width, height)
-                    if (thumbnail != null) {
-                        result.success(thumbnail)
-                    } else {
-                        result.error("UNAVAILABLE", "Could not generate thumbnail", null)
+                    // Fossify Strategy: Run heavy IO and Bitmap processing on a background thread
+                    ioScope.launch {
+                        val thumbnail = getThumbnail(uriStr, width, height)
+                        withContext(Dispatchers.Main) {
+                            if (thumbnail != null) {
+                                result.success(thumbnail)
+                            } else {
+                                result.error("UNAVAILABLE", "Could not generate thumbnail", null)
+                            }
+                        }
                     }
                 } else {
                     result.error("INVALID_ARGUMENT", "URI was null", null)
@@ -39,26 +46,31 @@ class MainActivity: FlutterActivity() {
         return try {
             val uri = Uri.parse(uriStr)
             
-            // Explicitly using android.graphics.Point to avoid any Size conflicts
+            // Native Android Thumbnailing (DocumentsContract)
             val bitmap = DocumentsContract.getDocumentThumbnail(
                 contentResolver,
                 uri,
                 android.graphics.Point(width, height),
                 null
             )
-            
+
             if (bitmap != null) {
                 val stream = ByteArrayOutputStream()
+                // Fossify uses JPEG for small thumbnails to save memory
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
                 val byteArray = stream.toByteArray()
-                bitmap.recycle()
+                bitmap.recycle() // CRITICAL: Free GPU memory immediately
                 byteArray
             } else {
                 null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        ioScope.cancel()
     }
 }
