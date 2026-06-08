@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -7,6 +8,7 @@ import '../core/locator.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../theme/app_theme.dart';
 import '../services/file_service.dart';
+import '../services/web_image_utils.dart';
 import 'image_preview_view.dart';
 
 class OrganizerGallery extends StatefulWidget {
@@ -193,9 +195,33 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
 
   Widget _buildImage(BuildContext context, String path) {
     if (kIsWeb) {
-      return Container(
-        color: context.snapgroveColors.surfaceMuted,
-        child: Center(child: Icon(Icons.image, color: context.snapgroveColors.muted)),
+      return FutureBuilder<String?>(
+        future: WebImageUtils.getThumbnail(path),
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data != null) {
+            return Image.network(
+              snapshot.data!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: context.snapgroveColors.surfaceMuted,
+                  child: Center(child: Icon(Icons.broken_image, color: context.snapgroveColors.muted)),
+                );
+              },
+            );
+          }
+          return Container(
+            color: context.snapgroveColors.surfaceMuted,
+            child: const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
       );
     }
     if (path.startsWith('content://')) {
@@ -217,7 +243,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
     return Image.file(
       File(path),
       fit: BoxFit.cover,
-      cacheWidth: 300, // Optimize memory usage for grid
+      cacheWidth: 300,
       cacheHeight: 400,
     );
   }

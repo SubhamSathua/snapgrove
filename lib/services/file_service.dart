@@ -1,7 +1,13 @@
 import 'dart:io';
+import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
 import 'saf_helper_stub.dart'
     if (dart.library.io) 'saf_helper_native.dart';
+import 'web_image_utils.dart';
+
+@JS('window._lastPickerHandle')
+external web.FileSystemDirectoryHandle? get _lastPickerHandle;
 
 abstract class FileService {
   Future<List<String>> listImages(String path);
@@ -15,6 +21,10 @@ class FileServiceImpl implements FileService {
 
     try {
       if (kIsWeb) {
+        final handle = _lastPickerHandle;
+        if (handle != null) {
+          return await WebImageUtils.listImages(handle);
+        }
         return List.generate(12, (i) => 'Web Screenshot $i');
       } else if (Platform.isAndroid) {
         return await SafHelper.listImages(path);
@@ -41,7 +51,9 @@ class FileServiceImpl implements FileService {
 
   @override
   Future<Uint8List?> readFile(String path) async {
-    if (kIsWeb) return null;
+    if (kIsWeb) {
+      return await WebImageUtils.readFile(path);
+    }
     if (path.startsWith('content://')) {
       return await SafHelper.readFile(path);
     }

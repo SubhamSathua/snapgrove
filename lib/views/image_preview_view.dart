@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -47,10 +48,8 @@ class ImagePreviewView extends StatelessWidget {
   }
 
   Widget _buildImage(BuildContext context) {
-    if (kIsWeb) {
-      return const Icon(Icons.image, size: 100, color: Colors.white);
-    }
-    if (path.startsWith('content://')) {
+    // For both Web and Android (SAF), we use the FileService.readFile
+    if (kIsWeb || path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
         future: locator<FileService>().readFile(path),
         builder: (context, snapshot) {
@@ -60,10 +59,15 @@ class ImagePreviewView extends StatelessWidget {
               fit: BoxFit.contain,
             );
           }
-          return const CircularProgressIndicator();
+          if (snapshot.hasError) {
+            return const Icon(Icons.broken_image, size: 100, color: Colors.white);
+          }
+          return const CircularProgressIndicator(color: Colors.white);
         },
       );
     }
+    
+    // Regular desktop/local file access
     return Image.file(
       File(path),
       fit: BoxFit.contain,
