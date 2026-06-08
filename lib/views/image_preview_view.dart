@@ -56,19 +56,22 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   void _onZoomChanged() {
     final scale = _transformController.value.getMaxScaleOnAxis();
-    if ((scale - _currentZoom).abs() > 0.01) {
+    if (mounted) {
       setState(() {
         _currentZoom = scale;
         _showZoomCapsule = true;
       });
       _zoomCapsuleTimer?.cancel();
-      _zoomCapsuleTimer = Timer(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() {
-            _showZoomCapsule = false;
-          });
-        }
-      });
+      
+      if (_currentZoom <= 1.01) {
+        _zoomCapsuleTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _showZoomCapsule = false;
+            });
+          }
+        });
+      }
     }
   }
 
@@ -219,62 +222,58 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 ),
               ),
 
-            // Zoom Capsule
+            // Zoom UI (Capsule + Slider)
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: EdgeInsets.only(bottom: _isDesktopOrWeb ? 80.0 : 32.0),
+                padding: const EdgeInsets.only(bottom: 32.0),
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 300),
                   opacity: _showZoomCapsule ? 1.0 : 0.0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${(_currentZoom * 100).toInt()}%',
-                      style: const TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        color: Colors.white,
-                        fontSize: 14,
+                  child: IgnorePointer(
+                    ignoring: !_showZoomCapsule,
+                    child: Container(
+                      width: _isDesktopOrWeb ? 400 : null,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${(_currentZoom * 100).toInt()}%',
+                            style: const TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (_isDesktopOrWeb) ...[
+                            const SizedBox(width: 16),
+                            const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
+                            Expanded(
+                              child: Slider(
+                                value: _currentZoom,
+                                min: 1.0,
+                                max: 5.0,
+                                activeColor: sc.accent,
+                                inactiveColor: Colors.white30,
+                                onChanged: (val) {
+                                  _setZoom(val);
+                                },
+                              ),
+                            ),
+                            const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
+                          ],
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-
-            // Zoom Slider for Web/Win
-            if (_isDesktopOrWeb)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 24.0),
-                  child: SizedBox(
-                    width: 300,
-                    child: Row(
-                      children: [
-                        const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
-                        Expanded(
-                          child: Slider(
-                            value: _currentZoom,
-                            min: 1.0,
-                            max: 5.0,
-                            activeColor: sc.accent,
-                            inactiveColor: Colors.white30,
-                            onChanged: (val) {
-                              _setZoom(val);
-                            },
-                          ),
-                        ),
-                        const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
