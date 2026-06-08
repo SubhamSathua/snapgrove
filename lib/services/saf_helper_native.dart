@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_stream/saf_stream.dart';
 
@@ -14,7 +13,7 @@ class SafHelper {
       return contents
           .where((f) {
             if (f.isDir) return false;
-            final name = f.name?.toLowerCase() ?? '';
+            final name = f.name.toLowerCase();
             return name.endsWith('.png') || 
                    name.endsWith('.jpg') || 
                    name.endsWith('.jpeg') ||
