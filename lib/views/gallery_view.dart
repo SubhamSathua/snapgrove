@@ -11,6 +11,10 @@ import '../services/file_service.dart';
 import '../services/web_image_utils.dart';
 import 'image_preview_view.dart';
 
+// Import SafHelper for native thumbnail access
+import '../services/saf_helper_stub.dart'
+    if (dart.library.io) '../services/saf_helper_native.dart';
+
 class OrganizerGallery extends StatefulWidget {
   final String path;
   final String title;
@@ -323,7 +327,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
     }
     if (path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
-        future: locator<FileService>().readFile(path),
+        future: SafHelper.getThumbnail(path),
         builder: (context, snapshot) {
           if (snapshot.hasData && snapshot.data != null) {
             return Image.memory(
@@ -333,7 +337,21 @@ class _OrganizerGalleryState extends State<OrganizerGallery> {
               cacheHeight: 400,
             );
           }
-          return Container(color: context.snapgroveColors.surfaceMuted);
+          // Fallback to full read if thumbnail fails
+          return FutureBuilder<Uint8List?>(
+            future: locator<FileService>().readFile(path),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                return Image.memory(
+                  snapshot.data!,
+                  fit: BoxFit.cover,
+                  cacheWidth: 300,
+                  cacheHeight: 400,
+                );
+              }
+              return Container(color: context.snapgroveColors.surfaceMuted);
+            },
+          );
         },
       );
     }

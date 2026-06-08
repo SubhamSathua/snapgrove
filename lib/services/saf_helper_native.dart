@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_stream/saf_stream.dart';
 
 class SafHelper {
   static final _safStream = SafStream();
+  static const _channel = MethodChannel('com.snapgrove.organizer/saf_utils');
   
   static Future<List<String>> listImages(String uri) async {
     try {
-      // SafUtil 3.1.0 uses 'list'
       final contents = await SafUtil().list(uri);
       return contents
           .where((f) {
@@ -27,9 +28,23 @@ class SafHelper {
     }
   }
 
+  /// Calls native Android to get a high-performance thumbnail
+  static Future<Uint8List?> getThumbnail(String uri, {int width = 300, int height = 400}) async {
+    try {
+      final Uint8List? bytes = await _channel.invokeMethod('getThumbnail', {
+        'uri': uri,
+        'width': width,
+        'height': height,
+      });
+      return bytes;
+    } catch (e) {
+      debugPrint('SAF Error: Native thumbnail failed for $uri: $e');
+      return null;
+    }
+  }
+
   static Future<Uint8List?> readFile(String uri) async {
     try {
-      // SafStream 3.0.0 uses 'readFileBytes'
       return await _safStream.readFileBytes(uri);
     } catch (e) {
       debugPrint('SAF Error: readFile failed: $e');

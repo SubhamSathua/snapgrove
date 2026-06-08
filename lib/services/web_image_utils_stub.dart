@@ -7,4 +7,5 @@ class WebImageUtils {
   static Future<String?> getThumbnail(String path) async => null;
   static Future<Uint8List?> readFile(String path) async => null;
   static void setExitWarning(bool enabled) {}
+  static dynamic getLastPickerHandle() => null;
 }

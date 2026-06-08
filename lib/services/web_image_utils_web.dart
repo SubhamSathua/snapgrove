@@ -40,13 +40,19 @@ extension ImageBitmapExtension on web.ImageBitmap {
   external void close();
 }
 
+@JS('window._lastPickerHandle')
+external JSObject? get _lastPickerHandle;
+
 class WebImageUtils {
   static final Map<String, String> _blobCache = {};
   static final List<String> _cacheOrder = [];
   static const int maxCacheSize = 800;
   static final Map<String, web.FileSystemFileHandle> _handleMap = {};
-  
+
   static bool _exitWarningSet = false;
+
+  static dynamic getLastPickerHandle() => _lastPickerHandle;
+
 
   /// Registers the "Do you want to quit?" warning
   static void setExitWarning(bool enabled) {

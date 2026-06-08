@@ -1,12 +1,8 @@
 import 'dart:io';
-import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'saf_helper_stub.dart'
     if (dart.library.io) 'saf_helper_native.dart';
 import 'web_image_utils.dart';
-
-@JS('window._lastPickerHandle')
-external JSObject? get _lastPickerHandle;
 
 abstract class FileService {
   Future<List<String>> listImages(String path);
@@ -20,7 +16,7 @@ class FileServiceImpl implements FileService {
 
     try {
       if (kIsWeb) {
-        final handle = _lastPickerHandle;
+        final handle = WebImageUtils.getLastPickerHandle();
         if (handle != null) {
           return await WebImageUtils.listImages(handle);
         }
