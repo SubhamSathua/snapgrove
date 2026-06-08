@@ -518,6 +518,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           return _GalleryItem(
                             path: path,
                             buildImage: () => _buildImage(context, path),
+                            files: _viewModel.files,
+                            initialIndex: index,
                           );
                         },
                         childCount: _viewModel.files.length,
@@ -691,8 +693,15 @@ class _SortOption extends StatelessWidget {
 class _GalleryItem extends StatelessWidget {
   final String path;
   final Widget Function() buildImage;
+  final List<String> files;
+  final int initialIndex;
 
-  const _GalleryItem({required this.path, required this.buildImage});
+  const _GalleryItem({
+    required this.path, 
+    required this.buildImage,
+    required this.files,
+    required this.initialIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -701,7 +710,10 @@ class _GalleryItem extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ImagePreviewView(path: path),
+            builder: (_) => ImagePreviewView(
+              files: files,
+              initialIndex: initialIndex,
+            ),
           ),
         );
       },

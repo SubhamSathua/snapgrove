@@ -1,20 +1,111 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../services/file_service.dart';
 import '../theme/app_theme.dart';
 
-class ImagePreviewView extends StatelessWidget {
-  final String path;
+class ImagePreviewView extends StatefulWidget {
+  final List<String> files;
+  final int initialIndex;
 
-  const ImagePreviewView({super.key, required this.path});
+  const ImagePreviewView({
+    super.key,
+    required this.files,
+    required this.initialIndex,
+  });
+
+  @override
+  State<ImagePreviewView> createState() => _ImagePreviewViewState();
+}
+
+class _ImagePreviewViewState extends State<ImagePreviewView> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  bool _isDesktopOrWeb = false;
+
+  // Zoom and Drag state
+  late TransformationController _transformController;
+  double _currentZoom = 1.0;
+  Timer? _zoomCapsuleTimer;
+  bool _showZoomCapsule = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+    _isDesktopOrWeb = kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    _transformController = TransformationController();
+    _transformController.addListener(_onZoomChanged);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _transformController.dispose();
+    _zoomCapsuleTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onZoomChanged() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    if ((scale - _currentZoom).abs() > 0.01) {
+      setState(() {
+        _currentZoom = scale;
+        _showZoomCapsule = true;
+      });
+      _zoomCapsuleTimer?.cancel();
+      _zoomCapsuleTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showZoomCapsule = false;
+          });
+        }
+      });
+    }
+  }
+
+  void _setZoom(double targetZoom) {
+    // Interactive viewer doesn't let us easily just set scale from center without layout details,
+    // but we can scale the matrix
+    final Matrix4 matrix = Matrix4.identity()..scale(targetZoom);
+    _transformController.value = matrix;
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    if (_currentZoom > 1.05) {
+      // Zoom out to 0% (1.0 scale)
+      _setZoom(1.0);
+    } else {
+      // Zoom in to 30% above 1 (or whatever makes sense, let's say 2.0 scale)
+      _setZoom(2.0);
+    }
+  }
+
+  void _goNext() {
+    if (_currentIndex < widget.files.length - 1) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
+  void _goPrev() {
+    if (_currentIndex > 0) {
+      _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final currentPath = widget.files[_currentIndex];
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -30,7 +121,7 @@ class ImagePreviewView extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          p.basename(path).replaceAll('%2F', '/').split('/').last,
+          p.basename(currentPath).replaceAll('%2F', '/').split('/').last,
           style: const TextStyle(
             fontFamily: 'JetBrains Mono',
             fontSize: 14,
@@ -38,17 +129,159 @@ class ImagePreviewView extends StatelessWidget {
           ),
         ),
       ),
-      body: Center(
-        child: Hero(
-          tag: path,
-          child: _buildImage(context),
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (FocusNode node, KeyEvent event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              _goNext();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+              _goPrev();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.files.length,
+              onPageChanged: (idx) {
+                setState(() {
+                  _currentIndex = idx;
+                  _transformController.value = Matrix4.identity(); // reset zoom on page change
+                });
+              },
+              itemBuilder: (context, index) {
+                final path = widget.files[index];
+                return Listener(
+                  onPointerSignal: (pointerSignal) {
+                    if (pointerSignal is PointerScrollEvent) {
+                      // Handle shift + scroll for zoom on Desktop/Web
+                      if (HardwareKeyboard.instance.isShiftPressed) {
+                        final delta = pointerSignal.scrollDelta.dy;
+                        double newZoom = _currentZoom - (delta / 500);
+                        newZoom = newZoom.clamp(1.0, 5.0);
+                        _setZoom(newZoom);
+                      }
+                    }
+                  },
+                  child: GestureDetector(
+                    onDoubleTapDown: _handleDoubleTap,
+                    child: MouseRegion(
+                      cursor: _isDesktopOrWeb ? SystemMouseCursors.grab : MouseCursor.defer,
+                      child: InteractiveViewer(
+                        transformationController: _transformController,
+                        minScale: 1.0,
+                        maxScale: 5.0,
+                        child: Hero(
+                          tag: index == _currentIndex ? path : 'preview_$path',
+                          child: Center(
+                            child: _buildImage(context, path),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // Left Arrow for Web/Win
+            if (_isDesktopOrWeb && _currentIndex > 0)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: FloatingActionButton(
+                    heroTag: 'prev_btn',
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    onPressed: _goPrev,
+                    child: const Icon(Icons.chevron_left, color: Colors.white),
+                  ),
+                ),
+              ),
+
+            // Right Arrow for Web/Win
+            if (_isDesktopOrWeb && _currentIndex < widget.files.length - 1)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: FloatingActionButton(
+                    heroTag: 'next_btn',
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    onPressed: _goNext,
+                    child: const Icon(Icons.chevron_right, color: Colors.white),
+                  ),
+                ),
+              ),
+
+            // Zoom Capsule
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: _isDesktopOrWeb ? 80.0 : 32.0),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _showZoomCapsule ? 1.0 : 0.0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${(_currentZoom * 100).toInt()}%',
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Zoom Slider for Web/Win
+            if (_isDesktopOrWeb)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0),
+                  child: SizedBox(
+                    width: 300,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
+                        Expanded(
+                          child: Slider(
+                            value: _currentZoom,
+                            min: 1.0,
+                            max: 5.0,
+                            activeColor: sc.accent,
+                            inactiveColor: Colors.white30,
+                            onChanged: (val) {
+                              _setZoom(val);
+                            },
+                          ),
+                        ),
+                        const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildImage(BuildContext context) {
-    // For both Web and Android (SAF), we use the FileService.readFile
+  Widget _buildImage(BuildContext context, String path) {
     if (kIsWeb || path.startsWith('content://')) {
       return FutureBuilder<Uint8List?>(
         future: locator<FileService>().readFile(path),
@@ -57,6 +290,7 @@ class ImagePreviewView extends StatelessWidget {
             return Image.memory(
               snapshot.data!,
               fit: BoxFit.contain,
+              gaplessPlayback: true,
             );
           }
           if (snapshot.hasError) {
@@ -67,10 +301,10 @@ class ImagePreviewView extends StatelessWidget {
       );
     }
     
-    // Regular desktop/local file access
     return Image.file(
       File(path),
       fit: BoxFit.contain,
+      gaplessPlayback: true,
     );
   }
 }
