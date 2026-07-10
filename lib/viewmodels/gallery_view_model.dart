@@ -1,6 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'dart:io';
-import 'package:path/path.dart' as p;
 import '../services/file_service.dart';
 
 class GalleryViewModel extends ChangeNotifier {
@@ -57,24 +55,7 @@ class GalleryViewModel extends ChangeNotifier {
 
   Future<void> _loadSubfolders() async {
     try {
-      if (kIsWeb) {
-        // Web: subfolder scanning not yet supported via FileSystemAccess API
-        _subfolders = [];
-      } else if (Platform.isAndroid) {
-        // Android: SAF doesn't easily support listing subdirectories
-        _subfolders = [];
-      } else {
-        // Windows/Linux/macOS: use Directory
-        final dir = Directory(path);
-        if (await dir.exists()) {
-          final entities = await dir.list().toList();
-          _subfolders = entities
-              .whereType<Directory>()
-              .map((d) => p.basename(d.path))
-              .toList()
-            ..sort();
-        }
-      }
+      _subfolders = await _fileService.listSubfolders(path);
     } catch (e) {
       debugPrint('Error loading subfolders: $e');
       _subfolders = [];
@@ -126,22 +107,13 @@ class GalleryViewModel extends ChangeNotifier {
 
   Future<bool> createSubfolder(String name) async {
     if (name.trim().isEmpty) return false;
-    
     try {
-      if (kIsWeb) {
-        // Web: FileSystemAccess API doesn't support creating directories yet
-        return false;
-      } else if (Platform.isAndroid) {
-        // Android: Would need SAF createDocument - not implemented yet
-        return false;
-      } else {
-        final dir = Directory(p.join(path, name));
-        if (await dir.exists()) return false;
-        await dir.create(recursive: true);
+      final success = await _fileService.createSubfolder(path, name);
+      if (success) {
         await _loadSubfolders();
         notifyListeners();
-        return true;
       }
+      return success;
     } catch (e) {
       debugPrint('Error creating subfolder: $e');
       return false;
@@ -150,28 +122,9 @@ class GalleryViewModel extends ChangeNotifier {
 
   Future<bool> moveFilesToFolder(List<String> files, String folderName) async {
     try {
-      if (kIsWeb) {
-        // Web: Cannot move files with FileSystemAccess API (read-only)
-        return false;
-      } else if (Platform.isAndroid) {
-        // Android: Would need SAF move - not implemented yet
-        return false;
-      } else {
-        final targetDir = Directory(p.join(path, folderName));
-        if (!await targetDir.exists()) {
-          await targetDir.create(recursive: true);
-        }
-        
-        for (final filePath in files) {
-          final file = File(filePath);
-          final fileName = p.basename(filePath);
-          final destPath = p.join(targetDir.path, fileName);
-          await file.rename(destPath);
-        }
-        
-        await loadFiles(); // Reload to reflect changes
-        return true;
-      }
+      final success = await _fileService.moveFilesToFolder(path, folderName, files);
+      if (success) await loadFiles();
+      return success;
     } catch (e) {
       debugPrint('Error moving files: $e');
       return false;

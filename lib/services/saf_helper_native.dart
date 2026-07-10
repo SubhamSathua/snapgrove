@@ -80,4 +80,41 @@ class SafHelper {
       return null;
     }
   }
+
+  static Future<List<String>> listSubfolders(String uri) async {
+    try {
+      final contents = await SafUtil().list(uri);
+      return contents
+          .where((f) => f.isDir)
+          .map((f) => f.name)
+          .toList()
+        ..sort();
+    } catch (e) {
+      debugPrint('SAF Error: listSubfolders failed: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> createSubfolder(String parentUri, String name) async {
+    try {
+      await SafUtil().mkdirp(parentUri, [name]);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: createSubfolder failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
+    try {
+      final targetDir = await SafUtil().mkdirp(parentUri, [folderName]);
+      for (final fileUri in files) {
+        await SafUtil().moveTo(fileUri, false, parentUri, targetDir.uri);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: moveFilesToFolder failed: $e');
+      return false;
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:screenshot_organizer/services/file_service.dart';
 import 'package:screenshot_organizer/viewmodels/gallery_view_model.dart';
 
@@ -28,6 +29,41 @@ class MockFileService implements FileService {
       return await file.readAsBytes();
     }
     return null;
+  }
+
+  @override
+  Future<List<String>> listSubfolders(String path) async {
+    final dir = Directory(path);
+    if (!await dir.exists()) return [];
+    final entities = await dir.list().toList();
+    return entities
+        .whereType<Directory>()
+        .map((d) => p.basename(d.path))
+        .toList()
+      ..sort();
+  }
+
+  @override
+  Future<bool> createSubfolder(String path, String name) async {
+    final dir = Directory(p.join(path, name));
+    if (await dir.exists()) return false;
+    await dir.create(recursive: true);
+    return true;
+  }
+
+  @override
+  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
+    final targetDir = Directory(p.join(path, folderName));
+    if (!await targetDir.exists()) {
+      await targetDir.create(recursive: true);
+    }
+    for (final filePath in files) {
+      final file = File(filePath);
+      final fileName = p.basename(filePath);
+      final destPath = p.join(targetDir.path, fileName);
+      await file.rename(destPath);
+    }
+    return true;
   }
 }
 

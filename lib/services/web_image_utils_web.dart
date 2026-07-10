@@ -162,11 +162,91 @@ class WebImageUtils {
     _cacheOrder.add(path);
   }
 
+  static Future<List<String>> listSubfolders() async {
+    try {
+      final root = getLastPickerHandle();
+      if (root is! web.FileSystemDirectoryHandle) return [];
+
+      final List<String> folders = [];
+      final entries = root.values();
+      while (true) {
+        final result = await entries.next().toDart;
+        if (result.done) break;
+        final entry = result.value as web.FileSystemHandle;
+        if (entry.kind == 'directory') {
+          folders.add(entry.name);
+        }
+      }
+      folders.sort();
+      return folders;
+    } catch (e) {
+      debugPrint('Web Error: listSubfolders failed: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> createSubfolder(String name) async {
+    try {
+      final root = getLastPickerHandle();
+      if (root is! web.FileSystemDirectoryHandle) return false;
+
+      await root.getDirectoryHandle(
+        name,
+        web.FileSystemGetDirectoryOptions(create: true),
+      ).toDart;
+      return true;
+    } catch (e) {
+      debugPrint('Web Error: createSubfolder failed: $e');
+      return false;
+    }
+  }
+
   static Future<Uint8List?> readFile(String path) async {
     final handle = _handleMap[path];
     if (handle == null) return null;
     final file = await handle.getFile().toDart;
     final buffer = await file.arrayBuffer().toDart;
     return buffer.toDart.asUint8List();
+  }
+
+  static Future<bool> moveFilesToFolder(String folderName, List<String> files) async {
+    try {
+      final root = getLastPickerHandle();
+      if (root is! web.FileSystemDirectoryHandle) return false;
+
+      // Get or create target subfolder
+      final targetDir = await root.getDirectoryHandle(
+        folderName,
+        web.FileSystemGetDirectoryOptions(create: true),
+      ).toDart;
+
+      for (final filePath in files) {
+        final handle = _handleMap[filePath];
+        if (handle == null) continue;
+
+        final file = await handle.getFile().toDart;
+        final buffer = await file.arrayBuffer().toDart;
+        final fileName = filePath.split('/').last;
+
+        // Create new file in target directory
+        final newFile = await targetDir.getFileHandle(
+          fileName,
+          web.FileSystemGetFileOptions(create: true),
+        ).toDart;
+
+        // Write content
+        final writable = await newFile.createWritable().toDart;
+        await writable.write(buffer).toDart;
+        await writable.close().toDart;
+
+        // Remove source file from root
+        await root.removeEntry(fileName).toDart;
+        _handleMap.remove(filePath);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Web Error: moveFilesToFolder failed: $e');
+      return false;
+    }
   }
 }

@@ -8,4 +8,7 @@ class WebImageUtils {
   static Future<Uint8List?> readFile(String path) async => null;
   static void setExitWarning(bool enabled) {}
   static dynamic getLastPickerHandle() => null;
+  static Future<List<String>> listSubfolders() async => [];
+  static Future<bool> createSubfolder(String name) async => false;
+  static Future<bool> moveFilesToFolder(String folderName, List<String> files) async => false;
 }
