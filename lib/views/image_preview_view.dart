@@ -56,6 +56,10 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   void _onZoomChanged() {
     final scale = _transformController.value.getMaxScaleOnAxis();
+    
+    // Ignore tiny layout changes that happen when page changes
+    if ((scale - _currentZoom).abs() < 0.01) return;
+    
     if (mounted) {
       setState(() {
         _currentZoom = scale;
@@ -233,11 +237,12 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                   child: IgnorePointer(
                     ignoring: !_showZoomCapsule,
                     child: Container(
+                      height: 48, // STRICT HEIGHT to prevent vertical stretching into a circle
                       width: _isDesktopOrWeb ? 400 : null,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(24), // Perfect pill shape for 48px height
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
