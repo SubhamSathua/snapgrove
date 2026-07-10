@@ -9,9 +9,6 @@ external JSPromise<web.FileSystemDirectoryHandle> _showDirectoryPicker();
 @JS('window._lastPickerHandle')
 external set _lastPickerHandle(web.FileSystemDirectoryHandle? handle);
 
-@JS('window._lastPickerHandle')
-external web.FileSystemDirectoryHandle? get _lastPickerHandle;
-
 Future<String?> pickDirectoryPlatform() async {
   try {
     final JSPromise<web.FileSystemDirectoryHandle> promise = _showDirectoryPicker();

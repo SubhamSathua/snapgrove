@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -82,7 +81,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   void _setZoom(double targetZoom) {
     // Interactive viewer doesn't let us easily just set scale from center without layout details,
     // but we can scale the matrix
-    final Matrix4 matrix = Matrix4.identity()..scale(targetZoom);
+    final Matrix4 matrix = Matrix4.identity()..scaleByDouble(targetZoom, targetZoom, targetZoom, 1.0);
     _transformController.value = matrix;
   }
 

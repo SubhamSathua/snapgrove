@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'saf_helper_stub.dart' if (dart.library.io) 'saf_helper_native.dart';
 
