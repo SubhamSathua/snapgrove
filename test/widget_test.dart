@@ -7,6 +7,7 @@ import 'package:snapgrove/viewmodels/gallery_view_model.dart';
 import 'package:snapgrove/services/storage_service.dart';
 import 'package:snapgrove/services/file_service.dart';
 import 'package:snapgrove/services/notification_service.dart';
+import 'package:snapgrove/services/share/share_service.dart';
 import 'package:snapgrove/core/locator.dart';
 
 class MockStorageService implements StorageService {
@@ -61,11 +62,21 @@ class MockFileService implements FileService {
   Future<bool> deleteFile(String path) async => true;
 }
 
+class MockShareService implements ShareService {
+  @override
+  Future<bool> shareImageFile({
+    required String filePath,
+    required String fileName,
+    List<int>? bytes,
+  }) async => true;
+}
+
 void main() {
   setUpAll(() {
     locator.registerSingleton<StorageService>(MockStorageService());
     locator.registerSingleton<FileService>(MockFileService());
     locator.registerSingleton<NotificationService>(NotificationService());
+    locator.registerSingleton<ShareService>(MockShareService());
     locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
           locator<StorageService>(),
           locator<NotificationService>(),

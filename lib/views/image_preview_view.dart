@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../services/file_service.dart';
 import '../services/notification_service.dart';
+import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
 
 class ImagePreviewView extends StatefulWidget {
@@ -53,6 +54,8 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   // Horizontal scroll controller for tags
   final ScrollController _tagsScrollController = ScrollController();
+  bool _canScrollTagsLeft = false;
+  bool _canScrollTagsRight = false;
 
   @override
   void initState() {
@@ -64,10 +67,45 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     _isDesktopOrWeb = kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
     _transformController = TransformationController();
     _transformController.addListener(_onZoomChanged);
+    _tagsScrollController.addListener(_updateTagsScrollIndicators);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateTagsScrollIndicators();
+    });
 
     if (_subfolders.isEmpty && widget.directoryPath != null && widget.directoryPath!.isNotEmpty) {
       _loadSubfolders();
     }
+  }
+
+  void _updateTagsScrollIndicators() {
+    if (!_tagsScrollController.hasClients) return;
+    final maxScroll = _tagsScrollController.position.maxScrollExtent;
+    final currentOffset = _tagsScrollController.offset;
+    final canLeft = currentOffset > 4.0;
+    final canRight = currentOffset < (maxScroll - 4.0) && maxScroll > 0;
+
+    if (canLeft != _canScrollTagsLeft || canRight != _canScrollTagsRight) {
+      if (mounted) {
+        setState(() {
+          _canScrollTagsLeft = canLeft;
+          _canScrollTagsRight = canRight;
+        });
+      }
+    }
+  }
+
+  void _scrollTags(double delta) {
+    if (!_tagsScrollController.hasClients) return;
+    final target = (_tagsScrollController.offset + delta).clamp(
+      0.0,
+      _tagsScrollController.position.maxScrollExtent,
+    );
+    _tagsScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _loadSubfolders() async {
@@ -77,6 +115,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         setState(() {
           _subfolders = folders;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _updateTagsScrollIndicators();
+        });
       }
     } catch (_) {}
   }
@@ -85,6 +126,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   void dispose() {
     _pageController.dispose();
     _transformController.dispose();
+    _tagsScrollController.removeListener(_updateTagsScrollIndicators);
     _tagsScrollController.dispose();
     _zoomCapsuleTimer?.cancel();
     super.dispose();
@@ -151,11 +193,28 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     });
   }
 
-  void _shareCurrentImage() {
+  Future<void> _shareCurrentImage() async {
     if (_files.isEmpty) return;
     final currentPath = _files[_currentIndex];
-    Clipboard.setData(ClipboardData(text: currentPath));
-    locator<NotificationService>().showSnackBar('Image path copied to clipboard');
+    final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
+
+    Uint8List? bytes;
+    try {
+      if (kIsWeb || currentPath.startsWith('content://')) {
+        bytes = await locator<FileService>().readFile(currentPath);
+      }
+    } catch (_) {}
+
+    final shared = await locator<ShareService>().shareImageFile(
+      filePath: currentPath,
+      fileName: fileName,
+      bytes: bytes,
+    );
+
+    if (!shared) {
+      await Clipboard.setData(ClipboardData(text: currentPath));
+      locator<NotificationService>().showSnackBar('Image path copied to clipboard');
+    }
   }
 
   Future<void> _showCreateFolderDialog() async {
@@ -383,8 +442,8 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                   Text(
                     'Are you sure you want to permanently delete "$fileName"?',
                     style: TextStyle(
-                      fontFamily: 'Lora',
-                      fontSize: 14,
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
                       color: sc.muted,
                       height: 1.4,
                     ),
@@ -504,112 +563,112 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         return Center(
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(ctx).size.width * 0.92 > 440 ? 440 : MediaQuery.of(ctx).size.width * 0.92,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: sc.surfaceElevated,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: sc.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 30,
-                    offset: const Offset(0, 15),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Image Details',
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: Material(
-                          color: Colors.transparent,
-                          shape: const CircleBorder(),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => Navigator.of(ctx).pop(),
-                            child: const Center(child: Icon(Icons.close, size: 18)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: sc.surfaceMuted,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: sc.border),
+            child: SelectionArea(
+              child: Container(
+                width: MediaQuery.of(ctx).size.width * 0.92 > 460 ? 460 : MediaQuery.of(ctx).size.width * 0.92,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: sc.surfaceElevated,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: sc.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 30,
+                      offset: const Offset(0, 15),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _DetailRow(label: 'File Name', value: fileName),
-                        const SizedBox(height: 8),
-                        _DetailRow(
-                          label: 'Resolution',
-                          value: imgWidth != null && imgHeight != null
-                              ? '$imgWidth × $imgHeight (${(imgWidth * imgHeight / 1000000).toStringAsFixed(2)} MP)'
-                              : 'Loading...',
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Image Details',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _DetailRow(label: 'File Size', value: formatBytes(fileSize)),
-                        const SizedBox(height: 8),
-                        _DetailRow(label: 'Format', value: extension.isEmpty ? 'Image' : extension),
-                        if (modifiedDate != null) ...[
-                          const SizedBox(height: 8),
-                          _DetailRow(label: 'Modified', value: formatDate(modifiedDate)),
-                        ],
-                        const SizedBox(height: 8),
-                        _DetailRow(label: 'Location', value: currentPath, isPath: true),
+                        _DialogCloseButton(
+                          onTap: () => Navigator.of(ctx).pop(),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogActionButton(
-                        label: 'Copy Path',
-                        isPrimary: false,
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: currentPath));
-                          Navigator.of(ctx).pop();
-                          locator<NotificationService>().showSnackBar('Path copied to clipboard');
-                        },
+                    const SizedBox(height: 16),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(ctx).size.height * 0.62,
                       ),
-                      const SizedBox(width: 8),
-                      _DialogActionButton(
-                        label: 'Close',
-                        isPrimary: true,
-                        onTap: () => Navigator.of(ctx).pop(),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: sc.surfaceMuted,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: sc.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _DetailRow(label: 'File Name', value: fileName),
+                              const SizedBox(height: 8),
+                              _DetailRow(
+                                label: 'Resolution',
+                                value: imgWidth != null && imgHeight != null
+                                    ? '$imgWidth × $imgHeight (${(imgWidth * imgHeight / 1000000).toStringAsFixed(2)} MP)'
+                                    : 'Loading...',
+                              ),
+                              const SizedBox(height: 8),
+                              _DetailRow(label: 'File Size', value: formatBytes(fileSize)),
+                              const SizedBox(height: 8),
+                              _DetailRow(label: 'Format', value: extension.isEmpty ? 'Image' : extension),
+                              if (modifiedDate != null) ...[
+                                const SizedBox(height: 8),
+                                _DetailRow(label: 'Modified', value: formatDate(modifiedDate)),
+                              ],
+                              const SizedBox(height: 8),
+                              _DetailRow(label: 'Location', value: currentPath, isPath: true),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _DialogActionButton(
+                          label: 'Copy Path',
+                          isPrimary: false,
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: currentPath));
+                            Navigator.of(ctx).pop();
+                            locator<NotificationService>().showSnackBar('Path copied to clipboard');
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _DialogActionButton(
+                          label: 'Close',
+                          isPrimary: true,
+                          onTap: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -723,17 +782,26 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
               ),
             ),
 
+            // Exit Fullscreen Button
+            if (_isFullScreen)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(
+                  child: _ExitFullScreenButton(onTap: _toggleFullScreen),
+                ),
+              ),
+
             // Left / Right Navigation Arrows (Desktop / Web)
             if (!_isFullScreen && _isDesktopOrWeb && _currentIndex > 0)
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: FloatingActionButton(
-                    heroTag: 'prev_btn',
-                    backgroundColor: Colors.black.withValues(alpha: 0.5),
-                    onPressed: _goPrev,
-                    child: const Icon(Icons.chevron_left, color: Colors.white),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _NavArrowButton(
+                    icon: Icons.chevron_left,
+                    tooltip: 'Previous Image',
+                    onTap: _goPrev,
                   ),
                 ),
               ),
@@ -741,12 +809,11 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: FloatingActionButton(
-                    heroTag: 'next_btn',
-                    backgroundColor: Colors.black.withValues(alpha: 0.5),
-                    onPressed: _goNext,
-                    child: const Icon(Icons.chevron_right, color: Colors.white),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _NavArrowButton(
+                    icon: Icons.chevron_right,
+                    tooltip: 'Next Image',
+                    onTap: _goNext,
                   ),
                 ),
               ),
@@ -915,18 +982,41 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                               Expanded(
                                 child: SizedBox(
                                   height: 32,
-                                  child: ListView.separated(
-                                    controller: _tagsScrollController,
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: _subfolders.length,
-                                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                                    itemBuilder: (context, index) {
-                                      final tag = _subfolders[index];
-                                      return _CategoryPillChip(
-                                        label: tag,
-                                        onTap: () => _moveImageToFolder(tag),
-                                      );
-                                    },
+                                  child: Row(
+                                    children: [
+                                      if (_canScrollTagsLeft) ...[
+                                        _ScrollIndicatorArrow(
+                                          direction: AxisDirection.left,
+                                          isVisible: _canScrollTagsLeft,
+                                          onTap: () => _scrollTags(-140),
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Expanded(
+                                        child: ListView.separated(
+                                          controller: _tagsScrollController,
+                                          scrollDirection: Axis.horizontal,
+                                          physics: const BouncingScrollPhysics(),
+                                          itemCount: _subfolders.length,
+                                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                          itemBuilder: (context, index) {
+                                            final tag = _subfolders[index];
+                                            return _CategoryPillChip(
+                                              label: tag,
+                                              onTap: () => _moveImageToFolder(tag),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      if (_canScrollTagsRight) ...[
+                                        const SizedBox(width: 4),
+                                        _ScrollIndicatorArrow(
+                                          direction: AxisDirection.right,
+                                          isVisible: _canScrollTagsRight,
+                                          onTap: () => _scrollTags(140),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1025,32 +1115,51 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   }
 }
 
-class _RoundBackButton extends StatelessWidget {
+class _RoundBackButton extends StatefulWidget {
   final VoidCallback onTap;
 
   const _RoundBackButton({required this.onTap});
 
   @override
+  State<_RoundBackButton> createState() => _RoundBackButtonState();
+}
+
+class _RoundBackButtonState extends State<_RoundBackButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Material(
-        color: const Color(0xFF242424).withValues(alpha: 0.9),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          hoverColor: Colors.white.withValues(alpha: 0.15),
-          splashColor: Colors.white.withValues(alpha: 0.25),
-          highlightColor: Colors.white.withValues(alpha: 0.12),
-          child: Center(
-            child: SvgPicture.asset(
-              'assets/icons/Back-Btn.svg',
-              width: 24,
-              height: 24,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? Colors.white.withValues(alpha: 0.22)
+              : const Color(0xFF242424).withValues(alpha: 0.9),
+          shape: BoxShape.circle,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: widget.onTap,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.white.withValues(alpha: 0.25),
+            highlightColor: Colors.white.withValues(alpha: 0.12),
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/icons/Back-Btn.svg',
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              ),
             ),
           ),
         ),
@@ -1088,7 +1197,7 @@ class _PreviewActionButtonState extends State<_PreviewActionButton> {
     final Color bgColor = _isHovered
         ? (widget.isDestructive
             ? const Color(0xFFEF4444).withValues(alpha: 0.2)
-            : Colors.white.withValues(alpha: 0.15))
+            : Colors.white.withValues(alpha: 0.18))
         : const Color(0xFF242424).withValues(alpha: 0.9);
 
     return Tooltip(
@@ -1097,16 +1206,22 @@ class _PreviewActionButtonState extends State<_PreviewActionButton> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: SizedBox(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
           width: 36,
           height: 36,
-          child: Material(
+          decoration: BoxDecoration(
             color: bgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Material(
+            color: Colors.transparent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: widget.onTap,
+              hoverColor: Colors.transparent,
               splashColor: widget.isDestructive
                   ? const Color(0xFFEF4444).withValues(alpha: 0.35)
                   : Colors.white.withValues(alpha: 0.25),
@@ -1117,6 +1232,213 @@ class _PreviewActionButtonState extends State<_PreviewActionButton> {
                   size: 19,
                   color: iconColor,
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavArrowButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _NavArrowButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavArrowButton> createState() => _NavArrowButtonState();
+}
+
+class _NavArrowButtonState extends State<_NavArrowButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? const Color(0xFF383838).withValues(alpha: 0.95)
+                : Colors.black.withValues(alpha: 0.55),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _isHovered ? const Color(0x66FFFFFF) : const Color(0x22FFFFFF),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: widget.onTap,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.white.withValues(alpha: 0.25),
+              highlightColor: Colors.white.withValues(alpha: 0.1),
+              child: Center(
+                child: Icon(
+                  widget.icon,
+                  size: 26,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExitFullScreenButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ExitFullScreenButton({required this.onTap});
+
+  @override
+  State<_ExitFullScreenButton> createState() => _ExitFullScreenButtonState();
+}
+
+class _ExitFullScreenButtonState extends State<_ExitFullScreenButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Exit Fullscreen (Esc)',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? const Color(0xFF383838).withValues(alpha: 0.95)
+                : const Color(0xFF181818).withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _isHovered ? const Color(0x88FFFFFF) : const Color(0x33FFFFFF),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onTap,
+              splashColor: Colors.white.withValues(alpha: 0.2),
+              hoverColor: Colors.transparent,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fullscreen_exit, size: 18, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text(
+                      'Exit',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScrollIndicatorArrow extends StatefulWidget {
+  final AxisDirection direction;
+  final bool isVisible;
+  final VoidCallback onTap;
+
+  const _ScrollIndicatorArrow({
+    required this.direction,
+    required this.isVisible,
+    required this.onTap,
+  });
+
+  @override
+  State<_ScrollIndicatorArrow> createState() => _ScrollIndicatorArrowState();
+}
+
+class _ScrollIndicatorArrowState extends State<_ScrollIndicatorArrow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isVisible) return const SizedBox.shrink();
+
+    final isLeft = widget.direction == AxisDirection.left;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 26,
+        height: 32,
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? const Color(0xFF3E3E3E).withValues(alpha: 0.95)
+              : const Color(0xFF222222).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isHovered ? const Color(0x66FFFFFF) : const Color(0x28FFFFFF),
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: widget.onTap,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.white.withValues(alpha: 0.2),
+            child: Center(
+              child: Icon(
+                isLeft ? Icons.chevron_left : Icons.chevron_right,
+                size: 18,
+                color: Colors.white,
               ),
             ),
           ),
@@ -1298,7 +1620,8 @@ class _BottomBarActionState extends State<_BottomBarAction> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Material(
-        color: Colors.transparent,
+        color: _isHovered ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: widget.onTap,
@@ -1347,35 +1670,79 @@ class _DetailRow extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sc = context.snapgroveColors;
 
-    return Row(
-      crossAxisAlignment: isPath ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: sc.muted.withValues(alpha: 0.7),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 95,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: sc.muted.withValues(alpha: 0.7),
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            maxLines: isPath ? 3 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: isPath ? 'Lora' : 'JetBrains Mono',
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white : Colors.black87,
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : Colors.black87,
+                height: 1.35,
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogCloseButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _DialogCloseButton({required this.onTap});
+
+  @override
+  State<_DialogCloseButton> createState() => _DialogCloseButtonState();
+}
+
+class _DialogCloseButtonState extends State<_DialogCloseButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: _isHovered ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
+          shape: BoxShape.circle,
         ),
-      ],
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: widget.onTap,
+            splashColor: Colors.white.withValues(alpha: 0.2),
+            child: const Center(child: Icon(Icons.close, size: 18)),
+          ),
+        ),
+      ),
     );
   }
 }
