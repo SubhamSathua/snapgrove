@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:screenshot_organizer/services/file_service.dart';
-import 'package:screenshot_organizer/viewmodels/gallery_view_model.dart';
+import 'package:snapgrove/services/file_service.dart';
+import 'package:snapgrove/viewmodels/gallery_view_model.dart';
 
 class MockFileService implements FileService {
   @override

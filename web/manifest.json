@@ -1,6 +1,6 @@
 {
-    "name": "screenshot_organizer",
-    "short_name": "screenshot_organizer",
+    "name": "Snapgrove",
+    "short_name": "Snapgrove",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

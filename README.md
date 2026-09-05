@@ -1,6 +1,6 @@
-# screenshot_organizer
+# Snapgrove
 
-A new Flutter project.
+Cross-platform screenshot and image organizer built with Flutter (Windows, Android, Web).
 
 ## Getting Started
 

@@ -40,7 +40,7 @@ extension ImageBitmapExtension on web.ImageBitmap {
 }
 
 @JS('window._lastPickerHandle')
-external JSObject? get _lastPickerHandle;
+external web.FileSystemDirectoryHandle? get _lastPickerHandle;
 
 class WebImageUtils {
   static final Map<String, String> _blobCache = {};
@@ -50,7 +50,7 @@ class WebImageUtils {
 
   static bool _exitWarningSet = false;
 
-  static dynamic getLastPickerHandle() => _lastPickerHandle;
+  static web.FileSystemDirectoryHandle? getLastPickerHandle() => _lastPickerHandle;
 
 
   /// Registers the "Do you want to quit?" warning
@@ -68,7 +68,8 @@ class WebImageUtils {
   }
 
   static Future<List<String>> listImages(dynamic root) async {
-    if (root is! web.FileSystemDirectoryHandle) return [];
+    final dir = _lastPickerHandle;
+    if (dir == null) return [];
     
     final List<String> files = [];
     _handleMap.clear();
@@ -94,7 +95,7 @@ class WebImageUtils {
     }
 
     try {
-      await walk(root, '');
+      await walk(dir, '');
       setExitWarning(true); // Trigger warning once a folder is picked
     } catch (e) {
       debugPrint('Error walking directory: $e');
@@ -164,11 +165,11 @@ class WebImageUtils {
 
   static Future<List<String>> listSubfolders() async {
     try {
-      final root = getLastPickerHandle();
-      if (root is! web.FileSystemDirectoryHandle) return [];
+      final dir = getLastPickerHandle();
+      if (dir == null) return [];
 
       final List<String> folders = [];
-      final entries = root.values();
+      final entries = dir.values();
       while (true) {
         final result = await entries.next().toDart;
         if (result.done) break;
@@ -187,10 +188,10 @@ class WebImageUtils {
 
   static Future<bool> createSubfolder(String name) async {
     try {
-      final root = getLastPickerHandle();
-      if (root is! web.FileSystemDirectoryHandle) return false;
+      final dir = getLastPickerHandle();
+      if (dir == null) return false;
 
-      await root.getDirectoryHandle(
+      await dir.getDirectoryHandle(
         name,
         web.FileSystemGetDirectoryOptions(create: true),
       ).toDart;
@@ -211,11 +212,11 @@ class WebImageUtils {
 
   static Future<bool> moveFilesToFolder(String folderName, List<String> files) async {
     try {
-      final root = getLastPickerHandle();
-      if (root is! web.FileSystemDirectoryHandle) return false;
+      final dir = getLastPickerHandle();
+      if (dir == null) return false;
 
       // Get or create target subfolder
-      final targetDir = await root.getDirectoryHandle(
+      final targetDir = await dir.getDirectoryHandle(
         folderName,
         web.FileSystemGetDirectoryOptions(create: true),
       ).toDart;
@@ -240,7 +241,7 @@ class WebImageUtils {
         await writable.close().toDart;
 
         // Remove source file from root
-        await root.removeEntry(fileName).toDart;
+        await dir.removeEntry(fileName).toDart;
         _handleMap.remove(filePath);
       }
       return true;

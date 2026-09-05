@@ -78,20 +78,25 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     }
   }
 
-  void _setZoom(double targetZoom) {
-    // Interactive viewer doesn't let us easily just set scale from center without layout details,
-    // but we can scale the matrix
-    final Matrix4 matrix = Matrix4.identity()..scaleByDouble(targetZoom, targetZoom, targetZoom, 1.0);
+  void _setZoom(double targetZoom, [Offset? focalPoint]) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    final Size size = box?.hasSize == true ? box!.size : (MediaQuery.maybeOf(context)?.size ?? Size.zero);
+    final double cx = focalPoint?.dx ?? (size.width / 2.0);
+    final double cy = focalPoint?.dy ?? (size.height / 2.0);
+
+    final Matrix4 matrix = Matrix4.identity()
+      ..translateByDouble(cx * (1.0 - targetZoom), cy * (1.0 - targetZoom), 0.0, 1.0)
+      ..scaleByDouble(targetZoom, targetZoom, 1.0, 1.0);
     _transformController.value = matrix;
   }
 
   void _handleDoubleTap(TapDownDetails details) {
     if (_currentZoom > 1.05) {
-      // Zoom out to 0% (1.0 scale)
+      // Reset zoom to 1.0
       _setZoom(1.0);
     } else {
-      // Zoom in to 30% above 1 (or whatever makes sense, let's say 2.0 scale)
-      _setZoom(2.0);
+      // Zoom into tapped point
+      _setZoom(2.0, details.localPosition);
     }
   }
 
@@ -139,7 +144,10 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         autofocus: true,
         onKeyEvent: (FocusNode node, KeyEvent event) {
           if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              Navigator.of(context).pop();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
               _goNext();
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {

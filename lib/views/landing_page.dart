@@ -203,7 +203,8 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   void dispose() {
-    _removeMenuSync();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 
@@ -298,7 +299,6 @@ class _LandingPageState extends State<LandingPage> {
                             buttonIconSize: buttonIconSize,
                             browsePaddingH: browsePaddingH,
                             browsePaddingV: browsePaddingV,
-                            currentDir: widget.viewModel.screenshotDir,
                             onTap: () async {
                               final dir = await PickerService.pickDirectory();
                               if (dir != null) {
@@ -413,17 +413,22 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-    double percent;
-    if (width >= 1100) {
-      percent = 0.20;
-    } else if (width >= 720) {
-      percent = 0.35;
+    double logoWidth;
+    if (isAndroid) {
+      logoWidth = (width * 0.60).clamp(0.0, 360.0);
     } else {
-      percent = 0.50;
+      double percent;
+      if (width >= 1100) {
+        percent = 0.20;
+      } else if (width >= 720) {
+        percent = 0.35;
+      } else {
+        percent = 0.50;
+      }
+      logoWidth = (width * percent).clamp(0.0, 300.0) + 20.0;
     }
-
-    final logoWidth = (width * percent).clamp(0.0, 280.0);
 
     return SvgPicture.asset(
       isDark ? 'assets/icons/logo-white.svg' : 'assets/icons/logo-black.svg',
@@ -439,7 +444,6 @@ class _BrowseButton extends StatelessWidget {
   final double browsePaddingH;
   final double browsePaddingV;
   final VoidCallback onTap;
-  final String? currentDir;
 
   const _BrowseButton({
     required this.actionFontSize,
@@ -447,13 +451,11 @@ class _BrowseButton extends StatelessWidget {
     required this.browsePaddingH,
     required this.browsePaddingV,
     required this.onTap,
-    this.currentDir,
   });
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    final hasDir = currentDir != null;
     return Ink(
       decoration: BoxDecoration(
         color: sc.primaryBtnBg,
@@ -480,7 +482,7 @@ class _BrowseButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(
-                hasDir ? 'assets/icons/check.svg' : 'assets/icons/browse.svg',
+                'assets/icons/browse.svg',
                 width: buttonIconSize,
                 height: buttonIconSize,
                 colorFilter: ColorFilter.mode(
@@ -490,7 +492,7 @@ class _BrowseButton extends StatelessWidget {
               ),
               SizedBox(width: actionFontSize * 0.67),
               Text(
-                hasDir ? 'Folder Selected' : 'Browse',
+                'Browse',
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: actionFontSize,

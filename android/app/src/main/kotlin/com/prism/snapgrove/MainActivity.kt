@@ -1,4 +1,4 @@
-package com.example.screenshot_organizer
+package com.prism.snapgrove
 
 import android.graphics.Bitmap
 import android.net.Uri
@@ -18,8 +18,8 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getThumbnail") {
                 val uriStr = call.argument<String>("uri")
-                val width = call.argument<Int>("width") ?: 300
-                val height = call.argument<Int>("height") ?: 400
+                val width = call.argument<Int>("width") ?: 350
+                val height = call.argument<Int>("height") ?: 350
 
                 if (uriStr != null) {
                     // Fossify Strategy: Run heavy IO and Bitmap processing on a background thread

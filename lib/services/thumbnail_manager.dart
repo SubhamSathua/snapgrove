@@ -52,8 +52,8 @@ class ThumbnailManager {
       try {
         final Uint8List? bytes = await _windowsChannel.invokeMethod('getThumbnail', {
           'path': path,
-          'width': 300,
-          'height': 400,
+          'width': 350,
+          'height': 350,
         });
         return bytes;
       } catch (e) {

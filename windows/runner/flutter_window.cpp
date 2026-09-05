@@ -114,8 +114,8 @@ bool FlutterWindow::OnCreate() {
           }
 
           std::string path = std::get<std::string>(path_it->second);
-          int width = 300;
-          int height = 400;
+          int width = 350;
+          int height = 350;
 
           auto w_it = arguments->find(flutter::EncodableValue("width"));
           if (w_it != arguments->end()) width = std::get<int>(w_it->second);
@@ -139,8 +139,8 @@ bool FlutterWindow::OnCreate() {
                 if (SUCCEEDED(hr)) {
                     SIZE size = { (LONG)width, (LONG)height };
                     HBITMAP hBitmap;
-                    // SIIGBF_CROP_TO_FIT (0x2) ensures a professional centered crop without stretching
-                    hr = pImageFactory->GetImage(size, (SIIGBF)0x00000002, &hBitmap);
+                    // SIIGBF_RESIZETOFIT (0x0) preserves original aspect ratio
+                    hr = pImageFactory->GetImage(size, (SIIGBF)0x00000000, &hBitmap);
                     if (SUCCEEDED(hr)) {
                         auto bytes = HBitmapToJpeg(hBitmap);
                         DeleteObject(hBitmap);

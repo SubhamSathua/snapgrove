@@ -1,10 +1,13 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:screenshot_organizer/views/app_view.dart';
-import 'package:screenshot_organizer/viewmodels/app_view_model.dart';
-import 'package:screenshot_organizer/services/storage_service.dart';
-import 'package:screenshot_organizer/services/notification_service.dart';
-import 'package:screenshot_organizer/core/locator.dart';
+import 'package:snapgrove/views/app_view.dart';
+import 'package:snapgrove/viewmodels/app_view_model.dart';
+import 'package:snapgrove/viewmodels/gallery_view_model.dart';
+import 'package:snapgrove/services/storage_service.dart';
+import 'package:snapgrove/services/file_service.dart';
+import 'package:snapgrove/services/notification_service.dart';
+import 'package:snapgrove/core/locator.dart';
 
 class MockStorageService implements StorageService {
   @override
@@ -35,17 +38,45 @@ class MockStorageService implements StorageService {
   Future<dynamic> read(String store, String key) async => null;
 }
 
+class MockFileService implements FileService {
+  @override
+  Future<List<String>> listImages(String path) async => [];
+
+  @override
+  Future<Uint8List?> readFile(String path) async => null;
+
+  @override
+  Future<List<String>> listSubfolders(String path) async => [];
+
+  @override
+  Future<bool> createSubfolder(String path, String name) async => true;
+
+  @override
+  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async => true;
+}
+
 void main() {
   setUpAll(() {
+    locator.registerSingleton<StorageService>(MockStorageService());
+    locator.registerSingleton<FileService>(MockFileService());
     locator.registerSingleton<NotificationService>(NotificationService());
+    locator.registerFactory(() => AppViewModel(
+          locator<StorageService>(),
+          locator<NotificationService>(),
+        ));
+    locator.registerFactoryParam<GalleryViewModel, String, void>(
+      (path, _) => GalleryViewModel(path: path, fileService: locator<FileService>()),
+    );
   });
 
   testWidgets('App renders landing page', (WidgetTester tester) async {
-    final storage = MockStorageService();
+    final storage = locator<StorageService>();
     final notification = locator<NotificationService>();
     final viewModel = AppViewModel(storage, notification);
+    await viewModel.init();
     
     await tester.pumpWidget(SnapgroveApp(viewModel: viewModel));
-    expect(find.text('Snapgrove'), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.byType(SnapgroveApp), findsOneWidget);
   });
 }

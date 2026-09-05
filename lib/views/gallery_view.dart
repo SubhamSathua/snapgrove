@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
 import '../services/file_service.dart';
+import '../services/storage_service.dart';
 import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
 import 'image_preview_view.dart';
@@ -34,24 +34,18 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   final _thumbnailManager = ThumbnailManager();
 
   // Grid Configuration
-  late int _currentColumns;
-  double _lastWidth = 0;
-  bool _isWarningOpen = false;
+  int? _userSelectedColumns;
 
   // Selection Mode
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = <int>{};
 
-  // Context Menu
-  OverlayEntry? _contextMenuEntry;
-
   @override
   void initState() {
     super.initState();
     _viewModel = locator<GalleryViewModel>(param1: widget.path);
-    
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    _currentColumns = isMobile ? 3 : 7;
+
+    _loadGridPreference();
 
     // Delay loading until transition finishes for smoother entrance
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,11 +58,17 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     });
   }
 
-  @override
-  void dispose() {
-    _removeContextMenu();
-    super.dispose();
+  Future<void> _loadGridPreference() async {
+    try {
+      final storage = locator<StorageService>();
+      final savedCols = await storage.read('settings', 'grid_columns');
+      if (savedCols is int && mounted) {
+        setState(() => _userSelectedColumns = savedCols);
+      }
+    } catch (_) {}
   }
+
+
 
   void _enterSelectionMode({int? initialIndex}) {
     setState(() {
@@ -106,120 +106,135 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     });
   }
 
-  void _removeContextMenu() {
-    _contextMenuEntry?.remove();
-    _contextMenuEntry = null;
-  }
-
-  void _showContextMenu(BuildContext context, Offset position, int index) {
-    _removeContextMenu();
-
+  Future<void> _showContextMenu(BuildContext context, Offset position, int index) async {
     final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
 
-    _contextMenuEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _removeContextMenu,
-              behavior: HitTestBehavior.translucent,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          Positioned(
-            left: position.dx,
-            top: position.dy,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 160),
-                decoration: BoxDecoration(
-                  color: sc.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: sc.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ContextMenuItem(
-                      icon: Icons.checklist,
-                      label: 'Select',
-                      onTap: () {
-                        _removeContextMenu();
-                        _enterSelectionMode(initialIndex: index);
-                      },
-                    ),
-                    _ContextMenuItem(
-                      icon: Icons.select_all,
-                      label: 'Select All',
-                      onTap: () {
-                        _removeContextMenu();
-                        _selectAll();
-                      },
-                    ),
-                    const Divider(height: 1, thickness: 1),
-                    _ContextMenuItem(
-                      icon: Icons.preview,
-                      label: 'Preview',
-                      onTap: () {
-                        _removeContextMenu();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ImagePreviewView(
-                              files: _viewModel.files,
-                              initialIndex: index,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    final relativeRect = RelativeRect.fromRect(
+      Rect.fromLTWH(position.dx, position.dy, 0, 0),
+      Offset.zero & overlay.size,
     );
 
-    Overlay.of(context).insert(_contextMenuEntry!);
-  }
+    final selected = await showMenu<String>(
+      context: context,
+      position: relativeRect,
+      color: sc.surfaceElevated,
+      elevation: 6,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: sc.border),
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'select',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.checklist, size: 18, color: isDark ? Colors.white : Colors.black),
+              const SizedBox(width: 10),
+              Text(
+                'Select',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'select_all',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.select_all, size: 18, color: isDark ? Colors.white : Colors.black),
+              const SizedBox(width: 10),
+              Text(
+                'Select All',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem<String>(
+          value: 'preview',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.preview, size: 18, color: isDark ? Colors.white : Colors.black),
+              const SizedBox(width: 10),
+              Text(
+                'Preview',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
 
-  int _getMaxAllowedColumns(double width) {
-    if (width < 600) return 5;
-    if (width < 1000) return 7;
-    return 12;
-  }
-
-  void _checkResizeWarning(double width) {
-    int maxAllowed = _getMaxAllowedColumns(width);
-    if (_currentColumns > maxAllowed) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showViewDialog(width, isWarning: true);
-      });
+    if (!context.mounted || selected == null) return;
+    switch (selected) {
+      case 'select':
+        _enterSelectionMode(initialIndex: index);
+        break;
+      case 'select_all':
+        _selectAll();
+        break;
+      case 'preview':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ImagePreviewView(
+              files: _viewModel.files,
+              initialIndex: index,
+            ),
+          ),
+        );
+        break;
     }
   }
 
-  Future<void> _showViewDialog(double width, {bool isWarning = false}) async {
-    _isWarningOpen = true;
-    final sc = context.snapgroveColors;
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    final List<int> options = isMobile ? [2, 3, 4, 5] : [3, 4, 5, 6, 7, 10, 12];
-    
-    // We compute maxAllowed inside the dialog as width might change, 
-    // but for the modal we use the triggering width.
+  int _getMaxAllowedColumns(double width) {
+    if (width < 380) return 3;
+    if (width < 600) return 5;
+    if (width < 900) return 7;
+    if (width < 1400) return 10;
+    return 12;
+  }
+
+  int _getEffectiveColumns(double width) {
+    final isMobile = width < 600;
+    final defaultCols = isMobile ? 3 : 7;
     final maxAllowed = _getMaxAllowedColumns(width);
+    final userPref = _userSelectedColumns ?? defaultCols;
+    return userPref.clamp(isMobile ? 2 : 3, maxAllowed);
+  }
+
+  Future<void> _showViewDialog(double width) async {
+    final sc = context.snapgroveColors;
+    final isMobile = width < 600;
+    final List<int> options = isMobile ? [2, 3, 4, 5] : [3, 4, 5, 6, 7, 10, 12];
+    final maxAllowed = _getMaxAllowedColumns(width);
+    final currentEffective = _getEffectiveColumns(width);
 
     await showGeneralDialog(
       context: context,
-      barrierDismissible: !isWarning,
+      barrierDismissible: true,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
@@ -247,9 +262,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      isWarning ? 'Window Too Narrow' : 'Grid Layout',
-                      style: const TextStyle(
+                    const Text(
+                      'Grid Layout',
+                      style: TextStyle(
                         fontFamily: 'JetBrains Mono',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -257,9 +272,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      isWarning 
-                          ? 'Please select a smaller grid size for this window width.'
-                          : 'Choose the number of columns',
+                      'Choose the number of columns',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontFamily: 'Lora', fontSize: 14, color: sc.muted),
                     ),
@@ -270,7 +283,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       alignment: WrapAlignment.center,
                       children: options.map((opt) {
                         final isDisabled = opt > maxAllowed;
-                        final isActive = _currentColumns == opt;
+                        final isActive = currentEffective == opt;
                         
                         final bgColor = isActive 
                             ? (isDark ? Colors.white : Colors.black)
@@ -281,7 +294,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
                         return InkWell(
                           onTap: isDisabled ? null : () {
-                            setState(() => _currentColumns = opt);
+                            setState(() => _userSelectedColumns = opt);
+                            locator<StorageService>().write('settings', 'grid_columns', opt);
                             Navigator.of(ctx).pop();
                           },
                           borderRadius: BorderRadius.circular(8),
@@ -332,7 +346,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         );
       },
     );
-    _isWarningOpen = false;
   }
 
   Future<void> _showSortDialog() async {
@@ -502,10 +515,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     final width = MediaQuery.of(context).size.width;
-    if (_lastWidth != width && !_isWarningOpen) {
-      _lastWidth = width;
-      _checkResizeWarning(width);
-    }
+    final effectiveColumns = _getEffectiveColumns(width);
 
     return PopScope(
       canPop: false,
@@ -558,9 +568,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                               ),
                             ),
                             const SizedBox(width: 12),
-                            _IconSquare(
-                              svgPath: 'assets/icons/check.svg',
-                              onTap: _selectAll,
+                            Tooltip(
+                              message: 'Select all',
+                              child: _IconSquare(
+                                icon: Icons.done_all,
+                                onTap: _selectAll,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             _IconSquare(
@@ -579,7 +592,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             Tooltip(
                               message: 'Select images',
                               child: _IconSquare(
-                                svgPath: 'assets/icons/check.svg',
+                                icon: Icons.done_all,
                                 onTap: () => _enterSelectionMode(),
                               ),
                             ),
@@ -640,17 +653,17 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 ),
                 if (isLoading && _viewModel.files.isEmpty)
                   SliverPadding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: _currentColumns,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.85,
+                        crossAxisCount: effectiveColumns,
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 6,
+                        childAspectRatio: 1.0,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => const SkeletonLoader(),
-                        childCount: _currentColumns * 3, // Render a few rows of skeletons
+                        childCount: effectiveColumns * 3, // Render a few rows of skeletons
                       ),
                     ),
                   )
@@ -672,13 +685,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: _currentColumns,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.85,
+                        crossAxisCount: effectiveColumns,
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 6,
+                        childAspectRatio: 1.0,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -813,8 +826,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             return Image.memory(
               snapshot.data!,
               fit: BoxFit.cover,
-              cacheWidth: 300,
-              cacheHeight: 400,
+              cacheWidth: 350,
               gaplessPlayback: true,
             );
           }
@@ -827,8 +839,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   return Image.memory(
                     snapshot.data!,
                     fit: BoxFit.cover,
-                    cacheWidth: 300,
-                    cacheHeight: 400,
+                    cacheWidth: 350,
                   );
                 }
                 return _ErrorPlaceholder();
@@ -843,8 +854,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     return Image.file(
       File(path),
       fit: BoxFit.cover,
-      cacheWidth: 300,
-      cacheHeight: 400,
+      cacheWidth: 350,
       errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
     );
   }
@@ -982,15 +992,33 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 }
 
 class _IconSquare extends StatelessWidget {
-  final String svgPath;
+  final String? svgPath;
+  final IconData? icon;
   final VoidCallback onTap;
 
-  const _IconSquare({required this.svgPath, required this.onTap});
+  const _IconSquare({this.svgPath, this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fgColor = isDark ? Colors.white : Colors.black;
+
+    Widget childWidget;
+    if (icon != null) {
+      childWidget = Icon(icon, size: 20, color: fgColor);
+    } else if (svgPath != null) {
+      childWidget = SvgPicture.asset(
+        svgPath!,
+        colorFilter: ColorFilter.mode(
+          fgColor,
+          BlendMode.srcIn,
+        ),
+      );
+    } else {
+      childWidget = const SizedBox.shrink();
+    }
+
     return Container(
       width: 40,
       height: 40,
@@ -1007,13 +1035,7 @@ class _IconSquare extends StatelessWidget {
           splashColor: sc.rippleColor,
           child: Padding(
             padding: const EdgeInsets.all(10),
-            child: SvgPicture.asset(
-              svgPath,
-              colorFilter: ColorFilter.mode(
-                isDark ? Colors.white : Colors.black,
-                BlendMode.srcIn,
-              ),
-            ),
+            child: Center(child: childWidget),
           ),
         ),
       ),
@@ -1099,42 +1121,22 @@ class _GalleryItem extends StatelessWidget {
     Widget child = Container(
       decoration: BoxDecoration(
         color: sc.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: sc.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Hero(
-                tag: path,
-                child: buildImage(),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              p.basename(path).replaceAll('%2F', '/').split('/').last,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 10,
-                color: sc.muted,
-              ),
-            ),
-          ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Hero(
+          tag: path,
+          child: buildImage(),
+        ),
       ),
     );
 
@@ -1147,11 +1149,11 @@ class _GalleryItem extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onSelectionTap,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   decoration: BoxDecoration(
                     color: isSelected ? sc.accent.withValues(alpha: 0.3) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     border: isSelected 
                         ? Border.all(color: sc.accent, width: 3)
                         : null,
@@ -1159,21 +1161,20 @@ class _GalleryItem extends StatelessWidget {
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: isSelected ? sc.accent : Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.transparent : Colors.white,
-                          width: 2,
-                        ),
-                      ),
-                      child: isSelected
-                          ? const Icon(Icons.check, size: 16, color: Colors.white)
-                          : null,
-                    ),
+                    child: isSelected
+                        ? const Icon(
+                            Icons.done_all,
+                            size: 24,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -1184,6 +1185,7 @@ class _GalleryItem extends StatelessWidget {
     }
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (isSelectionMode) {
           onSelectionTap?.call();
@@ -1199,48 +1201,10 @@ class _GalleryItem extends StatelessWidget {
         }
       },
       onLongPress: onLongPress,
-      onSecondaryTapDown: onRightClick != null
+      onSecondaryTapUp: onRightClick != null
           ? (details) => onRightClick!(details.globalPosition)
           : null,
       child: child,
-    );
-  }
-}
-
-class _ContextMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ContextMenuItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: isDark ? Colors.white : Colors.black),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 13,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
