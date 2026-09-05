@@ -36,9 +36,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   final _thumbnailManager = ThumbnailManager();
   final ScrollController _scrollController = ScrollController();
 
-  // Ambience generation from visible images
-  final Map<String, Color> _imageColorCache = {};
+  // Ambience generation from visible images (3 colors per image, natural saturation)
+  final Map<String, List<Color>> _imageColorPaletteMap = {};
   Color _ambientTopColor = const Color(0xFFf89838);
+  Color _ambientMidColor = const Color(0xFFf89838);
   Color _ambientBottomColor = const Color(0xFFf89838);
   bool _isExtractingAmbience = false;
 
@@ -129,54 +130,61 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
     if (visiblePaths.isEmpty) return;
 
-    final uncached = visiblePaths.where((p) => !_imageColorCache.containsKey(p)).toList();
+    final uncached = visiblePaths.where((p) => !_imageColorPaletteMap.containsKey(p)).toList();
     if (uncached.isNotEmpty && !_isExtractingAmbience) {
       _isExtractingAmbience = true;
       Future.microtask(() async {
         for (final p in uncached) {
-          await _extractImageColor(p);
+          await _extractImagePalette(p);
         }
         if (mounted) {
           _isExtractingAmbience = false;
-          _computeAmbientGradient(visiblePaths);
+          _computeAmbientPalette(visiblePaths);
         }
       });
     }
 
-    _computeAmbientGradient(visiblePaths);
+    _computeAmbientPalette(visiblePaths);
   }
 
-  void _computeAmbientGradient(List<String> visiblePaths) {
+  void _computeAmbientPalette(List<String> visiblePaths) {
     if (visiblePaths.isEmpty) return;
 
-    final mid = (visiblePaths.length / 2).ceil();
-    final topHalf = visiblePaths.sublist(0, mid);
-    final bottomHalf = visiblePaths.sublist(mid > 0 && mid < visiblePaths.length ? mid : 0);
+    final topColors = <Color>[];
+    final midColors = <Color>[];
+    final bottomColors = <Color>[];
 
-    final topColors = topHalf.map((p) => _imageColorCache[p]).whereType<Color>().toList();
-    final bottomColors = bottomHalf.map((p) => _imageColorCache[p]).whereType<Color>().toList();
-
-    Color newTop = _ambientTopColor;
-    Color newBottom = _ambientBottomColor;
-
-    if (topColors.isNotEmpty) {
-      newTop = _blendColors(topColors);
+    final total = visiblePaths.length;
+    for (int i = 0; i < total; i++) {
+      final palette = _imageColorPaletteMap[visiblePaths[i]];
+      if (palette != null && palette.length >= 3) {
+        if (i < (total * 0.4).ceil()) {
+          topColors.add(palette[0]);
+          midColors.add(palette[1]);
+        } else if (i < (total * 0.7).ceil()) {
+          midColors.add(palette[1]);
+          bottomColors.add(palette[2]);
+        } else {
+          bottomColors.add(palette[2]);
+          midColors.add(palette[1]);
+        }
+      }
     }
-    if (bottomColors.isNotEmpty) {
-      newBottom = _blendColors(bottomColors);
-    } else if (topColors.isNotEmpty) {
-      newBottom = newTop;
-    }
 
-    if (newTop != _ambientTopColor || newBottom != _ambientBottomColor) {
+    Color newTop = topColors.isNotEmpty ? _blendNaturalColors(topColors) : _ambientTopColor;
+    Color newMid = midColors.isNotEmpty ? _blendNaturalColors(midColors) : _ambientMidColor;
+    Color newBottom = bottomColors.isNotEmpty ? _blendNaturalColors(bottomColors) : _ambientBottomColor;
+
+    if (newTop != _ambientTopColor || newMid != _ambientMidColor || newBottom != _ambientBottomColor) {
       setState(() {
         _ambientTopColor = newTop;
+        _ambientMidColor = newMid;
         _ambientBottomColor = newBottom;
       });
     }
   }
 
-  Color _blendColors(List<Color> colors) {
+  Color _blendNaturalColors(List<Color> colors) {
     if (colors.isEmpty) return const Color(0xFFf89838);
     int r = 0, g = 0, b = 0;
     for (final c in colors) {
@@ -190,15 +198,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       (g ~/ colors.length).clamp(0, 255),
       (b ~/ colors.length).clamp(0, 255),
     );
-    final hsv = HSVColor.fromColor(raw);
-    final boostedSat = (hsv.saturation * 1.85).clamp(0.45, 1.0);
-    final boostedVal = hsv.value.clamp(0.75, 0.98);
-    return hsv.withSaturation(boostedSat).withValue(boostedVal).toColor();
+    return _normalizeNaturalColor(raw);
   }
 
-  Future<Color> _extractImageColor(String path) async {
-    if (_imageColorCache.containsKey(path)) {
-      return _imageColorCache[path]!;
+  Future<List<Color>> _extractImagePalette(String path) async {
+    if (_imageColorPaletteMap.containsKey(path)) {
+      return _imageColorPaletteMap[path]!;
     }
 
     try {
@@ -220,54 +225,75 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         image.dispose();
 
         if (byteData != null) {
-          int rSum = 0;
-          int gSum = 0;
-          int bSum = 0;
-          int count = 0;
-          final len = byteData.lengthInBytes;
+          int rTop = 0, gTop = 0, bTop = 0, countTop = 0;
+          int rMid = 0, gMid = 0, bMid = 0, countMid = 0;
+          int rBot = 0, gBot = 0, bBot = 0, countBot = 0;
 
-          for (int i = 0; i < len; i += 4) {
-            final r = byteData.getUint8(i);
-            final g = byteData.getUint8(i + 1);
-            final b = byteData.getUint8(i + 2);
-            final a = byteData.getUint8(i + 3);
+          for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+              final idx = (y * 16 + x) * 4;
+              final r = byteData.getUint8(idx);
+              final g = byteData.getUint8(idx + 1);
+              final b = byteData.getUint8(idx + 2);
+              final a = byteData.getUint8(idx + 3);
 
-            if (a > 50) {
-              final maxC = [r, g, b].reduce((curr, next) => curr > next ? curr : next);
-              final minC = [r, g, b].reduce((curr, next) => curr < next ? curr : next);
-              final sat = maxC == 0 ? 0.0 : (maxC - minC) / maxC;
-              // Strongly weight colorful/saturated pixels over dull gray/monochrome
-              final weight = 1 + (sat * sat * 12).toInt();
+              if (a > 40) {
+                final maxC = [r, g, b].reduce((curr, next) => curr > next ? curr : next);
+                final minC = [r, g, b].reduce((curr, next) => curr < next ? curr : next);
+                final sat = maxC == 0 ? 0.0 : (maxC - minC) / maxC;
+                final weight = 1 + (sat * 2).toInt();
 
-              rSum += r * weight;
-              gSum += g * weight;
-              bSum += b * weight;
-              count += weight;
+                if (y < 6) {
+                  rTop += r * weight;
+                  gTop += g * weight;
+                  bTop += b * weight;
+                  countTop += weight;
+                } else if (y < 11) {
+                  rMid += r * weight;
+                  gMid += g * weight;
+                  bMid += b * weight;
+                  countMid += weight;
+                } else {
+                  rBot += r * weight;
+                  gBot += g * weight;
+                  bBot += b * weight;
+                  countBot += weight;
+                }
+              }
             }
           }
 
-          if (count > 0) {
-            final raw = Color.fromARGB(
-              255,
-              (rSum ~/ count).clamp(0, 255),
-              (gSum ~/ count).clamp(0, 255),
-              (bSum ~/ count).clamp(0, 255),
-            );
-            final hsv = HSVColor.fromColor(raw);
-            final boostedSat = (hsv.saturation * 1.85).clamp(0.45, 1.0);
-            final boostedVal = hsv.value.clamp(0.75, 0.98);
-            final vibrantColor = hsv.withSaturation(boostedSat).withValue(boostedVal).toColor();
+          Color topColor = countTop > 0
+              ? Color.fromARGB(255, rTop ~/ countTop, gTop ~/ countTop, bTop ~/ countTop)
+              : const Color(0xFFf89838);
+          Color midColor = countMid > 0
+              ? Color.fromARGB(255, rMid ~/ countMid, gMid ~/ countMid, bMid ~/ countMid)
+              : topColor;
+          Color botColor = countBot > 0
+              ? Color.fromARGB(255, rBot ~/ countBot, gBot ~/ countBot, bBot ~/ countBot)
+              : midColor;
 
-            _imageColorCache[path] = vibrantColor;
-            return vibrantColor;
-          }
+          topColor = _normalizeNaturalColor(topColor);
+          midColor = _normalizeNaturalColor(midColor);
+          botColor = _normalizeNaturalColor(botColor);
+
+          final palette = [topColor, midColor, botColor];
+          _imageColorPaletteMap[path] = palette;
+          return palette;
         }
       }
     } catch (_) {}
 
-    const fallback = Color(0xFFf89838);
-    _imageColorCache[path] = fallback;
+    const fallback = [Color(0xFFf89838), Color(0xFFf89838), Color(0xFFf89838)];
+    _imageColorPaletteMap[path] = fallback;
     return fallback;
+  }
+
+  Color _normalizeNaturalColor(Color color) {
+    final hsv = HSVColor.fromColor(color);
+    final naturalSat = hsv.saturation.clamp(0.15, 0.85);
+    final naturalVal = hsv.value.clamp(0.60, 0.90);
+    return hsv.withSaturation(naturalSat).withValue(naturalVal).toColor();
   }
 
   Future<void> _loadGridPreference() async {
@@ -1029,6 +1055,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           onCreateFolder: _showCreateFolderDialog,
                           onMoveToFolder: _moveSelectedToFolder,
                           topAmbientColor: _ambientTopColor,
+                          midAmbientColor: _ambientMidColor,
                           bottomAmbientColor: _ambientBottomColor,
                         ),
                       ],
@@ -1314,6 +1341,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               mutedColor: sc.muted,
               accentColor: sc.accent,
               topAmbientColor: _ambientTopColor,
+              midAmbientColor: _ambientMidColor,
               bottomAmbientColor: _ambientBottomColor,
             ),
           ),
@@ -1833,6 +1861,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final Color mutedColor;
   final Color accentColor;
   final Color topAmbientColor;
+  final Color midAmbientColor;
   final Color bottomAmbientColor;
 
   _TopSelectionPaneDelegate({
@@ -1846,6 +1875,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.mutedColor,
     required this.accentColor,
     this.topAmbientColor = const Color(0xFFf89838),
+    this.midAmbientColor = const Color(0xFFf89838),
     this.bottomAmbientColor = const Color(0xFFf89838),
   });
 
@@ -1863,32 +1893,35 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           height: _height,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: backgroundColor.withValues(alpha: 0.70),
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              stops: const [0.0, 0.5, 1.0],
               colors: isDark
                   ? [
-                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.40), backgroundColor.withValues(alpha: 0.65)),
-                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.32), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.28), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(midAmbientColor.withValues(alpha: 0.20), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.26), backgroundColor.withValues(alpha: 0.70)),
                     ]
                   : [
-                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.35), backgroundColor.withValues(alpha: 0.65)),
-                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.28), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.24), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(midAmbientColor.withValues(alpha: 0.16), backgroundColor.withValues(alpha: 0.70)),
+                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.22), backgroundColor.withValues(alpha: 0.70)),
                     ],
             ),
             border: Border(bottom: BorderSide(color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000))),
             boxShadow: [
               BoxShadow(
-                color: topAmbientColor.withValues(alpha: isDark ? 0.30 : 0.20),
-                blurRadius: 36,
-                spreadRadius: 2,
-                offset: const Offset(0, 8),
+                color: topAmbientColor.withValues(alpha: isDark ? 0.22 : 0.14),
+                blurRadius: 48,
+                spreadRadius: 4,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
@@ -1935,6 +1968,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.borderColor != borderColor ||
         oldDelegate.topAmbientColor != topAmbientColor ||
+        oldDelegate.midAmbientColor != midAmbientColor ||
         oldDelegate.bottomAmbientColor != bottomAmbientColor;
   }
 }
@@ -2134,6 +2168,7 @@ class _RightSideSelectionPane extends StatelessWidget {
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
   final Color topAmbientColor;
+  final Color midAmbientColor;
   final Color bottomAmbientColor;
 
   const _RightSideSelectionPane({
@@ -2142,6 +2177,7 @@ class _RightSideSelectionPane extends StatelessWidget {
     required this.onCreateFolder,
     required this.onMoveToFolder,
     this.topAmbientColor = const Color(0xFFf89838),
+    this.midAmbientColor = const Color(0xFFf89838),
     this.bottomAmbientColor = const Color(0xFFf89838),
   });
 
@@ -2152,9 +2188,9 @@ class _RightSideSelectionPane extends StatelessWidget {
 
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutCubic,
           width: 280,
           decoration: BoxDecoration(
@@ -2162,57 +2198,49 @@ class _RightSideSelectionPane extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              stops: const [0.0, 0.4, 0.75, 1.0],
+              stops: const [0.0, 0.5, 1.0],
               colors: isDark
                   ? [
                       Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.42),
-                        sc.surfaceElevated.withValues(alpha: 0.65),
-                      ),
-                      Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.24),
+                        topAmbientColor.withValues(alpha: 0.28),
                         sc.surfaceElevated.withValues(alpha: 0.70),
                       ),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.28),
+                        midAmbientColor.withValues(alpha: 0.20),
                         sc.surfaceElevated.withValues(alpha: 0.70),
                       ),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.40),
-                        sc.surfaceElevated.withValues(alpha: 0.65),
+                        bottomAmbientColor.withValues(alpha: 0.26),
+                        sc.surfaceElevated.withValues(alpha: 0.70),
                       ),
                     ]
                   : [
                       Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.36),
-                        Colors.white.withValues(alpha: 0.65),
-                      ),
-                      Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.20),
+                        topAmbientColor.withValues(alpha: 0.24),
                         Colors.white.withValues(alpha: 0.70),
                       ),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.24),
-                        sc.surfaceMuted.withValues(alpha: 0.70),
+                        midAmbientColor.withValues(alpha: 0.16),
+                        Colors.white.withValues(alpha: 0.70),
                       ),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.32),
-                        sc.surfaceMuted.withValues(alpha: 0.65),
+                        bottomAmbientColor.withValues(alpha: 0.22),
+                        sc.surfaceMuted.withValues(alpha: 0.70),
                       ),
                     ],
             ),
             boxShadow: [
               BoxShadow(
-                color: topAmbientColor.withValues(alpha: isDark ? 0.32 : 0.22),
-                blurRadius: 50,
-                spreadRadius: 4,
-                offset: const Offset(-10, 0),
+                color: topAmbientColor.withValues(alpha: isDark ? 0.22 : 0.14),
+                blurRadius: 64,
+                spreadRadius: 6,
+                offset: const Offset(-12, -20),
               ),
               BoxShadow(
-                color: bottomAmbientColor.withValues(alpha: isDark ? 0.28 : 0.18),
-                blurRadius: 60,
-                spreadRadius: 4,
-                offset: const Offset(-10, 100),
+                color: bottomAmbientColor.withValues(alpha: isDark ? 0.20 : 0.12),
+                blurRadius: 72,
+                spreadRadius: 6,
+                offset: const Offset(-12, 80),
               ),
             ],
             border: Border(
