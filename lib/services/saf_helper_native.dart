@@ -125,12 +125,57 @@ class SafHelper {
     }
   }
 
+  static Future<String> _getUniqueSafFileName(String destDirUri, String originalName) async {
+    try {
+      final contents = await SafUtil().list(destDirUri);
+      final existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
+      final lastDot = originalName.lastIndexOf('.');
+      final baseName = lastDot != -1 ? originalName.substring(0, lastDot) : originalName;
+      final ext = lastDot != -1 ? originalName.substring(lastDot) : '';
+
+      String candidate = originalName;
+      int counter = 1;
+      while (existingNames.contains(candidate.toLowerCase())) {
+        candidate = '$baseName ($counter)$ext';
+        counter++;
+      }
+      return candidate;
+    } catch (_) {
+      return originalName;
+    }
+  }
+
   static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
       final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
       for (final fileUri in files) {
-        await SafUtil().moveTo(fileUri, false, parentUri, destUri);
+        String effectiveFileUri = fileUri;
+        try {
+          final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+          final uniqueName = await _getUniqueSafFileName(destUri, originalName);
+          if (uniqueName != originalName) {
+            final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
+            effectiveFileUri = renamedDoc.uri;
+          }
+        } catch (_) {}
+
+        bool moved = false;
+        try {
+          await SafUtil().moveTo(effectiveFileUri, false, parentUri, destUri);
+          moved = true;
+        } catch (_) {
+          moved = false;
+        }
+
+        if (!moved) {
+          try {
+            await SafUtil().copyTo(effectiveFileUri, false, destUri);
+            await SafUtil().delete(effectiveFileUri, false);
+          } catch (e) {
+            debugPrint('SAF Error: copy+delete fallback failed for $effectiveFileUri: $e');
+          }
+        }
       }
       return true;
     } catch (e) {
@@ -141,9 +186,35 @@ class SafHelper {
 
   static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async {
     try {
-      final targetDir = await SafUtil().mkdirp(parentUri, [folderName]);
+      final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+      final targetDirUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
       for (final fileUri in files) {
-        await SafUtil().moveTo(fileUri, false, targetDir.uri, parentUri);
+        String effectiveFileUri = fileUri;
+        try {
+          final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+          final uniqueName = await _getUniqueSafFileName(parentUri, originalName);
+          if (uniqueName != originalName) {
+            final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
+            effectiveFileUri = renamedDoc.uri;
+          }
+        } catch (_) {}
+
+        bool restored = false;
+        try {
+          await SafUtil().moveTo(effectiveFileUri, false, targetDirUri, parentUri);
+          restored = true;
+        } catch (_) {
+          restored = false;
+        }
+
+        if (!restored) {
+          try {
+            await SafUtil().copyTo(effectiveFileUri, false, parentUri);
+            await SafUtil().delete(effectiveFileUri, false);
+          } catch (e) {
+            debugPrint('SAF Error: undo move copy+delete failed for $effectiveFileUri: $e');
+          }
+        }
       }
       return true;
     } catch (e) {

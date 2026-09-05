@@ -27,8 +27,9 @@ class GalleryViewModel extends ChangeNotifier {
   SortField _sortField = SortField.dateModified;
   SortOrder _sortOrder = SortOrder.descending;
 
-  // Subfolders toggle state
-  bool _includeSubfolders = false;
+  // Subfolders toggle state (in-memory per session, OFF by default)
+  static bool _sessionIncludeSubfolders = false;
+  bool _includeSubfolders = _sessionIncludeSubfolders;
 
   // Selection state
   bool _isSelectionMode = false;
@@ -95,15 +96,11 @@ class GalleryViewModel extends ChangeNotifier {
       final storage = locator<StorageService>();
       final savedField = await storage.read('settings', 'sort_field');
       final savedOrder = await storage.read('settings', 'sort_order');
-      final savedSubfolders = await storage.read('settings', 'show_subfolders_images');
       if (savedField is String) {
         _sortField = SortField.values.firstWhere((e) => e.name == savedField, orElse: () => SortField.dateModified);
       }
       if (savedOrder is String) {
         _sortOrder = SortOrder.values.firstWhere((e) => e.name == savedOrder, orElse: () => SortOrder.descending);
-      }
-      if (savedSubfolders is bool) {
-        _includeSubfolders = savedSubfolders;
       }
     } catch (_) {}
 
@@ -120,10 +117,8 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<void> setIncludeSubfolders(bool enabled) async {
+    _sessionIncludeSubfolders = enabled;
     _includeSubfolders = enabled;
-    try {
-      await locator<StorageService>().write('settings', 'show_subfolders_images', enabled);
-    } catch (_) {}
     await loadFiles();
   }
 

@@ -129,6 +129,18 @@ class FileServiceImpl implements FileService {
     }
   }
 
+  String _generateUniqueFileName(String targetDirPath, String fileName) {
+    final ext = p.extension(fileName);
+    final baseName = p.basenameWithoutExtension(fileName);
+    String candidateName = fileName;
+    int counter = 1;
+    while (File(p.join(targetDirPath, candidateName)).existsSync()) {
+      candidateName = '$baseName ($counter)$ext';
+      counter++;
+    }
+    return candidateName;
+  }
+
   @override
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
     try {
@@ -145,10 +157,23 @@ class FileServiceImpl implements FileService {
         }
         for (final filePath in files) {
           final file = File(filePath);
+          if (!await file.exists()) continue;
+
           final fileName = p.basename(filePath);
-          final destPath = p.join(targetDirPath, fileName);
-          if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase() && await file.exists()) {
-            await file.rename(destPath);
+          final uniqueFileName = _generateUniqueFileName(targetDirPath, fileName);
+          final destPath = p.join(targetDirPath, uniqueFileName);
+
+          if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
+            try {
+              await file.rename(destPath);
+            } catch (e) {
+              try {
+                await file.copy(destPath);
+                await file.delete();
+              } catch (err) {
+                debugPrint('Error moving single file $filePath to $destPath: $err');
+              }
+            }
           }
         }
         return true;
@@ -174,8 +199,22 @@ class FileServiceImpl implements FileService {
           final fileName = p.basename(filePath);
           final currentPath = p.join(targetDir.path, fileName);
           final file = File(currentPath);
-          if (await file.exists() && p.normalize(file.path).toLowerCase() != p.normalize(filePath).toLowerCase()) {
-            await file.rename(filePath);
+          if (await file.exists()) {
+            final destDir = p.dirname(filePath);
+            final uniqueFileName = _generateUniqueFileName(destDir, fileName);
+            final destPath = p.join(destDir, uniqueFileName);
+            if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
+              try {
+                await file.rename(destPath);
+              } catch (e) {
+                try {
+                  await file.copy(destPath);
+                  await file.delete();
+                } catch (err) {
+                  debugPrint('Error restoring file $filePath to $destPath: $err');
+                }
+              }
+            }
           }
         }
         return true;
@@ -218,7 +257,8 @@ class FileServiceImpl implements FileService {
         final file = File(path);
         if (await file.exists()) {
           final dir = file.parent.path;
-          final newPath = p.join(dir, newName);
+          final uniqueName = _generateUniqueFileName(dir, newName);
+          final newPath = p.join(dir, uniqueName);
           final renamed = await file.rename(newPath);
           return renamed.path;
         }

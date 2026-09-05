@@ -87,6 +87,18 @@ class MockFileService implements FileService {
     return true;
   }
 
+  String _generateUniqueFileName(String targetDirPath, String fileName) {
+    final ext = p.extension(fileName);
+    final baseName = p.basenameWithoutExtension(fileName);
+    String candidateName = fileName;
+    int counter = 1;
+    while (File(p.join(targetDirPath, candidateName)).existsSync()) {
+      candidateName = '$baseName ($counter)$ext';
+      counter++;
+    }
+    return candidateName;
+  }
+
   @override
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
@@ -98,7 +110,8 @@ class MockFileService implements FileService {
     for (final filePath in files) {
       final file = File(filePath);
       final fileName = p.basename(filePath);
-      final destPath = p.join(targetDirPath, fileName);
+      final uniqueFileName = _generateUniqueFileName(targetDirPath, fileName);
+      final destPath = p.join(targetDirPath, uniqueFileName);
       if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase() && await file.exists()) {
         await file.rename(destPath);
       }
@@ -115,8 +128,13 @@ class MockFileService implements FileService {
       final fileName = p.basename(filePath);
       final currentPath = p.join(targetDir.path, fileName);
       final file = File(currentPath);
-      if (await file.exists() && p.normalize(file.path).toLowerCase() != p.normalize(filePath).toLowerCase()) {
-        await file.rename(filePath);
+      if (await file.exists()) {
+        final destDir = p.dirname(filePath);
+        final uniqueFileName = _generateUniqueFileName(destDir, fileName);
+        final destPath = p.join(destDir, uniqueFileName);
+        if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
+          await file.rename(destPath);
+        }
       }
     }
     return true;
@@ -460,6 +478,45 @@ void main() {
       // And removed from SubA and SubB
       expect(await fileA.exists(), false);
       expect(await fileB.exists(), false);
+    });
+
+    test('COLLISION CASE: moving a file into a folder where same filename exists auto-renames without overwriting', () async {
+      // Create root file A.png
+      final rootFile = File('${tempDir.path}\\A.png');
+      await rootFile.create();
+      await rootFile.writeAsString('root content');
+
+      // Create subfolder 'places' with existing A.png
+      final placesDir = await Directory('${tempDir.path}\\places').create();
+      final placesFile = File('${placesDir.path}\\A.png');
+      await placesFile.create();
+      await placesFile.writeAsString('places content');
+
+      await viewModel.loadFiles();
+      // Moving root A.png into places
+      final moveSuccess = await viewModel.moveFilesToFolder([rootFile.path], 'places');
+      expect(moveSuccess, true);
+
+      // The original places/A.png should still exist with its original content
+      expect(await placesFile.exists(), true);
+      expect(await placesFile.readAsString(), 'places content');
+
+      // The moved file should have been renamed to A (1).png
+      final renamedFile = File('${placesDir.path}\\A (1).png');
+      expect(await renamedFile.exists(), true);
+      expect(await renamedFile.readAsString(), 'root content');
+    });
+
+    test('SESSION SCOPE: includeSubfolders is session-only and not persisted across sessions', () async {
+      final storage = locator<StorageService>();
+      await storage.write('settings', 'show_subfolders_images', null);
+
+      await viewModel.setIncludeSubfolders(true);
+      expect(viewModel.includeSubfolders, true);
+
+      // Storage should NOT have received show_subfolders_images
+      final inStorage = await storage.read('settings', 'show_subfolders_images');
+      expect(inStorage, isNull);
     });
   });
 }

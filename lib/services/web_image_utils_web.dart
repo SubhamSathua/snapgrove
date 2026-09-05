@@ -250,6 +250,29 @@ class WebImageUtils {
     return buffer.toDart.asUint8List();
   }
 
+  static Future<bool> _fileExistsInDir(web.FileSystemDirectoryHandle dir, String name) async {
+    try {
+      await dir.getFileHandle(name, web.FileSystemGetFileOptions(create: false)).toDart;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<String> _getUniqueFileNameInDir(web.FileSystemDirectoryHandle dir, String fileName) async {
+    final lastDot = fileName.lastIndexOf('.');
+    final baseName = lastDot != -1 ? fileName.substring(0, lastDot) : fileName;
+    final ext = lastDot != -1 ? fileName.substring(lastDot) : '';
+
+    String candidate = fileName;
+    int counter = 1;
+    while (await _fileExistsInDir(dir, candidate)) {
+      candidate = '$baseName ($counter)$ext';
+      counter++;
+    }
+    return candidate;
+  }
+
   static Future<bool> moveFilesToFolder(String folderName, List<String> files) async {
     try {
       final dir = getLastPickerHandle();
@@ -269,16 +292,26 @@ class WebImageUtils {
         final handle = _handleMap[filePath];
         if (handle == null) continue;
 
+        // Revoke active blob cache URL to release browser file locks before move/delete
+        final oldUrl = _blobCache.remove(filePath);
+        if (oldUrl != null) {
+          _revokeObjectURL(oldUrl);
+        }
+
+        final originalFileName = filePath.contains('/') ? filePath.split('/').last : filePath;
+
         if (isMovingToRoot) {
           // If file is already in root, skip
           if (!filePath.contains('/')) continue;
 
+          final destDir = dir;
+          final uniqueFileName = await _getUniqueFileNameInDir(destDir, originalFileName);
+
           final file = await handle.getFile().toDart;
           final buffer = await file.arrayBuffer().toDart;
-          final fileName = filePath.split('/').last;
 
-          final rootFile = await dir.getFileHandle(
-            fileName,
+          final rootFile = await destDir.getFileHandle(
+            uniqueFileName,
             web.FileSystemGetFileOptions(create: true),
           ).toDart;
 
@@ -289,21 +322,25 @@ class WebImageUtils {
           final srcFolder = filePath.split('/').first;
           try {
             final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
-            await srcDir.removeEntry(fileName).toDart;
-          } catch (_) {}
+            await srcDir.removeEntry(originalFileName).toDart;
+          } catch (e) {
+            debugPrint('Web Error: removing $originalFileName from $srcFolder: $e');
+          }
 
           _handleMap.remove(filePath);
-          _handleMap[fileName] = rootFile;
+          _handleMap[uniqueFileName] = rootFile;
         } else {
           // If file is already in target subfolder, skip
           if (filePath.contains('/') && filePath.split('/').first == folderName) continue;
 
+          final destDir = targetDir!;
+          final uniqueFileName = await _getUniqueFileNameInDir(destDir, originalFileName);
+
           final file = await handle.getFile().toDart;
           final buffer = await file.arrayBuffer().toDart;
-          final fileName = filePath.contains('/') ? filePath.split('/').last : filePath;
 
-          final newFile = await targetDir!.getFileHandle(
-            fileName,
+          final newFile = await destDir.getFileHandle(
+            uniqueFileName,
             web.FileSystemGetFileOptions(create: true),
           ).toDart;
 
@@ -315,14 +352,20 @@ class WebImageUtils {
             final srcFolder = filePath.split('/').first;
             try {
               final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
-              await srcDir.removeEntry(fileName).toDart;
-            } catch (_) {}
+              await srcDir.removeEntry(originalFileName).toDart;
+            } catch (e) {
+              debugPrint('Web Error: removing $originalFileName from $srcFolder: $e');
+            }
           } else {
-            await dir.removeEntry(fileName).toDart;
+            try {
+              await dir.removeEntry(originalFileName).toDart;
+            } catch (e) {
+              debugPrint('Web Error: removing $originalFileName from root: $e');
+            }
           }
 
           _handleMap.remove(filePath);
-          final newPath = '$folderName/$fileName';
+          final newPath = '$folderName/$uniqueFileName';
           _handleMap[newPath] = newFile;
         }
       }
@@ -346,6 +389,11 @@ class WebImageUtils {
           final srcFolder = filePath.split('/').first;
           final fileName = filePath.split('/').last;
 
+          final oldUrl = _blobCache.remove(fileName);
+          if (oldUrl != null) {
+            _revokeObjectURL(oldUrl);
+          }
+
           try {
             final rootFileHandle = await dir.getFileHandle(
               fileName,
@@ -356,8 +404,9 @@ class WebImageUtils {
             final buffer = await file.arrayBuffer().toDart;
 
             final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+            final uniqueFileName = await _getUniqueFileNameInDir(srcDir, fileName);
             final restoredFile = await srcDir.getFileHandle(
-              fileName,
+              uniqueFileName,
               web.FileSystemGetFileOptions(create: true),
             ).toDart;
 
@@ -367,7 +416,7 @@ class WebImageUtils {
 
             await dir.removeEntry(fileName).toDart;
             _handleMap.remove(fileName);
-            _handleMap[filePath] = restoredFile;
+            _handleMap['$srcFolder/$uniqueFileName'] = restoredFile;
           } catch (e) {
             debugPrint('Web Error: undoMoveFiles restoring $fileName failed: $e');
           }
@@ -382,6 +431,12 @@ class WebImageUtils {
 
       for (final filePath in files) {
         final fileName = filePath.split('/').last;
+        final movedPath = '$folderName/$fileName';
+        final oldUrl = _blobCache.remove(movedPath);
+        if (oldUrl != null) {
+          _revokeObjectURL(oldUrl);
+        }
+
         try {
           final subFileHandle = await targetDir.getFileHandle(
             fileName,
@@ -394,26 +449,28 @@ class WebImageUtils {
           if (filePath.contains('/')) {
             final origFolder = filePath.split('/').first;
             final origDir = await dir.getDirectoryHandle(origFolder).toDart;
+            final uniqueFileName = await _getUniqueFileNameInDir(origDir, fileName);
             final origFile = await origDir.getFileHandle(
-              fileName,
+              uniqueFileName,
               web.FileSystemGetFileOptions(create: true),
             ).toDart;
 
             final writable = await origFile.createWritable().toDart;
             await writable.write(buffer).toDart;
             await writable.close().toDart;
-            _handleMap[filePath] = origFile;
+            _handleMap['$origFolder/$uniqueFileName'] = origFile;
           } else {
             // Re-create file in root directory
+            final uniqueFileName = await _getUniqueFileNameInDir(dir, fileName);
             final rootFile = await dir.getFileHandle(
-              fileName,
+              uniqueFileName,
               web.FileSystemGetFileOptions(create: true),
             ).toDart;
 
             final writable = await rootFile.createWritable().toDart;
             await writable.write(buffer).toDart;
             await writable.close().toDart;
-            _handleMap[filePath] = rootFile;
+            _handleMap[uniqueFileName] = rootFile;
           }
 
           // Remove from target subfolder
@@ -435,7 +492,19 @@ class WebImageUtils {
       final dir = getLastPickerHandle();
       if (dir == null) return false;
       final fileName = path.split('/').last;
-      await dir.removeEntry(fileName).toDart;
+
+      final oldUrl = _blobCache.remove(path);
+      if (oldUrl != null) {
+        _revokeObjectURL(oldUrl);
+      }
+
+      if (path.contains('/')) {
+        final folder = path.split('/').first;
+        final subDir = await dir.getDirectoryHandle(folder).toDart;
+        await subDir.removeEntry(fileName).toDart;
+      } else {
+        await dir.removeEntry(fileName).toDart;
+      }
       _handleMap.remove(path);
       return true;
     } catch (e) {
@@ -450,12 +519,18 @@ class WebImageUtils {
       final dir = getLastPickerHandle();
       if (handle == null || dir == null) return null;
 
+      final isSub = path.contains('/');
+      final folder = isSub ? path.split('/').first : null;
+      final targetDir = folder != null ? await dir.getDirectoryHandle(folder).toDart : dir;
+
+      final uniqueNewName = await _getUniqueFileNameInDir(targetDir, newName);
+
       final file = await handle.getFile().toDart;
       final buffer = await file.arrayBuffer().toDart;
       final oldName = path.split('/').last;
 
-      final newFile = await dir.getFileHandle(
-        newName,
+      final newFile = await targetDir.getFileHandle(
+        uniqueNewName,
         web.FileSystemGetFileOptions(create: true),
       ).toDart;
 
@@ -463,10 +538,16 @@ class WebImageUtils {
       await writable.write(buffer).toDart;
       await writable.close().toDart;
 
-      await dir.removeEntry(oldName).toDart;
+      final oldUrl = _blobCache.remove(path);
+      if (oldUrl != null) {
+        _revokeObjectURL(oldUrl);
+      }
+
+      await targetDir.removeEntry(oldName).toDart;
       _handleMap.remove(path);
-      _handleMap[newName] = newFile;
-      return newName;
+      final newPath = isSub ? '$folder/$uniqueNewName' : uniqueNewName;
+      _handleMap[newPath] = newFile;
+      return newPath;
     } catch (e) {
       debugPrint('Web Error: renameFile failed: $e');
       return null;
