@@ -147,7 +147,7 @@ class FileServiceImpl implements FileService {
           final file = File(filePath);
           final fileName = p.basename(filePath);
           final destPath = p.join(targetDirPath, fileName);
-          if (file.path != destPath && await file.exists()) {
+          if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase() && await file.exists()) {
             await file.rename(destPath);
           }
         }
@@ -167,12 +167,14 @@ class FileServiceImpl implements FileService {
       } else if (Platform.isAndroid) {
         return await SafHelper.undoMoveFiles(path, folderName, files);
       } else {
-        final targetDir = Directory(p.join(path, folderName));
+        final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+        final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
+        final targetDir = Directory(targetDirPath);
         for (final filePath in files) {
           final fileName = p.basename(filePath);
           final currentPath = p.join(targetDir.path, fileName);
           final file = File(currentPath);
-          if (await file.exists()) {
+          if (await file.exists() && p.normalize(file.path).toLowerCase() != p.normalize(filePath).toLowerCase()) {
             await file.rename(filePath);
           }
         }

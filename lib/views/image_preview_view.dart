@@ -12,6 +12,7 @@ import '../services/file_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/gallery_view_model.dart';
 
 class ImagePreviewView extends StatefulWidget {
   final List<String> files;
@@ -334,10 +335,27 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     }
   }
 
+  String? _getSubfolderTag(String filePath) {
+    return GalleryViewModel.extractSubfolderTag(widget.directoryPath ?? '', filePath);
+  }
+
   Future<void> _moveImageToFolder(String folderName) async {
     if (_files.isEmpty) return;
     final currentPath = _files[_currentIndex];
     final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
+
+    final String? currentTag = _getSubfolderTag(currentPath);
+    final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+    final bool isAlreadyInDest = isMovingToRoot
+        ? (currentTag == null)
+        : (currentTag != null && currentTag.toLowerCase() == folderName.toLowerCase());
+
+    if (isAlreadyInDest) {
+      locator<NotificationService>().showSnackBar(
+        isMovingToRoot ? 'This image is already in root' : 'This image is already in $folderName',
+      );
+      return;
+    }
 
     bool success = false;
     if (widget.onFileMoved != null) {
@@ -1232,17 +1250,28 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                           itemCount: _subfolders.length + 1,
                                           separatorBuilder: (_, _) => const SizedBox(width: 8),
                                           itemBuilder: (context, index) {
+                                            final currentPath = _files.isNotEmpty && _currentIndex < _files.length
+                                                ? _files[_currentIndex]
+                                                : '';
+                                            final currentTag = _getSubfolderTag(currentPath);
+
                                             if (index == 0) {
+                                              final isEnabled = currentTag != null;
                                               return _CategoryPillChip(
                                                 label: 'ROOT',
                                                 isRoot: true,
-                                                onTap: () => _moveImageToFolder('ROOT'),
+                                                isEnabled: isEnabled,
+                                                tooltip: isEnabled ? null : 'This image is already in root',
+                                                onTap: isEnabled ? () => _moveImageToFolder('ROOT') : null,
                                               );
                                             }
                                             final tag = _subfolders[index - 1];
+                                            final isEnabled = currentTag == null || currentTag.toLowerCase() != tag.toLowerCase();
                                             return _CategoryPillChip(
                                               label: tag,
-                                              onTap: () => _moveImageToFolder(tag),
+                                              isEnabled: isEnabled,
+                                              tooltip: isEnabled ? null : 'This image is already in $tag',
+                                              onTap: isEnabled ? () => _moveImageToFolder(tag) : null,
                                             );
                                           },
                                         ),
@@ -1759,13 +1788,17 @@ class _CreateFolderPillButtonState extends State<_CreateFolderPillButton> {
 
 class _CategoryPillChip extends StatefulWidget {
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isRoot;
+  final bool isEnabled;
+  final String? tooltip;
 
   const _CategoryPillChip({
     required this.label,
     required this.onTap,
     this.isRoot = false,
+    this.isEnabled = true,
+    this.tooltip,
   });
 
   @override
@@ -1777,28 +1810,43 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = widget.isEnabled && widget.onTap != null;
     final Color bgColor;
     final Color borderColor;
     final Color contentColor;
 
     if (widget.isRoot) {
-      bgColor = widget.isRoot
-          ? (_isHovered
-              ? const Color(0xFFf89838).withValues(alpha: 0.35)
-              : const Color(0xFFf89838).withValues(alpha: 0.22))
-          : (_isHovered ? const Color(0xFF383838) : const Color(0xFF242424));
-      borderColor = const Color(0xFFf89838);
-      contentColor = const Color(0xFFf89838);
+      if (!isEnabled) {
+        bgColor = const Color(0xFFf89838).withValues(alpha: 0.06);
+        borderColor = const Color(0xFFf89838).withValues(alpha: 0.2);
+        contentColor = const Color(0xFFf89838).withValues(alpha: 0.35);
+      } else {
+        bgColor = _isHovered
+            ? const Color(0xFFf89838).withValues(alpha: 0.35)
+            : const Color(0xFFf89838).withValues(alpha: 0.22);
+        borderColor = const Color(0xFFf89838);
+        contentColor = const Color(0xFFf89838);
+      }
     } else {
-      bgColor = _isHovered ? const Color(0xFF383838) : const Color(0xFF242424);
-      borderColor = _isHovered ? const Color(0x66FFFFFF) : const Color(0x33FFFFFF);
-      contentColor = Colors.white;
+      if (!isEnabled) {
+        bgColor = const Color(0xFF1E1E1E).withValues(alpha: 0.4);
+        borderColor = const Color(0x18FFFFFF);
+        contentColor = Colors.white.withValues(alpha: 0.3);
+      } else {
+        bgColor = _isHovered ? const Color(0xFF383838) : const Color(0xFF242424);
+        borderColor = _isHovered ? const Color(0x66FFFFFF) : const Color(0x33FFFFFF);
+        contentColor = Colors.white;
+      }
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+    Widget chip = MouseRegion(
+      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (isEnabled) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (isEnabled) setState(() => _isHovered = false);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
@@ -1812,7 +1860,7 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
           borderRadius: BorderRadius.circular(20),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: isEnabled ? widget.onTap : null,
             splashColor: const Color(0xFFf89838).withValues(alpha: 0.35),
             highlightColor: const Color(0xFFf89838).withValues(alpha: 0.15),
             hoverColor: Colors.transparent,
@@ -1824,7 +1872,7 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
                   Icon(
                     widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
                     size: 13,
-                    color: widget.isRoot ? const Color(0xFFf89838) : Colors.white70,
+                    color: widget.isRoot ? contentColor : (isEnabled ? Colors.white70 : contentColor),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -1843,6 +1891,15 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
         ),
       ),
     );
+
+    if (widget.tooltip != null && widget.tooltip!.isNotEmpty) {
+      chip = Tooltip(
+        message: widget.tooltip!,
+        child: chip,
+      );
+    }
+
+    return chip;
   }
 }
 

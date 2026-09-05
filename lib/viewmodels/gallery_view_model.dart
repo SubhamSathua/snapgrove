@@ -57,7 +57,7 @@ class GalleryViewModel extends ChangeNotifier {
   // Subfolders getter
   List<String> get subfolders => _subfolders;
 
-  String? getSubfolderTag(String filePath) {
+  static String? extractSubfolderTag(String rootPath, String filePath) {
     if (filePath.isEmpty) return null;
     if (kIsWeb) {
       if (filePath.contains('/')) {
@@ -65,16 +65,20 @@ class GalleryViewModel extends ChangeNotifier {
       }
       return null;
     }
-    if (!filePath.startsWith('content://')) {
+    if (!filePath.startsWith('content://') && rootPath.isNotEmpty) {
       final parent = p.dirname(filePath);
       final normParent = p.normalize(parent).toLowerCase();
-      final normRoot = p.normalize(path).toLowerCase();
+      final normRoot = p.normalize(rootPath).toLowerCase();
       if (normParent != normRoot && normParent.startsWith(normRoot)) {
         return p.basename(parent);
       }
       return null;
     }
     return null;
+  }
+
+  String? getSubfolderTag(String filePath) {
+    return extractSubfolderTag(path, filePath);
   }
 
   Future<void> loadFiles() async {
@@ -328,7 +332,21 @@ class GalleryViewModel extends ChangeNotifier {
 
   Future<bool> moveFilesToFolder(List<String> files, String folderName) async {
     try {
-      final success = await _fileService.moveFilesToFolder(path, folderName, files);
+      final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+      final filesToMove = files.where((f) {
+        final currentTag = getSubfolderTag(f);
+        if (isMovingToRoot) {
+          return currentTag != null;
+        } else {
+          return currentTag == null || currentTag.toLowerCase() != folderName.toLowerCase();
+        }
+      }).toList();
+
+      if (filesToMove.isEmpty) {
+        return true;
+      }
+
+      final success = await _fileService.moveFilesToFolder(path, folderName, filesToMove);
       if (success) await loadFiles();
       return success;
     } catch (e) {

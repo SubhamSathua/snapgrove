@@ -89,27 +89,33 @@ class MockFileService implements FileService {
 
   @override
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
-    final targetDir = Directory(p.join(path, folderName));
+    final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+    final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
+    final targetDir = Directory(targetDirPath);
     if (!await targetDir.exists()) {
       await targetDir.create(recursive: true);
     }
     for (final filePath in files) {
       final file = File(filePath);
       final fileName = p.basename(filePath);
-      final destPath = p.join(targetDir.path, fileName);
-      await file.rename(destPath);
+      final destPath = p.join(targetDirPath, fileName);
+      if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase() && await file.exists()) {
+        await file.rename(destPath);
+      }
     }
     return true;
   }
 
   @override
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
-    final targetDir = Directory(p.join(path, folderName));
+    final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+    final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
+    final targetDir = Directory(targetDirPath);
     for (final filePath in files) {
       final fileName = p.basename(filePath);
       final currentPath = p.join(targetDir.path, fileName);
       final file = File(currentPath);
-      if (await file.exists()) {
+      if (await file.exists() && p.normalize(file.path).toLowerCase() != p.normalize(filePath).toLowerCase()) {
         await file.rename(filePath);
       }
     }
@@ -390,6 +396,70 @@ void main() {
       expect(viewModel.files.length, 2);
       expect(viewModel.getSubfolderTag(rootImg.path), isNull);
       expect(viewModel.getSubfolderTag(subImg.path), 'Tools');
+    });
+
+    test('CASE-1: moving files from A, B, Y and root to Y skips files already in Y', () async {
+      final rootFile = File('${tempDir.path}\\root_img.png');
+      await rootFile.create();
+
+      final dirA = await Directory('${tempDir.path}\\FolderA').create();
+      final fileA = File('${dirA.path}\\img_a.png');
+      await fileA.create();
+
+      final dirB = await Directory('${tempDir.path}\\FolderB').create();
+      final fileB = File('${dirB.path}\\img_b.png');
+      await fileB.create();
+
+      final dirY = await Directory('${tempDir.path}\\FolderY').create();
+      final fileY = File('${dirY.path}\\img_y.png');
+      await fileY.create();
+
+      await viewModel.setIncludeSubfolders(true);
+      expect(viewModel.files.length, 4);
+
+      final filesToMove = [rootFile.path, fileA.path, fileB.path, fileY.path];
+      final moveSuccess = await viewModel.moveFilesToFolder(filesToMove, 'FolderY');
+      expect(moveSuccess, true);
+
+      // All 4 files are now inside FolderY
+      expect(await File('${dirY.path}\\root_img.png').exists(), true);
+      expect(await File('${dirY.path}\\img_a.png').exists(), true);
+      expect(await File('${dirY.path}\\img_b.png').exists(), true);
+      expect(await File('${dirY.path}\\img_y.png').exists(), true);
+
+      // Original locations in root, A, B should no longer exist
+      expect(await rootFile.exists(), false);
+      expect(await fileA.exists(), false);
+      expect(await fileB.exists(), false);
+    });
+
+    test('ROOT CASE: moving files from A, B, and root to ROOT skips files already in root', () async {
+      final rootFile = File('${tempDir.path}\\root_already.png');
+      await rootFile.create();
+
+      final dirA = await Directory('${tempDir.path}\\SubA').create();
+      final fileA = File('${dirA.path}\\from_a.png');
+      await fileA.create();
+
+      final dirB = await Directory('${tempDir.path}\\SubB').create();
+      final fileB = File('${dirB.path}\\from_b.png');
+      await fileB.create();
+
+      await viewModel.setIncludeSubfolders(true);
+      expect(viewModel.files.length, 3);
+
+      final filesToMove = [rootFile.path, fileA.path, fileB.path];
+      final moveSuccess = await viewModel.moveFilesToFolder(filesToMove, 'ROOT');
+      expect(moveSuccess, true);
+
+      // All 3 files are now in root
+      expect(await rootFile.exists(), true);
+      expect(await File('${tempDir.path}\\from_a.png').exists(), true);
+      expect(await File('${tempDir.path}\\from_b.png').exists(), true);
+
+      // And removed from SubA and SubB
+      expect(await fileA.exists(), false);
+      expect(await fileB.exists(), false);
     });
   });
 }

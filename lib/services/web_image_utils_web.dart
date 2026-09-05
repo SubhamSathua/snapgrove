@@ -269,11 +269,14 @@ class WebImageUtils {
         final handle = _handleMap[filePath];
         if (handle == null) continue;
 
-        final file = await handle.getFile().toDart;
-        final buffer = await file.arrayBuffer().toDart;
-        final fileName = filePath.contains('/') ? filePath.split('/').last : filePath;
-
         if (isMovingToRoot) {
+          // If file is already in root, skip
+          if (!filePath.contains('/')) continue;
+
+          final file = await handle.getFile().toDart;
+          final buffer = await file.arrayBuffer().toDart;
+          final fileName = filePath.split('/').last;
+
           final rootFile = await dir.getFileHandle(
             fileName,
             web.FileSystemGetFileOptions(create: true),
@@ -283,17 +286,22 @@ class WebImageUtils {
           await writable.write(buffer).toDart;
           await writable.close().toDart;
 
-          if (filePath.contains('/')) {
-            final srcFolder = filePath.split('/').first;
-            try {
-              final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
-              await srcDir.removeEntry(fileName).toDart;
-            } catch (_) {}
-          }
+          final srcFolder = filePath.split('/').first;
+          try {
+            final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+            await srcDir.removeEntry(fileName).toDart;
+          } catch (_) {}
 
           _handleMap.remove(filePath);
           _handleMap[fileName] = rootFile;
         } else {
+          // If file is already in target subfolder, skip
+          if (filePath.contains('/') && filePath.split('/').first == folderName) continue;
+
+          final file = await handle.getFile().toDart;
+          final buffer = await file.arrayBuffer().toDart;
+          final fileName = filePath.contains('/') ? filePath.split('/').last : filePath;
+
           final newFile = await targetDir!.getFileHandle(
             fileName,
             web.FileSystemGetFileOptions(create: true),
@@ -305,12 +313,10 @@ class WebImageUtils {
 
           if (filePath.contains('/')) {
             final srcFolder = filePath.split('/').first;
-            if (srcFolder != folderName) {
-              try {
-                final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
-                await srcDir.removeEntry(fileName).toDart;
-              } catch (_) {}
-            }
+            try {
+              final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+              await srcDir.removeEntry(fileName).toDart;
+            } catch (_) {}
           } else {
             await dir.removeEntry(fileName).toDart;
           }
@@ -332,6 +338,43 @@ class WebImageUtils {
       final dir = getLastPickerHandle();
       if (dir == null) return false;
 
+      final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+
+      if (isMovingToRoot) {
+        for (final filePath in files) {
+          if (!filePath.contains('/')) continue;
+          final srcFolder = filePath.split('/').first;
+          final fileName = filePath.split('/').last;
+
+          try {
+            final rootFileHandle = await dir.getFileHandle(
+              fileName,
+              web.FileSystemGetFileOptions(create: false),
+            ).toDart;
+
+            final file = await rootFileHandle.getFile().toDart;
+            final buffer = await file.arrayBuffer().toDart;
+
+            final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+            final restoredFile = await srcDir.getFileHandle(
+              fileName,
+              web.FileSystemGetFileOptions(create: true),
+            ).toDart;
+
+            final writable = await restoredFile.createWritable().toDart;
+            await writable.write(buffer).toDart;
+            await writable.close().toDart;
+
+            await dir.removeEntry(fileName).toDart;
+            _handleMap.remove(fileName);
+            _handleMap[filePath] = restoredFile;
+          } catch (e) {
+            debugPrint('Web Error: undoMoveFiles restoring $fileName failed: $e');
+          }
+        }
+        return true;
+      }
+
       final targetDir = await dir.getDirectoryHandle(
         folderName,
         web.FileSystemGetDirectoryOptions(create: false),
@@ -348,19 +391,34 @@ class WebImageUtils {
           final file = await subFileHandle.getFile().toDart;
           final buffer = await file.arrayBuffer().toDart;
 
-          // Re-create file in root directory
-          final rootFile = await dir.getFileHandle(
-            fileName,
-            web.FileSystemGetFileOptions(create: true),
-          ).toDart;
+          if (filePath.contains('/')) {
+            final origFolder = filePath.split('/').first;
+            final origDir = await dir.getDirectoryHandle(origFolder).toDart;
+            final origFile = await origDir.getFileHandle(
+              fileName,
+              web.FileSystemGetFileOptions(create: true),
+            ).toDart;
 
-          final writable = await rootFile.createWritable().toDart;
-          await writable.write(buffer).toDart;
-          await writable.close().toDart;
+            final writable = await origFile.createWritable().toDart;
+            await writable.write(buffer).toDart;
+            await writable.close().toDart;
+            _handleMap[filePath] = origFile;
+          } else {
+            // Re-create file in root directory
+            final rootFile = await dir.getFileHandle(
+              fileName,
+              web.FileSystemGetFileOptions(create: true),
+            ).toDart;
 
-          // Remove from subfolder
+            final writable = await rootFile.createWritable().toDart;
+            await writable.write(buffer).toDart;
+            await writable.close().toDart;
+            _handleMap[filePath] = rootFile;
+          }
+
+          // Remove from target subfolder
           await targetDir.removeEntry(fileName).toDart;
-          _handleMap[filePath] = rootFile;
+          _handleMap.remove('$folderName/$fileName');
         } catch (e) {
           debugPrint('Web Error: restoring file $fileName failed: $e');
         }

@@ -1264,6 +1264,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           subfolders: _viewModel.subfolders,
                           onCreateFolder: _showCreateFolderDialog,
                           onMoveToFolder: _moveSelectedToFolder,
+                          isFolderEnabled: _isFolderActionEnabled,
+                          getFolderTooltip: _getFolderActionTooltip,
                           topAmbientColor: _ambientTopColor,
                           midAmbientColor: _ambientMidColor,
                           bottomAmbientColor: _ambientBottomColor,
@@ -1519,6 +1521,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               subfolders: _viewModel.subfolders,
               onCreateFolder: _showCreateFolderDialog,
               onMoveToFolder: _moveSelectedToFolder,
+              isFolderEnabled: _isFolderActionEnabled,
+              getFolderTooltip: _getFolderActionTooltip,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               borderColor: sc.border,
               textColor: isDark ? Colors.white : Colors.black,
@@ -1717,20 +1721,60 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     }
   }
 
+  bool _isFolderActionEnabled(String folderName) {
+    final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
+    if (selectedFiles.isEmpty) return false;
+    final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+    if (isMovingToRoot) {
+      return selectedFiles.any((f) => _viewModel.getSubfolderTag(f) != null);
+    } else {
+      return selectedFiles.any((f) {
+        final tag = _viewModel.getSubfolderTag(f);
+        return tag == null || tag.toLowerCase() != folderName.toLowerCase();
+      });
+    }
+  }
+
+  String? _getFolderActionTooltip(String folderName) {
+    final enabled = _isFolderActionEnabled(folderName);
+    if (enabled) return null;
+    if (folderName == 'ROOT' || folderName.isEmpty) {
+      return 'All selected images are already in root';
+    }
+    return 'All selected images are already in $folderName';
+  }
+
   // Move selected files to the specified folder
   Future<void> _moveSelectedToFolder(String folderName) async {
     final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return;
 
-    final count = selectedFiles.length;
-    final success = await _viewModel.moveFilesToFolder(selectedFiles, folderName);
+    final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+    final filesToMove = selectedFiles.where((f) {
+      final currentTag = _viewModel.getSubfolderTag(f);
+      if (isMovingToRoot) {
+        return currentTag != null;
+      } else {
+        return currentTag == null || currentTag.toLowerCase() != folderName.toLowerCase();
+      }
+    }).toList();
+
+    if (filesToMove.isEmpty) {
+      locator<NotificationService>().showSnackBar(
+        isMovingToRoot ? 'Selected images are already in root' : 'Selected images are already in $folderName',
+      );
+      return;
+    }
+
+    final count = filesToMove.length;
+    final success = await _viewModel.moveFilesToFolder(filesToMove, folderName);
     if (success && mounted) {
       _exitSelectionMode();
       locator<NotificationService>().showSnackBar(
         'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
         actionLabel: 'Undo',
         onAction: () async {
-          final undoSuccess = await _viewModel.undoMoveFiles(selectedFiles, folderName);
+          final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
           if (undoSuccess) {
             locator<NotificationService>().showSnackBar(
               'Restored $count ${count == 1 ? "file" : "files"}',
@@ -2264,6 +2308,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final List<String> subfolders;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
+  final bool Function(String folder) isFolderEnabled;
+  final String? Function(String folder) getFolderTooltip;
   final Color backgroundColor;
   final Color borderColor;
   final Color textColor;
@@ -2278,6 +2324,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.subfolders,
     required this.onCreateFolder,
     required this.onMoveToFolder,
+    required this.isFolderEnabled,
+    required this.getFolderTooltip,
     required this.backgroundColor,
     required this.borderColor,
     required this.textColor,
@@ -2360,6 +2408,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
               _HorizontalChipsBar(
                 subfolders: subfolders,
                 onMoveToFolder: onMoveToFolder,
+                isFolderEnabled: isFolderEnabled,
+                getFolderTooltip: getFolderTooltip,
               ),
             ],
           ),
@@ -2383,10 +2433,14 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 class _HorizontalChipsBar extends StatefulWidget {
   final List<String> subfolders;
   final void Function(String) onMoveToFolder;
+  final bool Function(String folder) isFolderEnabled;
+  final String? Function(String folder) getFolderTooltip;
 
   const _HorizontalChipsBar({
     required this.subfolders,
     required this.onMoveToFolder,
+    required this.isFolderEnabled,
+    required this.getFolderTooltip,
   });
 
   @override
@@ -2469,16 +2523,22 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               if (index == 0) {
+                final isEnabled = widget.isFolderEnabled('ROOT');
                 return _ActionChip(
                   label: 'ROOT',
                   isRoot: true,
-                  onTap: () => widget.onMoveToFolder('ROOT'),
+                  isEnabled: isEnabled,
+                  tooltip: widget.getFolderTooltip('ROOT'),
+                  onTap: isEnabled ? () => widget.onMoveToFolder('ROOT') : null,
                 );
               }
               final folder = widget.subfolders[index - 1];
+              final isEnabled = widget.isFolderEnabled(folder);
               return _ActionChip(
                 label: folder,
-                onTap: () => widget.onMoveToFolder(folder),
+                isEnabled: isEnabled,
+                tooltip: widget.getFolderTooltip(folder),
+                onTap: isEnabled ? () => widget.onMoveToFolder(folder) : null,
               );
             },
           ),
@@ -2591,6 +2651,8 @@ class _RightSideSelectionPane extends StatelessWidget {
   final List<String> subfolders;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
+  final bool Function(String folder) isFolderEnabled;
+  final String? Function(String folder) getFolderTooltip;
   final Color topAmbientColor;
   final Color midAmbientColor;
   final Color bottomAmbientColor;
@@ -2600,6 +2662,8 @@ class _RightSideSelectionPane extends StatelessWidget {
     required this.subfolders,
     required this.onCreateFolder,
     required this.onMoveToFolder,
+    required this.isFolderEnabled,
+    required this.getFolderTooltip,
     this.topAmbientColor = const Color(0xFFf89838),
     this.midAmbientColor = const Color(0xFFf89838),
     this.bottomAmbientColor = const Color(0xFFf89838),
@@ -2715,16 +2779,22 @@ class _RightSideSelectionPane extends StatelessWidget {
                     itemCount: subfolders.length + 1,
                     itemBuilder: (context, index) {
                       if (index == 0) {
+                        final isEnabled = isFolderEnabled('ROOT');
                         return _ActionChip(
                           label: 'ROOT',
                           isRoot: true,
-                          onTap: () => onMoveToFolder('ROOT'),
+                          isEnabled: isEnabled,
+                          tooltip: getFolderTooltip('ROOT'),
+                          onTap: isEnabled ? () => onMoveToFolder('ROOT') : null,
                         );
                       }
                       final folder = subfolders[index - 1];
+                      final isEnabled = isFolderEnabled(folder);
                       return _ActionChip(
                         label: folder,
-                        onTap: () => onMoveToFolder(folder),
+                        isEnabled: isEnabled,
+                        tooltip: getFolderTooltip(folder),
+                        onTap: isEnabled ? () => onMoveToFolder(folder) : null,
                       );
                     },
                   ),
@@ -2901,13 +2971,17 @@ class _SelectionActionButtonState extends State<_SelectionActionButton> {
 
 class _ActionChip extends StatefulWidget {
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isRoot;
+  final bool isEnabled;
+  final String? tooltip;
 
   const _ActionChip({
     required this.label,
     required this.onTap,
     this.isRoot = false,
+    this.isEnabled = true,
+    this.tooltip,
   });
 
   @override
@@ -2920,6 +2994,7 @@ class _ActionChipState extends State<_ActionChip> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isEnabled = widget.isEnabled && widget.onTap != null;
 
     final Color defaultBg;
     final Color hoverBg;
@@ -2928,23 +3003,43 @@ class _ActionChipState extends State<_ActionChip> {
     final Color contentColor;
 
     if (widget.isRoot) {
-      defaultBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.22 : 0.16);
-      hoverBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.35 : 0.28);
-      defaultBorder = const Color(0xFFf89838);
-      hoverBorder = const Color(0xFFf89838);
-      contentColor = isDark ? const Color(0xFFf89838) : const Color(0xFFd97818);
+      if (!isEnabled) {
+        defaultBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.06 : 0.04);
+        hoverBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.06 : 0.04);
+        defaultBorder = const Color(0xFFf89838).withValues(alpha: 0.25);
+        hoverBorder = const Color(0xFFf89838).withValues(alpha: 0.25);
+        contentColor = (isDark ? const Color(0xFFf89838) : const Color(0xFFd97818)).withValues(alpha: 0.35);
+      } else {
+        defaultBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.22 : 0.16);
+        hoverBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.35 : 0.28);
+        defaultBorder = const Color(0xFFf89838);
+        hoverBorder = const Color(0xFFf89838);
+        contentColor = isDark ? const Color(0xFFf89838) : const Color(0xFFd97818);
+      }
     } else {
-      defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
-      hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
-      defaultBorder = isDark ? const Color(0x22FFFFFF) : const Color(0x18000000);
-      hoverBorder = isDark ? const Color(0x44FFFFFF) : const Color(0x33000000);
-      contentColor = isDark ? Colors.white70 : Colors.black87;
+      if (!isEnabled) {
+        defaultBg = isDark ? const Color(0xFF141414).withValues(alpha: 0.4) : const Color(0xFFF0F0F0).withValues(alpha: 0.4);
+        hoverBg = isDark ? const Color(0xFF141414).withValues(alpha: 0.4) : const Color(0xFFF0F0F0).withValues(alpha: 0.4);
+        defaultBorder = isDark ? const Color(0x10FFFFFF) : const Color(0x0C000000);
+        hoverBorder = isDark ? const Color(0x10FFFFFF) : const Color(0x0C000000);
+        contentColor = (isDark ? Colors.white70 : Colors.black87).withValues(alpha: 0.3);
+      } else {
+        defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
+        hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
+        defaultBorder = isDark ? const Color(0x22FFFFFF) : const Color(0x18000000);
+        hoverBorder = isDark ? const Color(0x44FFFFFF) : const Color(0x33000000);
+        contentColor = isDark ? Colors.white70 : Colors.black87;
+      }
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+    Widget chip = MouseRegion(
+      cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (isEnabled) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (isEnabled) setState(() => _isHovered = false);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
@@ -2952,7 +3047,7 @@ class _ActionChipState extends State<_ActionChip> {
           border: Border.all(
             color: _isHovered ? hoverBorder : defaultBorder,
           ),
-          boxShadow: _isHovered
+          boxShadow: (_isHovered && isEnabled)
               ? [
                   BoxShadow(
                     color: widget.isRoot
@@ -2969,7 +3064,7 @@ class _ActionChipState extends State<_ActionChip> {
           borderRadius: BorderRadius.circular(6),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: isEnabled ? widget.onTap : null,
             splashColor: const Color(0xFFf89838).withValues(alpha: 0.35),
             highlightColor: const Color(0xFFf89838).withValues(alpha: 0.18),
             hoverColor: Colors.transparent,
@@ -3005,6 +3100,15 @@ class _ActionChipState extends State<_ActionChip> {
         ),
       ),
     );
+
+    if (widget.tooltip != null && widget.tooltip!.isNotEmpty) {
+      chip = Tooltip(
+        message: widget.tooltip!,
+        child: chip,
+      );
+    }
+
+    return chip;
   }
 }
 
