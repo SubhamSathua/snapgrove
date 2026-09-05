@@ -1518,7 +1518,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.accentColor,
   });
 
-  double get _height => subfolders.isNotEmpty ? 92.0 : 48.0;
+  double get _height => subfolders.isNotEmpty ? 96.0 : 50.0;
 
   @override
   double get minExtent => _height;
@@ -1530,7 +1530,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       height: _height,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(bottom: BorderSide(color: borderColor)),
@@ -1558,60 +1558,62 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
                 ),
               ),
               const Spacer(),
-              TextButton.icon(
+              ElevatedButton.icon(
                 onPressed: selectedCount > 0 ? onCreateFolder : null,
-                icon: Icon(Icons.create_new_folder, size: 16, color: accentColor),
-                label: Text(
+                icon: const Icon(Icons.create_new_folder, size: 15, color: Color(0xFF000000)),
+                label: const Text(
                   'Create Folder',
                   style: TextStyle(
                     fontFamily: 'JetBrains Mono',
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: accentColor,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF000000),
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFf89838),
+                  foregroundColor: const Color(0xFF000000),
+                  disabledBackgroundColor: mutedColor.withValues(alpha: 0.15),
+                  disabledForegroundColor: mutedColor,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
               ),
               const SizedBox(width: 8),
-              TextButton(
-                onPressed: onExit,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Done',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: mutedColor,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onExit,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: mutedColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           if (subfolders.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 32,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: subfolders.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final folder = subfolders[index];
-                  return _ActionChip(
-                    label: folder,
-                    onTap: () => onMoveToFolder(folder),
-                  );
-                },
-              ),
+            const SizedBox(height: 8),
+            _HorizontalChipsBar(
+              subfolders: subfolders,
+              onMoveToFolder: onMoveToFolder,
             ),
           ],
         ],
@@ -1625,6 +1627,195 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.subfolders != subfolders ||
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.borderColor != borderColor;
+  }
+}
+
+class _HorizontalChipsBar extends StatefulWidget {
+  final List<String> subfolders;
+  final void Function(String) onMoveToFolder;
+
+  const _HorizontalChipsBar({
+    required this.subfolders,
+    required this.onMoveToFolder,
+  });
+
+  @override
+  State<_HorizontalChipsBar> createState() => _HorizontalChipsBarState();
+}
+
+class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
+  final ScrollController _scrollController = ScrollController();
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateScrollIndicators);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollIndicators());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HorizontalChipsBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollIndicators());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_updateScrollIndicators);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _updateScrollIndicators() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final current = _scrollController.offset;
+    final canLeft = current > 4;
+    final canRight = (maxScroll - current) > 4;
+
+    if (canLeft != _canScrollLeft || canRight != _canScrollRight) {
+      if (mounted) {
+        setState(() {
+          _canScrollLeft = canLeft;
+          _canScrollRight = canRight;
+        });
+      }
+    }
+  }
+
+  void _scroll(double delta) {
+    if (!_scrollController.hasClients) return;
+    final target = (_scrollController.offset + delta).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
+    return SizedBox(
+      height: 34,
+      child: Stack(
+        children: [
+          ListView.separated(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.only(
+              left: _canScrollLeft ? 32 : 2,
+              right: _canScrollRight ? 32 : 2,
+            ),
+            itemCount: widget.subfolders.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final folder = widget.subfolders[index];
+              return _ActionChip(
+                label: folder,
+                onTap: () => widget.onMoveToFolder(folder),
+              );
+            },
+          ),
+          if (_canScrollLeft)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      bgColor,
+                      bgColor.withValues(alpha: 0.95),
+                      bgColor.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.only(right: 6),
+                child: Center(
+                  child: InkWell(
+                    onTap: () => _scroll(-140),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: sc.surfaceElevated,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: sc.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_canScrollRight)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      bgColor.withValues(alpha: 0.0),
+                      bgColor.withValues(alpha: 0.95),
+                      bgColor,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.only(left: 6),
+                child: Center(
+                  child: InkWell(
+                    onTap: () => _scroll(140),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: sc.surfaceElevated,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: sc.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1675,45 +1866,58 @@ class _RightSideSelectionPane extends StatelessWidget {
                         color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
-                    TextButton(
-                      onPressed: onExit,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'Done',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: sc.muted,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onExit,
+                        borderRadius: BorderRadius.circular(6),
+                        hoverColor: sc.menuHover,
+                        splashColor: sc.rippleColor,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: sc.surfaceMuted,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: sc.border),
+                          ),
+                          child: Text(
+                            'Done',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: selectedCount > 0 ? onCreateFolder : null,
-                  icon: const Icon(Icons.create_new_folder, size: 16),
-                  label: const Text(
-                    'Create Folder',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: selectedCount > 0 ? onCreateFolder : null,
+                    icon: const Icon(Icons.create_new_folder, size: 16, color: Color(0xFF000000)),
+                    label: const Text(
+                      'Create Folder',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF000000),
+                      ),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: sc.accent,
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: sc.surfaceMuted,
-                    disabledForegroundColor: sc.muted,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFf89838),
+                      foregroundColor: const Color(0xFF000000),
+                      disabledBackgroundColor: sc.surfaceMuted,
+                      disabledForegroundColor: sc.muted,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
                   ),
                 ),
               ],
@@ -1783,21 +1987,22 @@ class _ActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         hoverColor: sc.accent.withValues(alpha: 0.15),
         splashColor: sc.accent.withValues(alpha: 0.25),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: sc.accent.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
+            color: isDark ? const Color(0xFF1a1a1a) : const Color(0xFFf3f3f3),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: sc.accent.withValues(alpha: 0.4),
+              color: isDark ? const Color(0xFF2f2f2f) : const Color(0xFFd7d7d7),
             ),
           ),
           child: Row(
@@ -1807,7 +2012,7 @@ class _ActionChip extends StatelessWidget {
               Icon(
                 Icons.folder_outlined,
                 size: 14,
-                color: sc.accent,
+                color: isDark ? Colors.white70 : Colors.black87,
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -1819,7 +2024,7 @@ class _ActionChip extends StatelessWidget {
                     fontFamily: 'JetBrains Mono',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: sc.accent,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
