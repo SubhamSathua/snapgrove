@@ -10,7 +10,7 @@
 - Organize screenshots directly in your **local storage** with a single tap. 
 - Snapgrove is a cross-platform organizer for **Windows, Android, and Web** that files images straight into your device's actual folders.
 - Reflects changes in your **system gallery** without proprietary locks.
-- [View Screenshots](.github/assets/screenshots/screenshot.md)
+- [Jump to Screenshots](#-screenshots)
 
 **Use Case:**
 Users accumulate hundreds or thousands of screenshots across desktops, phones, and browsers. Instead of navigating tedious file managers, Snapgrove provides a clean visual workspace to batch-select, preview, sort, and move images into custom subfolders in seconds.
