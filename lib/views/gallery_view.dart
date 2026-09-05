@@ -1863,7 +1863,7 @@ class _GroupedOptionTileState extends State<_GroupedOptionTile> {
   }
 }
 
-class _GalleryItem extends StatelessWidget {
+class _GalleryItem extends StatefulWidget {
   final String path;
   final Widget Function() buildImage;
   final bool isSelectionMode;
@@ -1885,24 +1885,37 @@ class _GalleryItem extends StatelessWidget {
   });
 
   @override
+  State<_GalleryItem> createState() => _GalleryItemState();
+}
+
+class _GalleryItemState extends State<_GalleryItem> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    final bool activeSelection = isSelectionMode && isSelected;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool activeSelection = widget.isSelectionMode && widget.isSelected;
+    final Color hoverOverlayColor = isDark
+        ? Colors.white.withValues(alpha: 0.3)
+        : Colors.black.withValues(alpha: 0.3);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          if (isSelectionMode) {
-            onSelectionTap?.call();
+          if (widget.isSelectionMode) {
+            widget.onSelectionTap?.call();
           } else {
-            onOpenPreview?.call();
+            widget.onOpenPreview?.call();
           }
         },
-        onLongPress: onLongPress,
-        onSecondaryTapUp: onRightClick != null
-            ? (details) => onRightClick!(details.globalPosition)
+        onLongPress: widget.onLongPress,
+        onSecondaryTapUp: widget.onRightClick != null
+            ? (details) => widget.onRightClick!(details.globalPosition)
             : null,
         child: Container(
           decoration: BoxDecoration(
@@ -1925,7 +1938,16 @@ class _GalleryItem extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                buildImage(),
+                widget.buildImage(),
+                IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: (_isHovered && !activeSelection) ? 1.0 : 0.0,
+                    child: Container(
+                      color: hoverOverlayColor,
+                    ),
+                  ),
+                ),
                 if (activeSelection)
                   Container(
                     color: sc.accent.withValues(alpha: 0.25),

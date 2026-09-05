@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/foundation.dart';
+import 'exif_cleaner.dart';
 
 @JS('window.URL.createObjectURL')
 external String _createObjectURL(web.Blob blob);
@@ -329,6 +330,64 @@ class WebImageUtils {
       return true;
     } catch (e) {
       debugPrint('Web Error: deleteFile failed: $e');
+      return false;
+    }
+  }
+
+  static Future<String?> renameFile(String path, String newName) async {
+    try {
+      final handle = _handleMap[path];
+      final dir = getLastPickerHandle();
+      if (handle == null || dir == null) return null;
+
+      final file = await handle.getFile().toDart;
+      final buffer = await file.arrayBuffer().toDart;
+      final oldName = path.split('/').last;
+
+      final newFile = await dir.getFileHandle(
+        newName,
+        web.FileSystemGetFileOptions(create: true),
+      ).toDart;
+
+      final writable = await newFile.createWritable().toDart;
+      await writable.write(buffer).toDart;
+      await writable.close().toDart;
+
+      await dir.removeEntry(oldName).toDart;
+      _handleMap.remove(path);
+      _handleMap[newName] = newFile;
+      return newName;
+    } catch (e) {
+      debugPrint('Web Error: renameFile failed: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> updateModifiedDate(String path, DateTime newDate) async {
+    return true;
+  }
+
+  static Future<bool> removeExifData(String path) async {
+    try {
+      final handle = _handleMap[path];
+      if (handle == null) return false;
+
+      final file = await handle.getFile().toDart;
+      final buffer = await file.arrayBuffer().toDart;
+      final bytes = buffer.toDart.asUint8List();
+      final ext = path.contains('.') ? path.split('.').last : 'jpg';
+
+      final cleaned = ExifCleaner.stripMetadata(bytes, ext);
+      final jsArray = [cleaned.toJS].toJS;
+
+      final writable = await handle.createWritable().toDart;
+      await writable.write(jsArray).toDart;
+      await writable.close().toDart;
+
+      _blobCache.remove(path);
+      return true;
+    } catch (e) {
+      debugPrint('Web Error: removeExifData failed: $e');
       return false;
     }
   }

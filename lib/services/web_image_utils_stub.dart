@@ -13,4 +13,7 @@ class WebImageUtils {
   static Future<bool> moveFilesToFolder(String folderName, List<String> files) async => false;
   static Future<bool> undoMoveFiles(String folderName, List<String> files) async => false;
   static Future<bool> deleteFile(String path) async => false;
+  static Future<String?> renameFile(String path, String newName) async => null;
+  static Future<bool> updateModifiedDate(String path, DateTime newDate) async => false;
+  static Future<bool> removeExifData(String path) async => false;
 }

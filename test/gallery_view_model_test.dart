@@ -125,6 +125,33 @@ class MockFileService implements FileService {
     }
     return false;
   }
+
+  @override
+  Future<String?> renameFile(String path, String newName) async {
+    final file = File(path);
+    if (await file.exists()) {
+      final dir = file.parent.path;
+      final newPath = p.join(dir, newName);
+      final renamed = await file.rename(newPath);
+      return renamed.path;
+    }
+    return null;
+  }
+
+  @override
+  Future<bool> updateModifiedDate(String path, DateTime newDate) async {
+    final file = File(path);
+    if (await file.exists()) {
+      await file.setLastModified(newDate);
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<bool> removeExifData(String path) async {
+    return true;
+  }
 }
 
 void main() {

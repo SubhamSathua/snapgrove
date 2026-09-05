@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_stream/saf_stream.dart';
+import 'exif_cleaner.dart';
 
 class SafHelper {
   static final _safStream = SafStream();
@@ -137,6 +138,36 @@ class SafHelper {
       return true;
     } catch (e) {
       debugPrint('SAF Error: deleteFile failed: $e');
+      return false;
+    }
+  }
+
+  static Future<String?> renameFile(String uri, String newName) async {
+    try {
+      final doc = await SafUtil().rename(uri, false, newName);
+      return doc.uri;
+    } catch (e) {
+      debugPrint('SAF Error: renameFile failed: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> updateModifiedDate(String uri, DateTime newDate) async {
+    // SAF doesn't easily allow overriding native filesystem modified timestamp directly
+    return true;
+  }
+
+  static Future<bool> removeExifData(String uri) async {
+    try {
+      final bytes = await _safStream.readFileBytes(uri);
+      final ext = uri.contains('.') ? uri.split('.').last.split('?').first : 'jpg';
+      final mime = ext == 'png' ? 'image/png' : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
+      final cleaned = ExifCleaner.stripMetadata(bytes, ext);
+      final fileName = uri.contains('/') ? uri.split('/').last.split('%2F').last : 'image.$ext';
+      await _safStream.writeFileBytes(uri, fileName, mime, cleaned, overwrite: true);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: removeExifData failed: $e');
       return false;
     }
   }

@@ -60,6 +60,15 @@ class MockFileService implements FileService {
 
   @override
   Future<bool> deleteFile(String path) async => true;
+
+  @override
+  Future<String?> renameFile(String path, String newName) async => newName;
+
+  @override
+  Future<bool> updateModifiedDate(String path, DateTime newDate) async => true;
+
+  @override
+  Future<bool> removeExifData(String path) async => true;
 }
 
 class MockShareService implements ShareService {

@@ -507,9 +507,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   Future<void> _showInfoDialog() async {
     if (_files.isEmpty) return;
-    final currentPath = _files[_currentIndex];
-    final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
-    final extension = p.extension(currentPath).toUpperCase().replaceAll('.', '');
+    String currentPath = _files[_currentIndex];
+    String currentFileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
+    String extension = p.extension(currentPath).toUpperCase().replaceAll('.', '');
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -560,118 +560,350 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       barrierColor: Colors.black.withValues(alpha: 0.6),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: SelectionArea(
-              child: Container(
-                width: MediaQuery.of(ctx).size.width * 0.92 > 460 ? 460 : MediaQuery.of(ctx).size.width * 0.92,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: sc.surfaceElevated,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: sc.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            Future<void> handleRename() async {
+              final renameController = TextEditingController(text: currentFileName);
+              final newName = await showGeneralDialog<String>(
+                context: ctx,
+                barrierDismissible: true,
+                barrierLabel: 'Dismiss',
+                barrierColor: Colors.black.withValues(alpha: 0.6),
+                transitionDuration: const Duration(milliseconds: 200),
+                pageBuilder: (dCtx, a1, a2) {
+                  return Center(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        width: MediaQuery.of(dCtx).size.width * 0.88 > 360 ? 360 : MediaQuery.of(dCtx).size.width * 0.88,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: sc.surfaceElevated,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: sc.border),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
-                            const SizedBox(width: 8),
                             const Text(
-                              'Image Details',
+                              'Rename Image',
                               style: TextStyle(
                                 fontFamily: 'JetBrains Mono',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: renameController,
+                              autofocus: true,
+                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'New file name',
+                                hintStyle: TextStyle(color: sc.muted.withValues(alpha: 0.6), fontSize: 13),
+                                filled: true,
+                                fillColor: sc.surfaceMuted,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: sc.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: Color(0xFFf89838), width: 1.5),
+                                ),
+                              ),
+                              onSubmitted: (val) => Navigator.of(dCtx).pop(val.trim()),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                _DialogActionButton(
+                                  label: 'Cancel',
+                                  isPrimary: false,
+                                  onTap: () => Navigator.of(dCtx).pop(),
+                                ),
+                                const SizedBox(width: 8),
+                                _DialogActionButton(
+                                  label: 'Rename',
+                                  isPrimary: true,
+                                  onTap: () => Navigator.of(dCtx).pop(renameController.text.trim()),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                        _DialogCloseButton(
-                          onTap: () => Navigator.of(ctx).pop(),
+                      ),
+                    ),
+                  );
+                },
+                transitionBuilder: (dCtx, a1, a2, child) {
+                  final curve = Curves.easeOutBack.transform(a1.value);
+                  return Transform.scale(
+                    scale: 0.9 + (0.1 * curve),
+                    child: Opacity(opacity: a1.value, child: child),
+                  );
+                },
+              );
+
+              if (newName != null && newName.isNotEmpty && newName != currentFileName) {
+                final renamedPath = await locator<FileService>().renameFile(currentPath, newName);
+                if (renamedPath != null) {
+                  if (mounted) {
+                    setState(() {
+                      _files[_currentIndex] = renamedPath;
+                    });
+                  }
+                  setDialogState(() {
+                    currentPath = renamedPath;
+                    currentFileName = newName;
+                    extension = p.extension(renamedPath).toUpperCase().replaceAll('.', '');
+                  });
+                  locator<NotificationService>().showSnackBar('Renamed to "$newName"');
+                } else {
+                  locator<NotificationService>().showSnackBar('Failed to rename file', isError: true);
+                }
+              }
+            }
+
+            Future<void> handleEditDateTime() async {
+              final initial = modifiedDate ?? DateTime.now();
+              final pickedDate = await showDatePicker(
+                context: ctx,
+                initialDate: initial,
+                firstDate: DateTime(1970),
+                lastDate: DateTime(2100),
+                builder: (pickerContext, child) {
+                  return Theme(
+                    data: Theme.of(pickerContext).copyWith(
+                      colorScheme: isDark
+                          ? const ColorScheme.dark(
+                              primary: Color(0xFFf89838),
+                              surface: Color(0xFF242424),
+                            )
+                          : const ColorScheme.light(
+                              primary: Color(0xFFf89838),
+                              surface: Colors.white,
+                            ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+
+              if (pickedDate == null || !mounted || !ctx.mounted) return;
+
+              final pickedTime = await showTimePicker(
+                context: ctx,
+                initialTime: TimeOfDay.fromDateTime(initial),
+                builder: (pickerContext, child) {
+                  return Theme(
+                    data: Theme.of(pickerContext).copyWith(
+                      colorScheme: isDark
+                          ? const ColorScheme.dark(
+                              primary: Color(0xFFf89838),
+                              surface: Color(0xFF242424),
+                            )
+                          : const ColorScheme.light(
+                              primary: Color(0xFFf89838),
+                              surface: Colors.white,
+                            ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+
+              if (pickedTime == null || !mounted) return;
+
+              final newDateTime = DateTime(
+                pickedDate.year,
+                pickedDate.month,
+                pickedDate.day,
+                pickedTime.hour,
+                pickedTime.minute,
+              );
+
+              final success = await locator<FileService>().updateModifiedDate(currentPath, newDateTime);
+              if (success) {
+                setDialogState(() {
+                  modifiedDate = newDateTime;
+                });
+                locator<NotificationService>().showSnackBar('Modified date & time updated');
+              } else {
+                locator<NotificationService>().showSnackBar('Failed to update date & time', isError: true);
+              }
+            }
+
+            Future<void> handleRemoveExif() async {
+              final success = await locator<FileService>().removeExifData(currentPath);
+              if (success) {
+                try {
+                  if (!kIsWeb && !currentPath.startsWith('content://')) {
+                    final f = File(currentPath);
+                    if (await f.exists()) {
+                      final stat = await f.stat();
+                      fileSize = stat.size;
+                      modifiedDate = stat.modified;
+                    }
+                  } else {
+                    final bytes = await locator<FileService>().readFile(currentPath);
+                    if (bytes != null) fileSize = bytes.length;
+                  }
+                } catch (_) {}
+
+                setDialogState(() {});
+                locator<NotificationService>().showSnackBar('EXIF metadata removed');
+              } else {
+                locator<NotificationService>().showSnackBar('Failed to remove EXIF data', isError: true);
+              }
+            }
+
+            return Center(
+              child: Material(
+                color: Colors.transparent,
+                child: SelectionArea(
+                  child: Container(
+                    width: MediaQuery.of(ctx).size.width * 0.92 > 480 ? 480 : MediaQuery.of(ctx).size.width * 0.92,
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: sc.surfaceElevated,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: sc.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 30,
+                          offset: const Offset(0, 15),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(ctx).size.height * 0.62,
-                      ),
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: sc.surfaceMuted,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: sc.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _DetailRow(label: 'File Name', value: fileName),
-                              const SizedBox(height: 8),
-                              _DetailRow(
-                                label: 'Resolution',
-                                value: imgWidth != null && imgHeight != null
-                                    ? '$imgWidth × $imgHeight (${(imgWidth * imgHeight / 1000000).toStringAsFixed(2)} MP)'
-                                    : 'Loading...',
-                              ),
-                              const SizedBox(height: 8),
-                              _DetailRow(label: 'File Size', value: formatBytes(fileSize)),
-                              const SizedBox(height: 8),
-                              _DetailRow(label: 'Format', value: extension.isEmpty ? 'Image' : extension),
-                              if (modifiedDate != null) ...[
-                                const SizedBox(height: 8),
-                                _DetailRow(label: 'Modified', value: formatDate(modifiedDate)),
-                              ],
-                              const SizedBox(height: 8),
-                              _DetailRow(label: 'Location', value: currentPath, isPath: true),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _DialogActionButton(
-                          label: 'Copy Path',
-                          isPrimary: false,
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: currentPath));
-                            Navigator.of(ctx).pop();
-                            locator<NotificationService>().showSnackBar('Path copied to clipboard');
-                          },
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Image Details',
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            _DialogCloseButton(
+                              onTap: () => Navigator.of(ctx).pop(),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        _DialogActionButton(
-                          label: 'Close',
-                          isPrimary: true,
-                          onTap: () => Navigator.of(ctx).pop(),
+                        const SizedBox(height: 16),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(ctx).size.height * 0.62,
+                          ),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: sc.surfaceMuted,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: sc.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _DetailRow(
+                                    label: 'File Name',
+                                    value: currentFileName,
+                                    trailing: _EditIconButton(
+                                      tooltip: 'Rename',
+                                      onTap: handleRename,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _DetailRow(
+                                    label: 'Resolution',
+                                    value: imgWidth != null && imgHeight != null
+                                        ? '$imgWidth × $imgHeight (${(imgWidth * imgHeight / 1000000).toStringAsFixed(2)} MP)'
+                                        : 'Loading...',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _DetailRow(label: 'File Size', value: formatBytes(fileSize)),
+                                  const SizedBox(height: 8),
+                                  _DetailRow(label: 'Format', value: extension.isEmpty ? 'Image' : extension),
+                                  const SizedBox(height: 8),
+                                  _DetailRow(
+                                    label: 'Modified',
+                                    value: formatDate(modifiedDate),
+                                    trailing: _EditIconButton(
+                                      tooltip: 'Edit Date & Time',
+                                      onTap: handleEditDateTime,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _DetailRow(label: 'Location', value: currentPath, isPath: true),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _DialogActionButton(
+                              label: 'Remove EXIF',
+                              isPrimary: false,
+                              onTap: handleRemoveExif,
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _DialogActionButton(
+                                  label: 'Copy Path',
+                                  isPrimary: false,
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: currentPath));
+                                    Navigator.of(ctx).pop();
+                                    locator<NotificationService>().showSnackBar('Path copied to clipboard');
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                _DialogActionButton(
+                                  label: 'Close',
+                                  isPrimary: true,
+                                  onTap: () => Navigator.of(ctx).pop(),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -770,7 +1002,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                             child: Hero(
                               tag: index == _currentIndex ? path : 'preview_$path',
                               child: Center(
-                                child: _buildImage(context, path),
+                                child: _PreviewImageItem(
+                                  child: _buildImage(context, path),
+                                ),
                               ),
                             ),
                           ),
@@ -1654,15 +1888,62 @@ class _BottomBarActionState extends State<_BottomBarAction> {
   }
 }
 
+class _PreviewImageItem extends StatefulWidget {
+  final Widget child;
+
+  const _PreviewImageItem({
+    required this.child,
+  });
+
+  @override
+  State<_PreviewImageItem> createState() => _PreviewImageItemState();
+}
+
+class _PreviewImageItemState extends State<_PreviewImageItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayColor = isDark
+        ? Colors.white.withValues(alpha: 0.3)
+        : Colors.black.withValues(alpha: 0.3);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          widget.child,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _isHovered ? 1.0 : 0.0,
+                child: Container(
+                  color: overlayColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isPath;
+  final Widget? trailing;
 
   const _DetailRow({
     required this.label,
     required this.value,
     this.isPath = false,
+    this.trailing,
   });
 
   @override
@@ -1673,7 +1954,7 @@ class _DetailRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: 95,
@@ -1699,7 +1980,69 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 6),
+            trailing!,
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _EditIconButton extends StatefulWidget {
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _EditIconButton({
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  State<_EditIconButton> createState() => _EditIconButtonState();
+}
+
+class _EditIconButtonState extends State<_EditIconButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.1))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: widget.onTap,
+              splashColor: sc.rippleColor,
+              child: Center(
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

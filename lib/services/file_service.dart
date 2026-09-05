@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'exif_cleaner.dart';
 import 'saf_helper_stub.dart'
     if (dart.library.io) 'saf_helper_native.dart';
 import 'web_image_utils.dart';
@@ -13,6 +14,9 @@ abstract class FileService {
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files);
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files);
   Future<bool> deleteFile(String path);
+  Future<String?> renameFile(String path, String newName);
+  Future<bool> updateModifiedDate(String path, DateTime newDate);
+  Future<bool> removeExifData(String path);
 }
 
 class FileServiceImpl implements FileService {
@@ -177,6 +181,74 @@ class FileServiceImpl implements FileService {
       }
     } catch (e) {
       debugPrint('Error deleting file: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<String?> renameFile(String path, String newName) async {
+    try {
+      if (kIsWeb) {
+        return await WebImageUtils.renameFile(path, newName);
+      } else if (Platform.isAndroid && path.startsWith('content://')) {
+        return await SafHelper.renameFile(path, newName);
+      } else {
+        final file = File(path);
+        if (await file.exists()) {
+          final dir = file.parent.path;
+          final newPath = p.join(dir, newName);
+          final renamed = await file.rename(newPath);
+          return renamed.path;
+        }
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error renaming file: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> updateModifiedDate(String path, DateTime newDate) async {
+    try {
+      if (kIsWeb) {
+        return await WebImageUtils.updateModifiedDate(path, newDate);
+      } else if (Platform.isAndroid && path.startsWith('content://')) {
+        return await SafHelper.updateModifiedDate(path, newDate);
+      } else {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.setLastModified(newDate);
+          return true;
+        }
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error updating modified date: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> removeExifData(String path) async {
+    try {
+      if (kIsWeb) {
+        return await WebImageUtils.removeExifData(path);
+      } else if (Platform.isAndroid && path.startsWith('content://')) {
+        return await SafHelper.removeExifData(path);
+      } else {
+        final file = File(path);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          final ext = p.extension(path);
+          final cleaned = ExifCleaner.stripMetadata(bytes, ext);
+          await file.writeAsBytes(cleaned);
+          return true;
+        }
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error removing EXIF data: $e');
       return false;
     }
   }

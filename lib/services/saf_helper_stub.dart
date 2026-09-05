@@ -10,4 +10,7 @@ abstract class SafHelper {
   static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async => false;
   static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async => false;
   static Future<bool> deleteFile(String uri) async => false;
+  static Future<String?> renameFile(String uri, String newName) async => null;
+  static Future<bool> updateModifiedDate(String uri, DateTime newDate) async => false;
+  static Future<bool> removeExifData(String uri) async => false;
 }
