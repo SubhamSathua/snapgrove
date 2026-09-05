@@ -1,4 +1,4 @@
-﻿# Snapgrove
+# Snapgrove
 <p align="center">
   <img src=".github/assets/logo/logo.png" alt="Snapgrove Logo" width="128">
 </p>
@@ -10,7 +10,7 @@
 - Organize screenshots directly in your **local storage** with a single tap. 
 - Snapgrove is a cross-platform organizer for **Windows, Android, and Web** that files images straight into your device's actual folders.
 - Reflects changes in your **system gallery** without proprietary locks.
-- [View Screenshots](##screenshots)
+- [View Screenshots](.github/assets/screenshots/screenshot.md)
 
 **Use Case:**
 Users accumulate hundreds or thousands of screenshots across desktops, phones, and browsers. Instead of navigating tedious file managers, Snapgrove provides a clean visual workspace to batch-select, preview, sort, and move images into custom subfolders in seconds.
@@ -19,6 +19,7 @@ Users accumulate hundreds or thousands of screenshots across desktops, phones, a
 
 ## # Index
 - [Features](#-features)
+- [Screenshots](#-screenshots)
 - [How to install](#-how-to-install)
 - [How to contribute](#-how-to-contribute)
 - [Requirements](#-requirements)
@@ -38,6 +39,22 @@ Users accumulate hundreds or thousands of screenshots across desktops, phones, a
 - **Dynamic Theming:** Switch instantly between System, Light, and Dark modes across all views and modals.
 - **Safe Selection Mode:** Protect your workflow with custom discard confirmations on Escape or Back navigation.
 - **Full-Screen Viewer:** Inspect images with double-tap zoom, gesture panning, and keyboard navigation.
+
+---
+
+## # Screenshots
+
+> **Full Gallery:** [View all screenshots and interface states](.github/assets/screenshots/screenshot.md)
+
+### Desktop Gallery
+<p align="center">
+  <img src=".github/assets/screenshots/main-working.png" alt="Snapgrove Desktop Gallery" width="900">
+</p>
+
+### Mobile Gallery
+<p align="center">
+  <img src=".github/assets/screenshots/mob-gallery.jpg" alt="Snapgrove Mobile Gallery" width="400">
+</p>
 
 ---
 
