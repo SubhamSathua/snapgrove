@@ -293,7 +293,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     setState(() {
       if (_selectedIndices.contains(index)) {
         _selectedIndices.remove(index);
-        if (_selectedIndices.isEmpty) _isSelectionMode = false;
       } else {
         _selectedIndices.add(index);
       }
@@ -1080,11 +1079,18 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (width >= 720) ...[
-                      _SelectAllButton(
-                        isAllSelected: _viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length,
-                        onTap: (_viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length)
-                            ? _unselectAll
-                            : _selectAll,
+                      _SelectionActionButton(
+                        icon: Icons.done_all,
+                        label: 'Select All',
+                        isEnabled: _viewModel.files.isNotEmpty && _selectedIndices.length < _viewModel.files.length,
+                        onTap: _selectAll,
+                      ),
+                      const SizedBox(width: 8),
+                      _SelectionActionButton(
+                        icon: Icons.deselect,
+                        label: 'Unselect',
+                        isEnabled: _selectedIndices.isNotEmpty,
+                        onTap: _unselectAll,
                       ),
                       const SizedBox(width: 10),
                       _IconSquare(
@@ -1106,34 +1112,54 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         elevation: 6,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: sc.border),
+                          side: BorderSide(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
                         ),
                         onSelected: (val) {
-                          if (val == 'toggle_select_all') {
-                            if (_viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length) {
-                              _unselectAll();
-                            } else {
-                              _selectAll();
-                            }
+                          if (val == 'select_all') {
+                            _selectAll();
+                          } else if (val == 'unselect_all') {
+                            _unselectAll();
                           } else if (val == 'exit') {
                             _confirmExitSelectionMode(context);
                           }
                         },
                         itemBuilder: (context) {
-                          final isAll = _viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length;
                           return [
                             PopupMenuItem(
-                              value: 'toggle_select_all',
+                              value: 'select_all',
+                              enabled: _viewModel.files.isNotEmpty && _selectedIndices.length < _viewModel.files.length,
                               child: Row(
                                 children: [
                                   Icon(
-                                    isAll ? Icons.deselect : Icons.done_all,
+                                    Icons.done_all,
                                     size: 18,
                                     color: isDark ? Colors.white : Colors.black,
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    isAll ? 'Unselect All' : 'Select All',
+                                    'Select All',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 13,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'unselect_all',
+                              enabled: _selectedIndices.isNotEmpty,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.deselect,
+                                    size: 18,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Unselect All',
                                     style: TextStyle(
                                       fontFamily: 'JetBrains Mono',
                                       fontSize: 13,
@@ -1817,6 +1843,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ClipRect(
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -1825,10 +1853,10 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: backgroundColor.withValues(alpha: 0.70),
-            border: Border(bottom: BorderSide(color: borderColor.withValues(alpha: 0.85))),
+            border: Border(bottom: BorderSide(color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000))),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -2000,7 +2028,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       decoration: BoxDecoration(
                         color: sc.surfaceElevated.withValues(alpha: 0.85),
                         shape: BoxShape.circle,
-                        border: Border.all(color: sc.border),
+                        border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.12),
@@ -2044,7 +2072,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       decoration: BoxDecoration(
                         color: sc.surfaceElevated.withValues(alpha: 0.85),
                         shape: BoxShape.circle,
-                        border: Border.all(color: sc.border),
+                        border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.12),
@@ -2126,14 +2154,18 @@ class _RightSideSelectionPane extends StatelessWidget {
                       ),
                     ],
             ),
-            border: Border(left: BorderSide(color: sc.border.withValues(alpha: 0.85))),
+            border: Border(
+              left: BorderSide(
+                color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+              ),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Top Header (total selected, create folder at top)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -2154,7 +2186,7 @@ class _RightSideSelectionPane extends StatelessWidget {
                   ],
                 ),
               ),
-              Divider(height: 1, thickness: 1, color: sc.border.withValues(alpha: 0.75)),
+              const SizedBox(height: 2),
               // Subfolders / Tags (2 per row with vertical scroll if overflow)
               Expanded(
                 child: subfolders.isEmpty
@@ -2182,7 +2214,7 @@ class _RightSideSelectionPane extends StatelessWidget {
                     : Scrollbar(
                         thumbVisibility: true,
                         child: GridView.builder(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             mainAxisSpacing: 8,
@@ -2283,42 +2315,55 @@ class _CreateFolderButtonState extends State<_CreateFolderButton> {
   }
 }
 
-class _SelectAllButton extends StatefulWidget {
-  final bool isAllSelected;
-  final VoidCallback onTap;
+class _SelectionActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool isEnabled;
 
-  const _SelectAllButton({
-    required this.isAllSelected,
+  const _SelectionActionButton({
+    required this.icon,
+    required this.label,
     required this.onTap,
+    this.isEnabled = true,
   });
 
   @override
-  State<_SelectAllButton> createState() => _SelectAllButtonState();
+  State<_SelectionActionButton> createState() => _SelectionActionButtonState();
 }
 
-class _SelectAllButtonState extends State<_SelectAllButton> {
+class _SelectionActionButtonState extends State<_SelectionActionButton> {
   bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = widget.isEnabled && widget.onTap != null;
+
+    final Color contentColor = enabled
+        ? (isDark ? Colors.white : Colors.black)
+        : sc.muted.withValues(alpha: 0.4);
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          color: _isHovered ? sc.menuHover : sc.surfaceMuted,
+          color: enabled
+              ? (_isHovered ? sc.menuHover : sc.surfaceMuted)
+              : sc.surfaceMuted.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: sc.border),
+          border: Border.all(
+            color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+          ),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: enabled ? widget.onTap : null,
             borderRadius: BorderRadius.circular(8),
             splashColor: sc.rippleColor,
             hoverColor: Colors.transparent,
@@ -2328,18 +2373,18 @@ class _SelectAllButtonState extends State<_SelectAllButton> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    widget.isAllSelected ? Icons.deselect : Icons.done_all,
+                    widget.icon,
                     size: 16,
-                    color: isDark ? Colors.white : Colors.black,
+                    color: contentColor,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    widget.isAllSelected ? 'Unselect All' : 'Select All',
+                    widget.label,
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black,
+                      color: contentColor,
                     ),
                   ),
                 ],
@@ -2374,8 +2419,8 @@ class _ActionChipState extends State<_ActionChip> {
 
     final Color defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
     final Color hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
-    final Color defaultBorder = isDark ? const Color(0xFF2f2f2f) : const Color(0xFFd7d7d7);
-    final Color hoverBorder = isDark ? const Color(0xFF4a4a4a) : const Color(0xFFb5b5b5);
+    final Color defaultBorder = isDark ? const Color(0x22FFFFFF) : const Color(0x18000000);
+    final Color hoverBorder = isDark ? const Color(0x44FFFFFF) : const Color(0x33000000);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
