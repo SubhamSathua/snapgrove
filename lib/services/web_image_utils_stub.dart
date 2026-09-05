@@ -4,7 +4,7 @@ import 'dart:typed_data';
 /// defines the interface for our web optimizations.
 class WebImageUtils {
   static String? getCachedThumbnailUrl(String path) => null;
-  static Future<List<String>> listImages(dynamic root) async => [];
+  static Future<List<String>> listImages(dynamic root, {bool includeSubfolders = false}) async => [];
   static Future<String?> getThumbnail(String path) async => null;
   static Future<Uint8List?> readFile(String path) async => null;
   static void setExitWarning(bool enabled) {}

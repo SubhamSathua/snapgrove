@@ -1229,10 +1229,17 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                           controller: _tagsScrollController,
                                           scrollDirection: Axis.horizontal,
                                           physics: const BouncingScrollPhysics(),
-                                          itemCount: _subfolders.length,
+                                          itemCount: _subfolders.length + 1,
                                           separatorBuilder: (_, _) => const SizedBox(width: 8),
                                           itemBuilder: (context, index) {
-                                            final tag = _subfolders[index];
+                                            if (index == 0) {
+                                              return _CategoryPillChip(
+                                                label: 'ROOT',
+                                                isRoot: true,
+                                                onTap: () => _moveImageToFolder('ROOT'),
+                                              );
+                                            }
+                                            final tag = _subfolders[index - 1];
                                             return _CategoryPillChip(
                                               label: tag,
                                               onTap: () => _moveImageToFolder(tag),
@@ -1753,10 +1760,12 @@ class _CreateFolderPillButtonState extends State<_CreateFolderPillButton> {
 class _CategoryPillChip extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
+  final bool isRoot;
 
   const _CategoryPillChip({
     required this.label,
     required this.onTap,
+    this.isRoot = false,
   });
 
   @override
@@ -1768,7 +1777,23 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
 
   @override
   Widget build(BuildContext context) {
-    final Color bgColor = _isHovered ? const Color(0xFF383838) : const Color(0xFF242424);
+    final Color bgColor;
+    final Color borderColor;
+    final Color contentColor;
+
+    if (widget.isRoot) {
+      bgColor = widget.isRoot
+          ? (_isHovered
+              ? const Color(0xFFf89838).withValues(alpha: 0.35)
+              : const Color(0xFFf89838).withValues(alpha: 0.22))
+          : (_isHovered ? const Color(0xFF383838) : const Color(0xFF242424));
+      borderColor = const Color(0xFFf89838);
+      contentColor = const Color(0xFFf89838);
+    } else {
+      bgColor = _isHovered ? const Color(0xFF383838) : const Color(0xFF242424);
+      borderColor = _isHovered ? const Color(0x66FFFFFF) : const Color(0x33FFFFFF);
+      contentColor = Colors.white;
+    }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1779,7 +1804,7 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: _isHovered ? const Color(0x66FFFFFF) : const Color(0x33FFFFFF),
+            color: borderColor,
           ),
         ),
         child: Material(
@@ -1796,19 +1821,19 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.folder_outlined,
+                  Icon(
+                    widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
                     size: 13,
-                    color: Colors.white70,
+                    color: widget.isRoot ? const Color(0xFFf89838) : Colors.white70,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     widget.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: contentColor,
                     ),
                   ),
                 ],

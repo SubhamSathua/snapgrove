@@ -41,7 +41,7 @@ class MockStorageService implements StorageService {
 
 class MockFileService implements FileService {
   @override
-  Future<List<String>> listImages(String path) async => [];
+  Future<List<String>> listImages(String path, {bool includeSubfolders = false}) async => [];
 
   @override
   Future<Uint8List?> readFile(String path) async => null;

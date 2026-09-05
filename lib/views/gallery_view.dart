@@ -15,7 +15,6 @@ import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
 import '../services/notification_service.dart';
 import 'image_preview_view.dart';
-import 'theme_dialog.dart';
 
 class OrganizerGallery extends StatefulWidget {
   final String path;
@@ -477,12 +476,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     return userPref.clamp(isMobile ? 2 : 3, maxAllowed);
   }
 
-  Future<void> _showViewDialog(double width) async {
+  Future<void> _showMoreMenuDialog(double width) async {
     final sc = context.snapgroveColors;
     final isMobile = width < 600;
-    final List<int> options = isMobile ? [2, 3, 4, 5] : [3, 4, 5, 6, 7, 10, 12];
+    final List<int> gridOptions = isMobile ? [2, 3, 4, 5] : [3, 4, 5, 6, 7, 10, 12];
     final maxAllowed = _getMaxAllowedColumns(width);
-    final currentEffective = _getEffectiveColumns(width);
 
     await showGeneralDialog(
       context: context,
@@ -493,99 +491,243 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       pageBuilder: (ctx, anim1, anim2) => StatefulBuilder(
         builder: (context, setStateDialog) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
+          final appVM = locator<AppViewModel>();
+          final currentTheme = appVM.themeMode;
+          final currentCols = _getEffectiveColumns(width);
+
           return Center(
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                width: 340,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: sc.surfaceElevated,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: sc.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 40,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Grid Layout',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    width: (width * 0.92).clamp(320.0, 380.0),
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.90),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 40,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Choose the number of columns',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: 'Lora', fontSize: 14, color: sc.muted),
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
-                      children: options.map((opt) {
-                        final isDisabled = opt > maxAllowed;
-                        final isActive = currentEffective == opt;
-                        
-                        final bgColor = isActive 
-                            ? (isDark ? Colors.white : Colors.black)
-                            : sc.surfaceMuted;
-                        final fgColor = isActive
-                            ? (isDark ? Colors.black : Colors.white)
-                            : sc.muted;
-
-                        return InkWell(
-                          onTap: isDisabled ? null : () {
-                            setState(() => _userSelectedColumns = opt);
-                            locator<StorageService>().write('settings', 'grid_columns', opt);
-                            Navigator.of(ctx).pop();
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 200),
-                            opacity: isDisabled ? 0.3 : 1.0,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 48,
-                              height: 48,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: isDisabled ? Colors.transparent : (isActive ? Colors.transparent : sc.border),
-                                ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Options',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black,
                               ),
-                              child: Text(
-                                '$opt',
-                                style: TextStyle(
-                                  fontFamily: 'JetBrains Mono',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  color: fgColor,
+                            ),
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: InkWell(
+                                onTap: () => Navigator.of(ctx).pop(),
+                                borderRadius: BorderRadius.circular(999),
+                                hoverColor: sc.menuHover,
+                                splashColor: sc.rippleColor,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        // Subfolder toggle
+                        InkWell(
+                          onTap: () {
+                            final nextVal = !_viewModel.includeSubfolders;
+                            _viewModel.setIncludeSubfolders(nextVal);
+                            setStateDialog(() {});
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.snippet_folder_outlined,
+                                  size: 20,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Show images from sub-folders',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Switch.adaptive(
+                                  value: _viewModel.includeSubfolders,
+                                  activeTrackColor: sc.accent.withValues(alpha: 0.5),
+                                  activeThumbColor: sc.accent,
+                                  onChanged: (val) {
+                                    _viewModel.setIncludeSubfolders(val);
+                                    setStateDialog(() {});
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Divider(
+                            color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+                            height: 1,
+                          ),
+                        ),
+                        // Grid Layout
+                        Text(
+                          'Grid Layout',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 10,
+                          children: gridOptions.map((opt) {
+                            final isDisabled = opt > maxAllowed;
+                            final isActive = currentCols == opt;
+                            final bgColor = isActive
+                                ? (isDark ? Colors.white : Colors.black)
+                                : sc.surfaceMuted;
+                            final fgColor = isActive
+                                ? (isDark ? Colors.black : Colors.white)
+                                : sc.muted;
+
+                            return InkWell(
+                              onTap: isDisabled
+                                  ? null
+                                  : () {
+                                      setState(() => _userSelectedColumns = opt);
+                                      locator<StorageService>().write('settings', 'grid_columns', opt);
+                                      setStateDialog(() {});
+                                    },
+                              borderRadius: BorderRadius.circular(8),
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: isDisabled ? 0.3 : 1.0,
+                                child: Container(
+                                  width: 42,
+                                  height: 38,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: bgColor,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDisabled
+                                          ? Colors.transparent
+                                          : (isActive ? Colors.transparent : sc.border),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '$opt',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: fgColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Divider(
+                            color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+                            height: 1,
+                          ),
+                        ),
+                        // Theme
+                        Text(
+                          'Theme',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _MoreThemeOption(
+                              label: 'System',
+                              icon: Icons.brightness_auto,
+                              isActive: currentTheme == ThemeMode.system,
+                              onTap: () {
+                                appVM.setThemeMode(ThemeMode.system);
+                                setStateDialog(() {});
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _MoreThemeOption(
+                              label: 'Light',
+                              icon: Icons.light_mode,
+                              isActive: currentTheme == ThemeMode.light,
+                              onTap: () {
+                                appVM.setThemeMode(ThemeMode.light);
+                                setStateDialog(() {});
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _MoreThemeOption(
+                              label: 'Dark',
+                              icon: Icons.dark_mode,
+                              isActive: currentTheme == ThemeMode.dark,
+                              onTap: () {
+                                appVM.setThemeMode(ThemeMode.dark);
+                                setStateDialog(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           );
-        }
+        },
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = Curves.easeOutBack.transform(anim1.value);
@@ -1253,39 +1395,20 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       ),
                     ),
                     const SizedBox(width: 10),
-                    _IconSquare(
-                      svgPath: 'assets/icons/sort.svg',
-                      onTap: _showSortDialog,
+                    Tooltip(
+                      message: 'Sort',
+                      child: _IconSquare(
+                        svgPath: 'assets/icons/sort.svg',
+                        onTap: _showSortDialog,
+                      ),
                     ),
                     const SizedBox(width: 10),
-                    _IconSquare(
-                      svgPath: 'assets/icons/grid.svg',
-                      onTap: () => _showViewDialog(width),
-                    ),
-                    const SizedBox(width: 10),
-                    _IconSquare(
-                      svgPath: 'assets/icons/palette.svg',
-                      onTap: () {
-                        final appVM = locator<AppViewModel>();
-                        showGeneralDialog(
-                          context: context,
-                          barrierDismissible: true,
-                          barrierLabel: 'Dismiss',
-                          barrierColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.2),
-                          transitionDuration: const Duration(milliseconds: 250),
-                          pageBuilder: (ctx, anim1, anim2) => ThemeDialog(
-                            currentTheme: appVM.themeMode,
-                            onThemeChanged: appVM.setThemeMode,
-                          ),
-                          transitionBuilder: (ctx, anim1, anim2, child) {
-                            final curve = Curves.easeOutBack.transform(anim1.value);
-                            return Transform.scale(
-                              scale: 0.9 + (0.1 * curve),
-                              child: Opacity(opacity: anim1.value, child: child),
-                            );
-                          },
-                        );
-                      },
+                    Tooltip(
+                      message: 'Options',
+                      child: _IconSquare(
+                        icon: Icons.more_vert,
+                        onTap: () => _showMoreMenuDialog(width),
+                      ),
                     ),
                   ],
                 ),
@@ -1300,7 +1423,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           ? (folderName.length > 14 ? 13.0 : 15.0)
                           : (width < 600 ? (folderName.length > 20 ? 14.0 : 16.0) : 18.0);
                       final double rightPad = !isLoading && _viewModel.files.isNotEmpty
-                          ? (width < 600 ? 190.0 : 210.0)
+                          ? (width < 600 ? 150.0 : 170.0)
                           : 48.0;
 
                       return Padding(
@@ -1389,8 +1512,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final path = _viewModel.files[index];
+                  final subfolderTag = _viewModel.getSubfolderTag(path);
                   return _GalleryItem(
                     path: path,
+                    subfolderTag: subfolderTag,
                     thumbnailManager: _thumbnailManager,
                     isSelectionMode: _isSelectionMode,
                     isSelected: _selectedIndices.contains(index),
@@ -1795,6 +1920,7 @@ class _GroupedOptionTileState extends State<_GroupedOptionTile> {
 
 class _GalleryItem extends StatefulWidget {
   final String path;
+  final String? subfolderTag;
   final ThumbnailManager thumbnailManager;
   final bool isSelectionMode;
   final bool isSelected;
@@ -1805,6 +1931,7 @@ class _GalleryItem extends StatefulWidget {
 
   const _GalleryItem({
     required this.path, 
+    this.subfolderTag,
     required this.thumbnailManager,
     this.isSelectionMode = false,
     this.isSelected = false,
@@ -1872,6 +1999,29 @@ class _GalleryItemState extends State<_GalleryItem> {
                   path: widget.path,
                   thumbnailManager: widget.thumbnailManager,
                 ),
+                if (widget.subfolderTag != null && widget.subfolderTag!.isNotEmpty)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.70),
+                        borderRadius: const BorderRadius.only(
+                          bottomRight: Radius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        widget.subfolderTag!,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 IgnorePointer(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
@@ -2076,7 +2226,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     this.bottomAmbientColor = const Color(0xFFf89838),
   });
 
-  double get _height => subfolders.isNotEmpty ? 92.0 : 48.0;
+  double get _height => 92.0;
 
   @override
   double get minExtent => _height;
@@ -2144,13 +2294,11 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
                   ),
                 ],
               ),
-              if (subfolders.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _HorizontalChipsBar(
-                  subfolders: subfolders,
-                  onMoveToFolder: onMoveToFolder,
-                ),
-              ],
+              const SizedBox(height: 8),
+              _HorizontalChipsBar(
+                subfolders: subfolders,
+                onMoveToFolder: onMoveToFolder,
+              ),
             ],
           ),
         ),
@@ -2255,10 +2403,17 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
               left: _canScrollLeft ? 32 : 2,
               right: _canScrollRight ? 32 : 2,
             ),
-            itemCount: widget.subfolders.length,
+            itemCount: widget.subfolders.length + 1,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final folder = widget.subfolders[index];
+              if (index == 0) {
+                return _ActionChip(
+                  label: 'ROOT',
+                  isRoot: true,
+                  onTap: () => widget.onMoveToFolder('ROOT'),
+                );
+              }
+              final folder = widget.subfolders[index - 1];
               return _ActionChip(
                 label: folder,
                 onTap: () => widget.onMoveToFolder(folder),
@@ -2483,50 +2638,35 @@ class _RightSideSelectionPane extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              // Subfolders / Tags (2 per row with vertical scroll if overflow)
+              // Subfolders / Tags (2 per row with vertical scroll if overflow, including ROOT)
               Expanded(
-                child: subfolders.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.folder_open_outlined, size: 36, color: sc.muted.withValues(alpha: 0.5)),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No subfolders.\nCreate a folder to move files.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'Lora',
-                                  fontSize: 13,
-                                  color: sc.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Scrollbar(
-                        thumbVisibility: true,
-                        child: GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 2.6,
-                          ),
-                          itemCount: subfolders.length,
-                          itemBuilder: (context, index) {
-                            final folder = subfolders[index];
-                            return _ActionChip(
-                              label: folder,
-                              onTap: () => onMoveToFolder(folder),
-                            );
-                          },
-                        ),
-                      ),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 2.6,
+                    ),
+                    itemCount: subfolders.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return _ActionChip(
+                          label: 'ROOT',
+                          isRoot: true,
+                          onTap: () => onMoveToFolder('ROOT'),
+                        );
+                      }
+                      final folder = subfolders[index - 1];
+                      return _ActionChip(
+                        label: folder,
+                        onTap: () => onMoveToFolder(folder),
+                      );
+                    },
+                  ),
+                ),
               ),
             ],
           ),
@@ -2700,10 +2840,12 @@ class _SelectionActionButtonState extends State<_SelectionActionButton> {
 class _ActionChip extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
+  final bool isRoot;
 
   const _ActionChip({
     required this.label,
     required this.onTap,
+    this.isRoot = false,
   });
 
   @override
@@ -2717,10 +2859,25 @@ class _ActionChipState extends State<_ActionChip> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final Color defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
-    final Color hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
-    final Color defaultBorder = isDark ? const Color(0x22FFFFFF) : const Color(0x18000000);
-    final Color hoverBorder = isDark ? const Color(0x44FFFFFF) : const Color(0x33000000);
+    final Color defaultBg;
+    final Color hoverBg;
+    final Color defaultBorder;
+    final Color hoverBorder;
+    final Color contentColor;
+
+    if (widget.isRoot) {
+      defaultBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.22 : 0.16);
+      hoverBg = const Color(0xFFf89838).withValues(alpha: isDark ? 0.35 : 0.28);
+      defaultBorder = const Color(0xFFf89838);
+      hoverBorder = const Color(0xFFf89838);
+      contentColor = isDark ? const Color(0xFFf89838) : const Color(0xFFd97818);
+    } else {
+      defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
+      hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
+      defaultBorder = isDark ? const Color(0x22FFFFFF) : const Color(0x18000000);
+      hoverBorder = isDark ? const Color(0x44FFFFFF) : const Color(0x33000000);
+      contentColor = isDark ? Colors.white70 : Colors.black87;
+    }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2736,7 +2893,9 @@ class _ActionChipState extends State<_ActionChip> {
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: widget.isRoot
+                        ? const Color(0xFFf89838).withValues(alpha: 0.2)
+                        : Colors.black.withValues(alpha: 0.08),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -2759,9 +2918,9 @@ class _ActionChipState extends State<_ActionChip> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.folder_outlined,
+                    widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
                     size: 14,
-                    color: isDark ? Colors.white70 : Colors.black87,
+                    color: contentColor,
                   ),
                   const SizedBox(width: 6),
                   Flexible(
@@ -2772,9 +2931,87 @@ class _ActionChipState extends State<_ActionChip> {
                       style: TextStyle(
                         fontFamily: 'JetBrains Mono',
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w700,
+                        color: contentColor,
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreThemeOption extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _MoreThemeOption({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<_MoreThemeOption> createState() => _MoreThemeOptionState();
+}
+
+class _MoreThemeOptionState extends State<_MoreThemeOption> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final Color bgColor = widget.isActive
+        ? (isDark ? Colors.white : Colors.black)
+        : (_isHovered ? sc.menuHover : sc.surfaceMuted);
+
+    final Color fgColor = widget.isActive
+        ? (isDark ? Colors.black : Colors.white)
+        : (isDark ? Colors.white70 : Colors.black87);
+
+    return Expanded(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 38,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.isActive ? Colors.transparent : sc.border,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(8),
+              splashColor: sc.rippleColor,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(widget.icon, size: 15, color: fgColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 12,
+                      fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: fgColor,
                     ),
                   ),
                 ],

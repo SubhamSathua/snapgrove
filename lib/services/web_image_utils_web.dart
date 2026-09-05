@@ -70,7 +70,7 @@ class WebImageUtils {
 
   static String? getCachedThumbnailUrl(String path) => _blobCache[path];
 
-  static Future<List<String>> listImages(dynamic root) async {
+  static Future<List<String>> listImages(dynamic root, {bool includeSubfolders = false}) async {
     final dir = _lastPickerHandle;
     if (dir == null) return [];
     
@@ -79,6 +79,7 @@ class WebImageUtils {
 
     try {
       final entries = dir.values();
+      final List<web.FileSystemDirectoryHandle> subDirs = [];
       while (true) {
         final result = await entries.next().toDart;
         if (result.done) break;
@@ -89,8 +90,29 @@ class WebImageUtils {
             files.add(entry.name);
             _handleMap[entry.name] = entry as web.FileSystemFileHandle;
           }
+        } else if (entry.kind == 'directory') {
+          subDirs.add(entry as web.FileSystemDirectoryHandle);
         }
       }
+
+      if (includeSubfolders) {
+        for (final subDir in subDirs) {
+          try {
+            final subEntries = subDir.values();
+            while (true) {
+              final subResult = await subEntries.next().toDart;
+              if (subResult.done) break;
+              final subEntry = subResult.value as web.FileSystemHandle;
+              if (subEntry.kind == 'file' && _isImage(subEntry.name)) {
+                final relPath = '${subDir.name}/${subEntry.name}';
+                files.add(relPath);
+                _handleMap[relPath] = subEntry as web.FileSystemFileHandle;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
       setExitWarning(true);
     } catch (e) {
       debugPrint('Error listing directory: $e');
@@ -233,11 +255,15 @@ class WebImageUtils {
       final dir = getLastPickerHandle();
       if (dir == null) return false;
 
-      // Get or create target subfolder
-      final targetDir = await dir.getDirectoryHandle(
-        folderName,
-        web.FileSystemGetDirectoryOptions(create: true),
-      ).toDart;
+      final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+
+      web.FileSystemDirectoryHandle? targetDir;
+      if (!isMovingToRoot) {
+        targetDir = await dir.getDirectoryHandle(
+          folderName,
+          web.FileSystemGetDirectoryOptions(create: true),
+        ).toDart;
+      }
 
       for (final filePath in files) {
         final handle = _handleMap[filePath];
@@ -245,22 +271,54 @@ class WebImageUtils {
 
         final file = await handle.getFile().toDart;
         final buffer = await file.arrayBuffer().toDart;
-        final fileName = filePath.split('/').last;
+        final fileName = filePath.contains('/') ? filePath.split('/').last : filePath;
 
-        // Create new file in target directory
-        final newFile = await targetDir.getFileHandle(
-          fileName,
-          web.FileSystemGetFileOptions(create: true),
-        ).toDart;
+        if (isMovingToRoot) {
+          final rootFile = await dir.getFileHandle(
+            fileName,
+            web.FileSystemGetFileOptions(create: true),
+          ).toDart;
 
-        // Write content
-        final writable = await newFile.createWritable().toDart;
-        await writable.write(buffer).toDart;
-        await writable.close().toDart;
+          final writable = await rootFile.createWritable().toDart;
+          await writable.write(buffer).toDart;
+          await writable.close().toDart;
 
-        // Remove source file from root
-        await dir.removeEntry(fileName).toDart;
-        _handleMap.remove(filePath);
+          if (filePath.contains('/')) {
+            final srcFolder = filePath.split('/').first;
+            try {
+              final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+              await srcDir.removeEntry(fileName).toDart;
+            } catch (_) {}
+          }
+
+          _handleMap.remove(filePath);
+          _handleMap[fileName] = rootFile;
+        } else {
+          final newFile = await targetDir!.getFileHandle(
+            fileName,
+            web.FileSystemGetFileOptions(create: true),
+          ).toDart;
+
+          final writable = await newFile.createWritable().toDart;
+          await writable.write(buffer).toDart;
+          await writable.close().toDart;
+
+          if (filePath.contains('/')) {
+            final srcFolder = filePath.split('/').first;
+            if (srcFolder != folderName) {
+              try {
+                final srcDir = await dir.getDirectoryHandle(srcFolder).toDart;
+                await srcDir.removeEntry(fileName).toDart;
+              } catch (_) {}
+            }
+          } else {
+            await dir.removeEntry(fileName).toDart;
+          }
+
+          _handleMap.remove(filePath);
+          final newPath = '$folderName/$fileName';
+          _handleMap[newPath] = newFile;
+        }
       }
       return true;
     } catch (e) {

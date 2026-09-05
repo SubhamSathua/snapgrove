@@ -14,20 +14,39 @@ class SafHelper {
   static final List<String> _cacheOrder = [];
   static const int _maxCacheSize = 500;
 
-  static Future<List<String>> listImages(String uri) async {
+  static Future<List<String>> listImages(String uri, {bool includeSubfolders = false}) async {
     try {
       final contents = await SafUtil().list(uri);
-      return contents
-          .where((f) {
-            if (f.isDir) return false;
-            final name = f.name.toLowerCase();
-            return name.endsWith('.png') || 
-                   name.endsWith('.jpg') || 
-                   name.endsWith('.jpeg') ||
-                   name.endsWith('.webp');
-          })
-          .map((f) => f.uri)
-          .toList();
+      final List<String> result = [];
+      final subdirs = <dynamic>[];
+      for (final f in contents) {
+        if (!f.isDir) {
+          final name = f.name.toLowerCase();
+          if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp')) {
+            result.add(f.uri);
+          }
+        } else {
+          subdirs.add(f);
+        }
+      }
+
+      if (includeSubfolders) {
+        for (final sub in subdirs) {
+          try {
+            final subContents = await SafUtil().list(sub.uri);
+            for (final f in subContents) {
+              if (!f.isDir) {
+                final name = f.name.toLowerCase();
+                if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp')) {
+                  result.add(f.uri);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      return result;
     } catch (e) {
       debugPrint('SAF Error: listImages failed: $e');
       return [];
@@ -108,9 +127,10 @@ class SafHelper {
 
   static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
     try {
-      final targetDir = await SafUtil().mkdirp(parentUri, [folderName]);
+      final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+      final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
       for (final fileUri in files) {
-        await SafUtil().moveTo(fileUri, false, parentUri, targetDir.uri);
+        await SafUtil().moveTo(fileUri, false, parentUri, destUri);
       }
       return true;
     } catch (e) {

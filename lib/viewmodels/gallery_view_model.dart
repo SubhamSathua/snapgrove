@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../services/file_service.dart';
 import '../services/storage_service.dart';
@@ -26,6 +27,9 @@ class GalleryViewModel extends ChangeNotifier {
   SortField _sortField = SortField.dateModified;
   SortOrder _sortOrder = SortOrder.descending;
 
+  // Subfolders toggle state
+  bool _includeSubfolders = false;
+
   // Selection state
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = {};
@@ -42,6 +46,7 @@ class GalleryViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   SortField get sortField => _sortField;
   SortOrder get sortOrder => _sortOrder;
+  bool get includeSubfolders => _includeSubfolders;
   
   // Selection getters
   bool get isSelectionMode => _isSelectionMode;
@@ -51,6 +56,26 @@ class GalleryViewModel extends ChangeNotifier {
   
   // Subfolders getter
   List<String> get subfolders => _subfolders;
+
+  String? getSubfolderTag(String filePath) {
+    if (filePath.isEmpty) return null;
+    if (kIsWeb) {
+      if (filePath.contains('/')) {
+        return filePath.split('/').first;
+      }
+      return null;
+    }
+    if (!filePath.startsWith('content://')) {
+      final parent = p.dirname(filePath);
+      final normParent = p.normalize(parent).toLowerCase();
+      final normRoot = p.normalize(path).toLowerCase();
+      if (normParent != normRoot && normParent.startsWith(normRoot)) {
+        return p.basename(parent);
+      }
+      return null;
+    }
+    return null;
+  }
 
   Future<void> loadFiles() async {
     if (path.isEmpty) {
@@ -66,16 +91,20 @@ class GalleryViewModel extends ChangeNotifier {
       final storage = locator<StorageService>();
       final savedField = await storage.read('settings', 'sort_field');
       final savedOrder = await storage.read('settings', 'sort_order');
+      final savedSubfolders = await storage.read('settings', 'show_subfolders_images');
       if (savedField is String) {
         _sortField = SortField.values.firstWhere((e) => e.name == savedField, orElse: () => SortField.dateModified);
       }
       if (savedOrder is String) {
         _sortOrder = SortOrder.values.firstWhere((e) => e.name == savedOrder, orElse: () => SortOrder.descending);
       }
+      if (savedSubfolders is bool) {
+        _includeSubfolders = savedSubfolders;
+      }
     } catch (_) {}
 
     try {
-      _files = await _fileService.listImages(path);
+      _files = await _fileService.listImages(path, includeSubfolders: _includeSubfolders);
       _applySort();
       await _loadSubfolders();
     } catch (e) {
@@ -84,6 +113,14 @@ class GalleryViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> setIncludeSubfolders(bool enabled) async {
+    _includeSubfolders = enabled;
+    try {
+      await locator<StorageService>().write('settings', 'show_subfolders_images', enabled);
+    } catch (_) {}
+    await loadFiles();
   }
 
   void setSort(SortField field, SortOrder order) {

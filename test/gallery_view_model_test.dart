@@ -43,11 +43,11 @@ class MockStorageService implements StorageService {
 
 class MockFileService implements FileService {
   @override
-  Future<List<String>> listImages(String path) async {
+  Future<List<String>> listImages(String path, {bool includeSubfolders = false}) async {
     final dir = Directory(path);
     if (!await dir.exists()) return [];
     final files = <String>[];
-    await for (final f in dir.list()) {
+    await for (final f in dir.list(recursive: includeSubfolders)) {
       if (f is File) {
         final p = f.path.toLowerCase();
         if (p.endsWith('.png') || p.endsWith('.jpg') || p.endsWith('.jpeg')) {
@@ -369,6 +369,27 @@ void main() {
       expect(deleteResult, true);
       expect(await file.exists(), false);
       expect(viewModel.files.contains(file.path), false);
+    });
+
+    test('includeSubfolders toggles subfolder image loading and computes getSubfolderTag', () async {
+      final rootImg = File('${tempDir.path}\\root.png');
+      await rootImg.create();
+      final subDir = Directory('${tempDir.path}\\Tools');
+      await subDir.create();
+      final subImg = File('${subDir.path}\\tool.png');
+      await subImg.create();
+
+      // By default, includeSubfolders is false
+      await viewModel.loadFiles();
+      expect(viewModel.files.length, 1);
+      expect(viewModel.getSubfolderTag(rootImg.path), isNull);
+
+      // Toggle includeSubfolders on
+      await viewModel.setIncludeSubfolders(true);
+      expect(viewModel.includeSubfolders, true);
+      expect(viewModel.files.length, 2);
+      expect(viewModel.getSubfolderTag(rootImg.path), isNull);
+      expect(viewModel.getSubfolderTag(subImg.path), 'Tools');
     });
   });
 }

@@ -7,7 +7,7 @@ import 'saf_helper_stub.dart'
 import 'web_image_utils.dart';
 
 abstract class FileService {
-  Future<List<String>> listImages(String path);
+  Future<List<String>> listImages(String path, {bool includeSubfolders = false});
   Future<Uint8List?> readFile(String path);
   Future<List<String>> listSubfolders(String path);
   Future<bool> createSubfolder(String path, String name);
@@ -21,27 +21,43 @@ abstract class FileService {
 
 class FileServiceImpl implements FileService {
   @override
-  Future<List<String>> listImages(String path) async {
+  Future<List<String>> listImages(String path, {bool includeSubfolders = false}) async {
     if (path.isEmpty) return [];
 
     try {
       if (kIsWeb) {
         final handle = WebImageUtils.getLastPickerHandle();
         if (handle != null) {
-          return await WebImageUtils.listImages(handle);
+          return await WebImageUtils.listImages(handle, includeSubfolders: includeSubfolders);
         }
         return [];
       } else if (Platform.isAndroid) {
-        return await SafHelper.listImages(path);
+        return await SafHelper.listImages(path, includeSubfolders: includeSubfolders);
       } else {
         final dir = Directory(path);
         if (await dir.exists()) {
           final List<String> files = [];
           await for (final f in dir.list()) {
             if (f is File) {
-              final p = f.path.toLowerCase();
-              if (p.endsWith('.png') || p.endsWith('.jpg') || p.endsWith('.jpeg')) {
+              final pStr = f.path.toLowerCase();
+              if (pStr.endsWith('.png') || pStr.endsWith('.jpg') || pStr.endsWith('.jpeg') || pStr.endsWith('.webp')) {
                 files.add(f.path);
+              }
+            }
+          }
+          if (includeSubfolders) {
+            await for (final d in dir.list()) {
+              if (d is Directory) {
+                try {
+                  await for (final subF in d.list()) {
+                    if (subF is File) {
+                      final pStr = subF.path.toLowerCase();
+                      if (pStr.endsWith('.png') || pStr.endsWith('.jpg') || pStr.endsWith('.jpeg') || pStr.endsWith('.webp')) {
+                        files.add(subF.path);
+                      }
+                    }
+                  }
+                } catch (_) {}
               }
             }
           }
@@ -121,15 +137,19 @@ class FileServiceImpl implements FileService {
       } else if (Platform.isAndroid) {
         return await SafHelper.moveFilesToFolder(path, folderName, files);
       } else {
-        final targetDir = Directory(p.join(path, folderName));
+        final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
+        final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
+        final targetDir = Directory(targetDirPath);
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
         }
         for (final filePath in files) {
           final file = File(filePath);
           final fileName = p.basename(filePath);
-          final destPath = p.join(targetDir.path, fileName);
-          await file.rename(destPath);
+          final destPath = p.join(targetDirPath, fileName);
+          if (file.path != destPath && await file.exists()) {
+            await file.rename(destPath);
+          }
         }
         return true;
       }
