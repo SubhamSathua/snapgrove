@@ -1096,17 +1096,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           pinned: true,
           elevation: 0,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          leading: IconButton(
-            icon: SvgPicture.asset(
-              'assets/icons/Back-Btn.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(
-                isDark ? Colors.white : Colors.black,
-                BlendMode.srcIn,
-              ),
+          leading: Center(
+            child: _RoundBackButton(
+              onTap: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
             ),
-            onPressed: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
           ),
           actions: [
             if (_isSelectionMode)
@@ -1130,9 +1123,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         onTap: _unselectAll,
                       ),
                       const SizedBox(width: 10),
-                      _IconSquare(
-                        svgPath: 'assets/icons/Back-Btn.svg',
+                      _RoundBackButton(
                         onTap: () => _confirmExitSelectionMode(context),
+                        tooltip: 'Exit selection',
                       ),
                     ] else ...[
                       PopupMenuButton<String>(
@@ -1232,9 +1225,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         },
                       ),
                       const SizedBox(width: 6),
-                      _IconSquare(
-                        svgPath: 'assets/icons/Back-Btn.svg',
+                      _RoundBackButton(
                         onTap: () => _confirmExitSelectionMode(context),
+                        tooltip: 'Exit selection',
                       ),
                     ],
                   ],
@@ -1614,6 +1607,53 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 }
 
+class _RoundBackButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  const _RoundBackButton({
+    required this.onTap,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sc = context.snapgroveColors;
+    final iconColor = isDark ? Colors.white : Colors.black;
+
+    Widget button = SizedBox(
+      width: 36,
+      height: 36,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          hoverColor: sc.menuHover,
+          splashColor: sc.rippleColor,
+          highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+          child: Center(
+            child: SvgPicture.asset(
+              'assets/icons/Back-Btn.svg',
+              width: 24,
+              height: 24,
+              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: button);
+    }
+    return button;
+  }
+}
+
 class _IconSquare extends StatelessWidget {
   final String? svgPath;
   final IconData? icon;
@@ -1646,16 +1686,18 @@ class _IconSquare extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: sc.surfaceMuted,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: sc.surfaceMuted,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           hoverColor: sc.menuHover,
           splashColor: sc.rippleColor,
+          highlightColor: sc.rippleColor.withValues(alpha: 0.15),
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Center(child: childWidget),
@@ -2085,27 +2127,32 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 ),
                 padding: const EdgeInsets.only(right: 6),
                 child: Center(
-                  child: InkWell(
-                    onTap: () => _scroll(-140),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: sc.surfaceElevated.withValues(alpha: 0.85),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4,
-                          ),
-                        ],
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Material(
+                      color: sc.surfaceElevated.withValues(alpha: 0.85),
+                      shape: CircleBorder(
+                        side: BorderSide(
+                          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.chevron_left,
-                        size: 16,
-                        color: isDark ? Colors.white : Colors.black,
+                      clipBehavior: Clip.antiAlias,
+                      elevation: 2,
+                      shadowColor: Colors.black.withValues(alpha: 0.12),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _scroll(-140),
+                        hoverColor: sc.menuHover,
+                        splashColor: sc.rippleColor,
+                        highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+                        child: Center(
+                          child: Icon(
+                            Icons.chevron_left,
+                            size: 16,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -2129,27 +2176,32 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 ),
                 padding: const EdgeInsets.only(left: 6),
                 child: Center(
-                  child: InkWell(
-                    onTap: () => _scroll(140),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: sc.surfaceElevated.withValues(alpha: 0.85),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4,
-                          ),
-                        ],
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Material(
+                      color: sc.surfaceElevated.withValues(alpha: 0.85),
+                      shape: CircleBorder(
+                        side: BorderSide(
+                          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: isDark ? Colors.white : Colors.black,
+                      clipBehavior: Clip.antiAlias,
+                      elevation: 2,
+                      shadowColor: Colors.black.withValues(alpha: 0.12),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _scroll(140),
+                        hoverColor: sc.menuHover,
+                        splashColor: sc.rippleColor,
+                        highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+                        child: Center(
+                          child: Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -2358,7 +2410,6 @@ class _CreateFolderButtonState extends State<_CreateFolderButton> {
         duration: const Duration(milliseconds: 180),
         width: widget.fullWidth ? double.infinity : null,
         decoration: BoxDecoration(
-          color: _isHovered ? hoverBg : defaultBg,
           borderRadius: BorderRadius.circular(6),
           boxShadow: _isHovered
               ? [
@@ -2371,11 +2422,13 @@ class _CreateFolderButtonState extends State<_CreateFolderButton> {
               : null,
         ),
         child: Material(
-          color: Colors.transparent,
+          color: _isHovered ? hoverBg : defaultBg,
+          borderRadius: BorderRadius.circular(6),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(6),
-            splashColor: Colors.black.withValues(alpha: 0.15),
+            splashColor: Colors.black.withValues(alpha: 0.25),
+            highlightColor: Colors.black.withValues(alpha: 0.12),
             hoverColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -2434,6 +2487,10 @@ class _SelectionActionButtonState extends State<_SelectionActionButton> {
         ? (isDark ? Colors.white : Colors.black)
         : sc.muted.withValues(alpha: 0.4);
 
+    final Color bgColor = enabled
+        ? (_isHovered ? sc.menuHover : sc.surfaceMuted)
+        : sc.surfaceMuted.withValues(alpha: 0.4);
+
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _isHovered = true),
@@ -2441,20 +2498,19 @@ class _SelectionActionButtonState extends State<_SelectionActionButton> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          color: enabled
-              ? (_isHovered ? sc.menuHover : sc.surfaceMuted)
-              : sc.surfaceMuted.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
           ),
         ),
         child: Material(
-          color: Colors.transparent,
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: enabled ? widget.onTap : null,
-            borderRadius: BorderRadius.circular(8),
             splashColor: sc.rippleColor,
+            highlightColor: sc.rippleColor.withValues(alpha: 0.15),
             hoverColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2515,57 +2571,59 @@ class _ActionChipState extends State<_ActionChip> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
-          splashColor: const Color(0xFFf89838).withValues(alpha: 0.25),
-          hoverColor: Colors.transparent,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _isHovered ? hoverBg : defaultBg,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: _isHovered ? hoverBorder : defaultBorder,
-              ),
-              boxShadow: _isHovered
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+          border: Border.all(
+            color: _isHovered ? hoverBorder : defaultBorder,
+          ),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: _isHovered ? hoverBg : defaultBg,
+          borderRadius: BorderRadius.circular(6),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onTap,
+            splashColor: const Color(0xFFf89838).withValues(alpha: 0.35),
+            highlightColor: const Color(0xFFf89838).withValues(alpha: 0.18),
+            hoverColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.folder_outlined,
+                    size: 14,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.folder_outlined,
-                  size: 14,
-                  color: isDark ? Colors.white70 : Colors.black87,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -123,14 +123,31 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       appBar: AppBar(
         backgroundColor: Colors.black.withValues(alpha: 0.5),
         elevation: 0,
-        leading: IconButton(
-          icon: SvgPicture.asset(
-            'assets/icons/Back-Btn.svg',
-            width: 24,
-            height: 24,
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        leading: Center(
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).pop(),
+                hoverColor: Colors.white.withValues(alpha: 0.12),
+                splashColor: Colors.white.withValues(alpha: 0.25),
+                highlightColor: Colors.white.withValues(alpha: 0.12),
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/icons/Back-Btn.svg',
+                    width: 24,
+                    height: 24,
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  ),
+                ),
+              ),
+            ),
           ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           p.basename(currentPath).replaceAll('%2F', '/').split('/').last,
