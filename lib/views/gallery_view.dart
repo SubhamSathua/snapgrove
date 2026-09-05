@@ -709,7 +709,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           );
                         },
                         childCount: _viewModel.files.length,
-                        addAutomaticKeepAlives: true,
+                        addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
                       ),
                     ),
@@ -807,6 +807,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             return Image.network(
               snapshot.data!,
               fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
               gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
             );
@@ -826,6 +828,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             return Image.memory(
               snapshot.data!,
               fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
               cacheWidth: 350,
               gaplessPlayback: true,
             );
@@ -839,6 +843,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   return Image.memory(
                     snapshot.data!,
                     fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
                     cacheWidth: 350,
                   );
                 }
@@ -854,6 +860,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     return Image.file(
       File(path),
       fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
       cacheWidth: 350,
       errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
     );
@@ -1117,72 +1125,7 @@ class _GalleryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-
-    Widget child = Container(
-      decoration: BoxDecoration(
-        color: sc.surfaceElevated,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: sc.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Hero(
-          tag: path,
-          child: buildImage(),
-        ),
-      ),
-    );
-
-    if (isSelectionMode) {
-      child = Stack(
-        children: [
-          child,
-          Positioned.fill(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onSelectionTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSelected ? sc.accent.withValues(alpha: 0.3) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: isSelected 
-                        ? Border.all(color: sc.accent, width: 3)
-                        : null,
-                  ),
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: isSelected
-                        ? const Icon(
-                            Icons.done_all,
-                            size: 24,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black87,
-                                blurRadius: 4,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+    final bool activeSelection = isSelectionMode && isSelected;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1204,7 +1147,53 @@ class _GalleryItem extends StatelessWidget {
       onSecondaryTapUp: onRightClick != null
           ? (details) => onRightClick!(details.globalPosition)
           : null,
-      child: child,
+      child: Container(
+        decoration: BoxDecoration(
+          color: sc.surfaceElevated,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: activeSelection ? sc.accent : sc.border,
+            width: activeSelection ? 2.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(activeSelection ? 5.5 : 7.0),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              buildImage(),
+              if (activeSelection)
+                Container(
+                  color: sc.accent.withValues(alpha: 0.25),
+                ),
+              if (activeSelection)
+                const Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Icon(
+                    Icons.done_all,
+                    size: 22,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 6,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

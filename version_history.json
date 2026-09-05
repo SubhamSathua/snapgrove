@@ -22,5 +22,13 @@
         "bumpType":  "custom",
         "previous":  "01.00.01+2",
         "timestamp":  "2026-09-05T12:55:02+05:30"
+    },
+    {
+        "iteration":  4,
+        "version":  "01.07.11",
+        "fullVersion":  "01.07.11+4",
+        "bumpType":  "patch",
+        "previous":  "01.07.10+3",
+        "timestamp":  "2026-09-05T13:05:55+05:30"
     }
 ]

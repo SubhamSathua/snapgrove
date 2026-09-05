@@ -108,6 +108,8 @@ class WebImageUtils {
     return n.endsWith('.png') || n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.webp');
   }
 
+  static final Map<String, List<Completer<String?>>> _inFlight = {};
+
   static Future<String?> getThumbnail(String path) async {
     if (_blobCache.containsKey(path)) {
       _touch(path);
@@ -117,33 +119,54 @@ class WebImageUtils {
     final handle = _handleMap[path];
     if (handle == null) return null;
 
+    if (_inFlight.containsKey(path)) {
+      final completer = Completer<String?>();
+      _inFlight[path]!.add(completer);
+      return completer.future;
+    }
+
+    _inFlight[path] = [];
+
     try {
       final file = await handle.getFile().toDart;
       final bitmap = await _createImageBitmap(file).toDart;
-      final canvas = web.OffscreenCanvas(300, 400);
+      final canvas = web.OffscreenCanvas(300, 300);
       final ctx = canvas.getContext('2d') as web.CanvasRenderingContext2D;
       
       double scale = 300 / bitmap.width;
-      if (bitmap.height * scale < 400) scale = 400 / bitmap.height;
+      if (bitmap.height * scale < 300) scale = 300 / bitmap.height;
       
       final w = bitmap.width * scale;
       final h = bitmap.height * scale;
       final x = (300 - w) / 2;
-      final y = (400 - h) / 2;
+      final y = (300 - h) / 2;
       
       ctx.drawImage(bitmap as web.CanvasImageSource, x, y, w, h);
       bitmap.close();
 
       final blob = await canvas.convertToBlob(web.ImageEncodeOptions(
         type: 'image/jpeg',
-        quality: 0.7,
+        quality: 0.75,
       )).toDart;
 
       final url = _createObjectURL(blob);
       _addToCache(path, url);
+
+      final listeners = _inFlight.remove(path);
+      if (listeners != null) {
+        for (final c in listeners) {
+          c.complete(url);
+        }
+      }
       return url;
     } catch (e) {
       debugPrint('Web Thumbnail Error for $path: $e');
+      final listeners = _inFlight.remove(path);
+      if (listeners != null) {
+        for (final c in listeners) {
+          c.complete(null);
+        }
+      }
       return null;
     }
   }
