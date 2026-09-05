@@ -1,5 +1,19 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../core/locator.dart';
 import '../services/file_service.dart';
+import '../services/storage_service.dart';
+
+enum SortField {
+  dateModified,
+  name,
+  size,
+}
+
+enum SortOrder {
+  ascending,
+  descending,
+}
 
 class GalleryViewModel extends ChangeNotifier {
   final String path;
@@ -8,6 +22,10 @@ class GalleryViewModel extends ChangeNotifier {
   List<String> _files = [];
   bool _isLoading = false;
   
+  // Sorting state
+  SortField _sortField = SortField.dateModified;
+  SortOrder _sortOrder = SortOrder.descending;
+
   // Selection state
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = {};
@@ -22,6 +40,8 @@ class GalleryViewModel extends ChangeNotifier {
 
   List<String> get files => _files;
   bool get isLoading => _isLoading;
+  SortField get sortField => _sortField;
+  SortOrder get sortOrder => _sortOrder;
   
   // Selection getters
   bool get isSelectionMode => _isSelectionMode;
@@ -43,7 +63,20 @@ class GalleryViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final storage = locator<StorageService>();
+      final savedField = await storage.read('settings', 'sort_field');
+      final savedOrder = await storage.read('settings', 'sort_order');
+      if (savedField is String) {
+        _sortField = SortField.values.firstWhere((e) => e.name == savedField, orElse: () => SortField.dateModified);
+      }
+      if (savedOrder is String) {
+        _sortOrder = SortOrder.values.firstWhere((e) => e.name == savedOrder, orElse: () => SortOrder.descending);
+      }
+    } catch (_) {}
+
+    try {
       _files = await _fileService.listImages(path);
+      _applySort();
       await _loadSubfolders();
     } catch (e) {
       debugPrint('Error loading files: $e');
@@ -51,6 +84,83 @@ class GalleryViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  void setSort(SortField field, SortOrder order) {
+    _sortField = field;
+    _sortOrder = order;
+    _applySort();
+    try {
+      locator<StorageService>().write('settings', 'sort_field', field.name);
+      locator<StorageService>().write('settings', 'sort_order', order.name);
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  void _applySort() {
+    if (_files.isEmpty) return;
+
+    switch (_sortField) {
+      case SortField.name:
+        _files.sort((a, b) {
+          final nameA = _extractFileName(a).toLowerCase();
+          final nameB = _extractFileName(b).toLowerCase();
+          final cmp = nameA.compareTo(nameB);
+          return _sortOrder == SortOrder.ascending ? cmp : -cmp;
+        });
+        break;
+      case SortField.dateModified:
+        _files.sort((a, b) {
+          int cmp = 0;
+          if (!kIsWeb && !a.startsWith('content://') && !b.startsWith('content://')) {
+            try {
+              final fileA = File(a);
+              final fileB = File(b);
+              if (fileA.existsSync() && fileB.existsSync()) {
+                final dateA = fileA.lastModifiedSync();
+                final dateB = fileB.lastModifiedSync();
+                cmp = dateA.compareTo(dateB);
+              }
+            } catch (_) {}
+          }
+          if (cmp == 0) {
+            final nameA = _extractFileName(a).toLowerCase();
+            final nameB = _extractFileName(b).toLowerCase();
+            cmp = nameA.compareTo(nameB);
+          }
+          return _sortOrder == SortOrder.ascending ? cmp : -cmp;
+        });
+        break;
+      case SortField.size:
+        _files.sort((a, b) {
+          int cmp = 0;
+          if (!kIsWeb && !a.startsWith('content://') && !b.startsWith('content://')) {
+            try {
+              final fileA = File(a);
+              final fileB = File(b);
+              if (fileA.existsSync() && fileB.existsSync()) {
+                final sizeA = fileA.lengthSync();
+                final sizeB = fileB.lengthSync();
+                cmp = sizeA.compareTo(sizeB);
+              }
+            } catch (_) {}
+          }
+          if (cmp == 0) {
+            final nameA = _extractFileName(a).toLowerCase();
+            final nameB = _extractFileName(b).toLowerCase();
+            cmp = nameA.compareTo(nameB);
+          }
+          return _sortOrder == SortOrder.ascending ? cmp : -cmp;
+        });
+        break;
+    }
+  }
+
+  static String _extractFileName(String path) {
+    if (path.isEmpty) return '';
+    final clean = path.replaceAll(r'\', '/');
+    final lastSlash = clean.lastIndexOf('/');
+    return lastSlash != -1 ? clean.substring(lastSlash + 1) : clean;
   }
 
   Future<void> _loadSubfolders() async {

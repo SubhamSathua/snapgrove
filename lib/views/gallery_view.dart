@@ -13,7 +13,7 @@ import '../services/storage_service.dart';
 import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
 import 'image_preview_view.dart';
-import 'landing_page.dart'; // For ThemeDialog
+import 'theme_dialog.dart';
 
 class OrganizerGallery extends StatefulWidget {
   final String path;
@@ -349,70 +349,177 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     );
   }
 
+  String _getDisplayFolderName(String path, String fallbackTitle) {
+    if (path.isEmpty) {
+      if (fallbackTitle.isNotEmpty &&
+          fallbackTitle != 'Browse Gallery' &&
+          fallbackTitle != 'Screenshot Folder' &&
+          fallbackTitle != 'Organizer Gallery') {
+        return fallbackTitle;
+      }
+      return 'Gallery';
+    }
+
+    // Android SAF Content URI (e.g. content://.../tree/primary%3APictures%2FScreenshots)
+    if (path.startsWith('content://')) {
+      try {
+        final decoded = Uri.decodeFull(path);
+        final lastSlash = decoded.lastIndexOf('/');
+        final lastColon = decoded.lastIndexOf(':');
+        String name = decoded;
+        if (lastSlash != -1 || lastColon != -1) {
+          final splitPoint = lastColon > lastSlash ? lastColon : lastSlash;
+          name = decoded.substring(splitPoint + 1);
+        }
+        name = name.trim();
+        if (name.isNotEmpty && name != 'tree' && name != 'document') {
+          return name;
+        }
+      } catch (_) {}
+    }
+
+    // Standard local filesystem path (Windows, Linux, macOS, iOS) or Web directory name
+    try {
+      String cleanPath = path.replaceAll(r'\', '/');
+      while (cleanPath.endsWith('/')) {
+        cleanPath = cleanPath.substring(0, cleanPath.length - 1);
+      }
+      final lastSlash = cleanPath.lastIndexOf('/');
+      final name = lastSlash != -1 ? cleanPath.substring(lastSlash + 1) : cleanPath;
+      if (name.trim().isNotEmpty && name != '/' && name != '\\') {
+        return name.trim();
+      }
+    } catch (_) {}
+
+    return 'Gallery';
+  }
+
   Future<void> _showSortDialog() async {
-    final sc = context.snapgroveColors;
     await showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: sc.surfaceElevated,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: sc.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
+      pageBuilder: (ctx, anim1, anim2) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          final sc = context.snapgroveColors;
+          final currentField = _viewModel.sortField;
+          final currentOrder = _viewModel.sortOrder;
+
+          return Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 310,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: sc.surfaceElevated,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: sc.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 40,
+                      offset: const Offset(0, 20),
+                    ),
+                  ],
                 ),
-              ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Sort by',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: [
+                        _GroupedOptionTile(
+                          label: 'Date Modified',
+                          isActive: currentField == SortField.dateModified,
+                          isFirst: true,
+                          isLast: false,
+                          onTap: () {
+                            setStateDialog(() {});
+                            _viewModel.setSort(SortField.dateModified, currentOrder);
+                          },
+                        ),
+                        const SizedBox(height: 2),
+                        _GroupedOptionTile(
+                          label: 'Name',
+                          isActive: currentField == SortField.name,
+                          isFirst: false,
+                          isLast: false,
+                          onTap: () {
+                            setStateDialog(() {});
+                            _viewModel.setSort(SortField.name, currentOrder);
+                          },
+                        ),
+                        const SizedBox(height: 2),
+                        _GroupedOptionTile(
+                          label: 'File Size',
+                          isActive: currentField == SortField.size,
+                          isFirst: false,
+                          isLast: true,
+                          onTap: () {
+                            setStateDialog(() {});
+                            _viewModel.setSort(SortField.size, currentOrder);
+                          },
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Divider(color: sc.border, height: 1),
+                    ),
+                    const Text(
+                      'Order by',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: [
+                        _GroupedOptionTile(
+                          label: 'Ascending',
+                          isActive: currentOrder == SortOrder.ascending,
+                          isFirst: true,
+                          isLast: false,
+                          onTap: () {
+                            setStateDialog(() {});
+                            _viewModel.setSort(currentField, SortOrder.ascending);
+                          },
+                        ),
+                        const SizedBox(height: 2),
+                        _GroupedOptionTile(
+                          label: 'Descending',
+                          isActive: currentOrder == SortOrder.descending,
+                          isFirst: false,
+                          isLast: true,
+                          onTap: () {
+                            setStateDialog(() {});
+                            _viewModel.setSort(currentField, SortOrder.descending);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Sort by',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SortOption(label: 'Date Created', isActive: true, onTap: () => Navigator.of(ctx).pop()),
-                _SortOption(label: 'Date Modified', isActive: false, onTap: () => Navigator.of(ctx).pop()),
-                _SortOption(label: 'Name', isActive: false, onTap: () => Navigator.of(ctx).pop()),
-                _SortOption(label: 'Size', isActive: false, onTap: () => Navigator.of(ctx).pop()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(color: sc.border, height: 1),
-                ),
-                const Text(
-                  'Order by',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SortOption(label: 'Ascending', isActive: false, onTap: () => Navigator.of(ctx).pop()),
-                _SortOption(label: 'Descending', isActive: true, onTap: () => Navigator.of(ctx).pop()),
-              ],
-            ),
-          ),
-        ),
+          );
+        },
       ),
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = Curves.easeOutBack.transform(anim1.value);
@@ -643,9 +750,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     final width = MediaQuery.of(context).size.width;
     final effectiveColumns = _getEffectiveColumns(width);
 
@@ -677,6 +781,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           listenable: Listenable.merge([_viewModel, locator<AppViewModel>()]),
           builder: (context, child) {
             final isLoading = _viewModel.isLoading || _isTransitioning;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final sc = context.snapgroveColors;
             
             return Scaffold(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -685,7 +791,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
                 slivers: [
                   SliverAppBar(
-                    expandedHeight: 120.0,
+                    expandedHeight: (width < 400) ? 128.0 : 120.0,
                     floating: false,
                     pinned: true,
                     elevation: 0,
@@ -787,18 +893,37 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     title: !_isSelectionMode
-                        ? Text(
-                            widget.title,
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
+                        ? LayoutBuilder(
+                            builder: (context, constraints) {
+                              final folderName = _getDisplayFolderName(widget.path, widget.title);
+                              final double fontSize = width < 380
+                                  ? (folderName.length > 14 ? 13.0 : 15.0)
+                                  : (width < 600 ? (folderName.length > 20 ? 14.0 : 16.0) : 18.0);
+                              final double rightPad = !isLoading && _viewModel.files.isNotEmpty
+                                  ? (width < 600 ? 190.0 : 210.0)
+                                  : 48.0;
+
+                              return Padding(
+                                padding: EdgeInsets.only(left: 56, right: rightPad, bottom: 16),
+                                child: Text(
+                                  folderName,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.15,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              );
+                            },
                           )
                         : null,
                     centerTitle: false,
-                    titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+                    titlePadding: EdgeInsets.zero,
                   ),
                 ),
                 if (isLoading && _viewModel.files.isEmpty)
@@ -1202,45 +1327,64 @@ class _IconSquare extends StatelessWidget {
   }
 }
 
-class _SortOption extends StatelessWidget {
+class _GroupedOptionTile extends StatelessWidget {
   final String label;
   final bool isActive;
+  final bool isFirst;
+  final bool isLast;
   final VoidCallback onTap;
 
-  const _SortOption({required this.label, required this.isActive, required this.onTap});
+  const _GroupedOptionTile({
+    required this.label,
+    required this.isActive,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    final bgColor = isActive 
+
+    final borderRadius = BorderRadius.vertical(
+      top: isFirst ? const Radius.circular(10) : Radius.zero,
+      bottom: isLast ? const Radius.circular(10) : Radius.zero,
+    );
+
+    final bgColor = isActive
         ? (isDark ? Colors.white : Colors.black)
         : sc.surfaceMuted;
     final fgColor = isActive
         ? (isDark ? Colors.black : Colors.white)
         : sc.muted;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: borderRadius,
+        mouseCursor: SystemMouseCursors.click,
+        hoverColor: sc.menuHover,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isActive ? Colors.transparent : sc.border),
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: isActive ? Colors.transparent : sc.border.withValues(alpha: 0.6),
+              width: 0.8,
+            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontFamily: 'JetBrains Mono',
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13,
               color: fgColor,
             ),
           ),

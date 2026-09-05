@@ -1,9 +1,45 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:snapgrove/core/locator.dart';
 import 'package:snapgrove/services/file_service.dart';
+import 'package:snapgrove/services/storage_service.dart';
 import 'package:snapgrove/viewmodels/gallery_view_model.dart';
+
+class MockStorageService implements StorageService {
+  final Map<String, dynamic> _data = {};
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<ThemeMode> getThemeMode() async => ThemeMode.system;
+
+  @override
+  Future<void> saveThemeMode(ThemeMode mode) async {}
+
+  @override
+  Future<String?> getScreenshotDir() async => null;
+
+  @override
+  Future<void> saveScreenshotDir(String path) async {}
+
+  @override
+  Future<String?> getPermanentScreenshotDir() async => null;
+
+  @override
+  Future<void> savePermanentScreenshotDir(String path) async {}
+
+  @override
+  Future<void> write(String store, String key, dynamic value) async {
+    _data['${store}_$key'] = value;
+  }
+
+  @override
+  Future<dynamic> read(String store, String key) async => _data['${store}_$key'];
+}
 
 class MockFileService implements FileService {
   @override
@@ -71,6 +107,12 @@ void main() {
   late Directory tempDir;
   late GalleryViewModel viewModel;
   late MockFileService mockFileService;
+
+  setUpAll(() {
+    if (!locator.isRegistered<StorageService>()) {
+      locator.registerSingleton<StorageService>(MockStorageService());
+    }
+  });
 
   setUp(() async {
     mockFileService = MockFileService();
@@ -159,8 +201,23 @@ void main() {
       viewModel.toggleSelection(2);
       final selected = viewModel.getSelectedFiles();
       expect(selected.length, 2);
-      expect(selected[0].endsWith('test0.png'), true);
-      expect(selected[1].endsWith('test2.png'), true);
+      expect(selected.any((f) => f.endsWith('test0.png')), true);
+      expect(selected.any((f) => f.endsWith('test2.png')), true);
+    });
+  });
+
+  group('Sorting', () {
+    test('sorts by name ascending and descending', () async {
+      await File('${tempDir.path}\\b.png').create();
+      await File('${tempDir.path}\\a.png').create();
+      await File('${tempDir.path}\\c.png').create();
+      await viewModel.loadFiles();
+
+      viewModel.setSort(SortField.name, SortOrder.ascending);
+      expect(viewModel.files.map((f) => p.basename(f)).toList(), ['a.png', 'b.png', 'c.png']);
+
+      viewModel.setSort(SortField.name, SortOrder.descending);
+      expect(viewModel.files.map((f) => p.basename(f)).toList(), ['c.png', 'b.png', 'a.png']);
     });
   });
 
