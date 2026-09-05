@@ -117,4 +117,17 @@ class SafHelper {
       return false;
     }
   }
+
+  static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async {
+    try {
+      final targetDir = await SafUtil().mkdirp(parentUri, [folderName]);
+      for (final fileUri in files) {
+        await SafUtil().moveTo(fileUri, false, targetDir.uri, parentUri);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: undoMoveFiles failed: $e');
+      return false;
+    }
+  }
 }

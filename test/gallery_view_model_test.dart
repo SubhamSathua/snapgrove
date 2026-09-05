@@ -101,6 +101,20 @@ class MockFileService implements FileService {
     }
     return true;
   }
+
+  @override
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
+    final targetDir = Directory(p.join(path, folderName));
+    for (final filePath in files) {
+      final fileName = p.basename(filePath);
+      final currentPath = p.join(targetDir.path, fileName);
+      final file = File(currentPath);
+      if (await file.exists()) {
+        await file.rename(filePath);
+      }
+    }
+    return true;
+  }
 }
 
 void main() {
@@ -289,6 +303,22 @@ void main() {
       final target = Directory('${tempDir.path}\\NewFolder');
       expect(await target.exists(), true);
       expect(await File('${tempDir.path}\\NewFolder\\test.png').exists(), true);
+    });
+
+    test('undoMoveFiles restores moved files back to source directory', () async {
+      final file = File('${tempDir.path}\\to_undo.png');
+      await file.create();
+
+      await viewModel.loadFiles();
+      expect(viewModel.files.contains(file.path), true);
+
+      final moveResult = await viewModel.moveFilesToFolder([file.path], 'Archive');
+      expect(moveResult, true);
+      expect(await File('${tempDir.path}\\Archive\\to_undo.png').exists(), true);
+
+      final undoResult = await viewModel.undoMoveFiles([file.path], 'Archive');
+      expect(undoResult, true);
+      expect(await file.exists(), true);
     });
   });
 }

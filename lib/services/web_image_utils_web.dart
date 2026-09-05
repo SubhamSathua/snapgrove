@@ -273,4 +273,49 @@ class WebImageUtils {
       return false;
     }
   }
+
+  static Future<bool> undoMoveFiles(String folderName, List<String> files) async {
+    try {
+      final dir = getLastPickerHandle();
+      if (dir == null) return false;
+
+      final targetDir = await dir.getDirectoryHandle(
+        folderName,
+        web.FileSystemGetDirectoryOptions(create: false),
+      ).toDart;
+
+      for (final filePath in files) {
+        final fileName = filePath.split('/').last;
+        try {
+          final subFileHandle = await targetDir.getFileHandle(
+            fileName,
+            web.FileSystemGetFileOptions(create: false),
+          ).toDart;
+
+          final file = await subFileHandle.getFile().toDart;
+          final buffer = await file.arrayBuffer().toDart;
+
+          // Re-create file in root directory
+          final rootFile = await dir.getFileHandle(
+            fileName,
+            web.FileSystemGetFileOptions(create: true),
+          ).toDart;
+
+          final writable = await rootFile.createWritable().toDart;
+          await writable.write(buffer).toDart;
+          await writable.close().toDart;
+
+          // Remove from subfolder
+          await targetDir.removeEntry(fileName).toDart;
+          _handleMap[filePath] = rootFile;
+        } catch (e) {
+          debugPrint('Web Error: restoring file $fileName failed: $e');
+        }
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Web Error: undoMoveFiles failed: $e');
+      return false;
+    }
+  }
 }

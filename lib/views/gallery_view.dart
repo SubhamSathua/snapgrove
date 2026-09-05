@@ -13,6 +13,7 @@ import '../services/file_service.dart';
 import '../services/storage_service.dart';
 import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
+import '../services/notification_service.dart';
 import 'image_preview_view.dart';
 import 'theme_dialog.dart';
 
@@ -1574,13 +1575,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     if (result != null && result.isNotEmpty) {
       final success = await _viewModel.createSubfolder(result);
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Folder "$result" created'), behavior: SnackBarBehavior.floating),
-        );
+        locator<NotificationService>().showSnackBar('Folder "$result" created');
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Failed to create folder'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-        );
+        locator<NotificationService>().showSnackBar('Failed to create folder', isError: true);
       }
     }
   }
@@ -1590,18 +1587,32 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return;
 
+    final count = selectedFiles.length;
     final success = await _viewModel.moveFilesToFolder(selectedFiles, folderName);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Moved ${selectedFiles.length} files to $folderName'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
       _exitSelectionMode();
+      locator<NotificationService>().showSnackBar(
+        'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
+        actionLabel: 'Undo',
+        onAction: () async {
+          final undoSuccess = await _viewModel.undoMoveFiles(selectedFiles, folderName);
+          if (undoSuccess) {
+            locator<NotificationService>().showSnackBar(
+              'Restored $count ${count == 1 ? "file" : "files"}',
+            );
+          } else {
+            locator<NotificationService>().showSnackBar(
+              'Failed to undo move',
+              isError: true,
+            );
+          }
+        },
+        duration: const Duration(seconds: 6),
+      );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Failed to move files'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      locator<NotificationService>().showSnackBar(
+        'Failed to move files',
+        isError: true,
       );
     }
   }
@@ -1708,7 +1719,7 @@ class _IconSquare extends StatelessWidget {
   }
 }
 
-class _GroupedOptionTile extends StatelessWidget {
+class _GroupedOptionTile extends StatefulWidget {
   final String label;
   final bool isActive;
   final bool isFirst;
@@ -1724,6 +1735,13 @@ class _GroupedOptionTile extends StatelessWidget {
   });
 
   @override
+  State<_GroupedOptionTile> createState() => _GroupedOptionTileState();
+}
+
+class _GroupedOptionTileState extends State<_GroupedOptionTile> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1732,16 +1750,16 @@ class _GroupedOptionTile extends StatelessWidget {
     const double innerRadius = 3.5;
 
     final BorderRadius borderRadius;
-    if (isFirst && isLast) {
+    if (widget.isFirst && widget.isLast) {
       borderRadius = BorderRadius.circular(outerRadius);
-    } else if (isFirst) {
+    } else if (widget.isFirst) {
       borderRadius = const BorderRadius.only(
         topLeft: Radius.circular(outerRadius),
         topRight: Radius.circular(outerRadius),
         bottomLeft: Radius.circular(innerRadius),
         bottomRight: Radius.circular(innerRadius),
       );
-    } else if (isLast) {
+    } else if (widget.isLast) {
       borderRadius = const BorderRadius.only(
         topLeft: Radius.circular(innerRadius),
         topRight: Radius.circular(innerRadius),
@@ -1752,36 +1770,73 @@ class _GroupedOptionTile extends StatelessWidget {
       borderRadius = BorderRadius.circular(innerRadius);
     }
 
-    final bgColor = isActive
-        ? (isDark ? Colors.white : Colors.black)
-        : sc.surfaceMuted;
-    final fgColor = isActive
-        ? (isDark ? Colors.black : Colors.white)
-        : sc.muted;
+    final Color normalBg = sc.surfaceMuted;
+    final Color hoverBg = isDark ? const Color(0xFF333333) : const Color(0xFFe5e5e5);
+    final Color activeBg = isDark ? Colors.white : Colors.black;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: borderRadius,
-        mouseCursor: SystemMouseCursors.click,
-        hoverColor: sc.menuHover,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: borderRadius,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 13,
-              color: fgColor,
+    final Color bgColor = widget.isActive
+        ? activeBg
+        : (_isHovered ? hoverBg : normalBg);
+
+    final Color fgColor = widget.isActive
+        ? (isDark ? Colors.black : Colors.white)
+        : (widget.isActive || _isHovered ? (isDark ? Colors.white : Colors.black) : sc.muted);
+
+    final Color ripple = widget.isActive
+        ? (isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2))
+        : sc.rippleColor;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: widget.isActive
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.12),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: bgColor,
+          borderRadius: borderRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onTap,
+            splashColor: ripple,
+            highlightColor: ripple.withValues(alpha: 0.15),
+            hoverColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                      color: fgColor,
+                    ),
+                  ),
+                  if (widget.isActive) ...[
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.check,
+                      size: 14,
+                      color: fgColor,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

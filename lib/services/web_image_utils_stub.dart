@@ -11,4 +11,5 @@ class WebImageUtils {
   static Future<List<String>> listSubfolders() async => [];
   static Future<bool> createSubfolder(String name) async => false;
   static Future<bool> moveFilesToFolder(String folderName, List<String> files) async => false;
+  static Future<bool> undoMoveFiles(String folderName, List<String> files) async => false;
 }

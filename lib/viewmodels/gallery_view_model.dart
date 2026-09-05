@@ -299,4 +299,15 @@ class GalleryViewModel extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> undoMoveFiles(List<String> files, String folderName) async {
+    try {
+      final success = await _fileService.undoMoveFiles(path, folderName, files);
+      if (success) await loadFiles();
+      return success;
+    } catch (e) {
+      debugPrint('Error undoing move files: $e');
+      return false;
+    }
+  }
 }

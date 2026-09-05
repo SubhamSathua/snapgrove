@@ -11,6 +11,7 @@ abstract class FileService {
   Future<List<String>> listSubfolders(String path);
   Future<bool> createSubfolder(String path, String name);
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files);
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files);
 }
 
 class FileServiceImpl implements FileService {
@@ -129,6 +130,31 @@ class FileServiceImpl implements FileService {
       }
     } catch (e) {
       debugPrint('Error moving files: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
+    try {
+      if (kIsWeb) {
+        return await WebImageUtils.undoMoveFiles(folderName, files);
+      } else if (Platform.isAndroid) {
+        return await SafHelper.undoMoveFiles(path, folderName, files);
+      } else {
+        final targetDir = Directory(p.join(path, folderName));
+        for (final filePath in files) {
+          final fileName = p.basename(filePath);
+          final currentPath = p.join(targetDir.path, fileName);
+          final file = File(currentPath);
+          if (await file.exists()) {
+            await file.rename(filePath);
+          }
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error undoing file move: $e');
       return false;
     }
   }
