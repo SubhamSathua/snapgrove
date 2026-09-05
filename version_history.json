@@ -126,5 +126,13 @@
         "bumpType":  "patch",
         "previous":  "01.07.22+15",
         "timestamp":  "2026-09-05T17:25:08+05:30"
+    },
+    {
+        "iteration":  17,
+        "version":  "01.07.24",
+        "fullVersion":  "01.07.24+17",
+        "bumpType":  "patch",
+        "previous":  "01.07.23+16",
+        "timestamp":  "2026-09-05T17:35:32+05:30"
     }
 ]

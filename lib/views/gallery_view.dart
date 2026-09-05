@@ -107,6 +107,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     });
   }
 
+  void _unselectAll() {
+    setState(() {
+      _selectedIndices.clear();
+    });
+  }
+
   Future<void> _showContextMenu(BuildContext context, Offset position, int index) async {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -811,7 +817,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           selectedCount: _selectedIndices.length,
                           subfolders: _viewModel.subfolders,
                           onCreateFolder: _showCreateFolderDialog,
-                          onExit: _exitSelectionMode,
                           onMoveToFolder: _moveSelectedToFolder,
                         ),
                       ],
@@ -870,18 +875,101 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Tooltip(
-                      message: 'Select all',
-                      child: _IconSquare(
-                        icon: Icons.done_all,
-                        onTap: _selectAll,
+                    if (width >= 720) ...[
+                      _SelectAllButton(
+                        isAllSelected: _viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length,
+                        onTap: (_viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length)
+                            ? _unselectAll
+                            : _selectAll,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    _IconSquare(
-                      svgPath: 'assets/icons/Back-Btn.svg',
-                      onTap: () => _confirmExitSelectionMode(context),
-                    ),
+                      const SizedBox(width: 10),
+                      _IconSquare(
+                        svgPath: 'assets/icons/Back-Btn.svg',
+                        onTap: () => _confirmExitSelectionMode(context),
+                      ),
+                    ] else ...[
+                      PopupMenuButton<String>(
+                        icon: SvgPicture.asset(
+                          'assets/icons/more.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            isDark ? Colors.white : Colors.black,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        color: sc.surfaceElevated,
+                        elevation: 6,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: sc.border),
+                        ),
+                        onSelected: (val) {
+                          if (val == 'toggle_select_all') {
+                            if (_viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length) {
+                              _unselectAll();
+                            } else {
+                              _selectAll();
+                            }
+                          } else if (val == 'exit') {
+                            _confirmExitSelectionMode(context);
+                          }
+                        },
+                        itemBuilder: (context) {
+                          final isAll = _viewModel.files.isNotEmpty && _selectedIndices.length == _viewModel.files.length;
+                          return [
+                            PopupMenuItem(
+                              value: 'toggle_select_all',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isAll ? Icons.deselect : Icons.done_all,
+                                    size: 18,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isAll ? 'Unselect All' : 'Select All',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 13,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(height: 1),
+                            PopupMenuItem(
+                              value: 'exit',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Exit Selection',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 13,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ];
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      _IconSquare(
+                        svgPath: 'assets/icons/Back-Btn.svg',
+                        onTap: () => _confirmExitSelectionMode(context),
+                      ),
+                    ],
                   ],
                 ),
               )
@@ -979,7 +1067,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               selectedCount: _selectedIndices.length,
               subfolders: _viewModel.subfolders,
               onCreateFolder: _showCreateFolderDialog,
-              onExit: _exitSelectionMode,
               onMoveToFolder: _moveSelectedToFolder,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               borderColor: sc.border,
@@ -1497,7 +1584,6 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final int selectedCount;
   final List<String> subfolders;
   final VoidCallback onCreateFolder;
-  final VoidCallback onExit;
   final void Function(String) onMoveToFolder;
   final Color backgroundColor;
   final Color borderColor;
@@ -1509,7 +1595,6 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.selectedCount,
     required this.subfolders,
     required this.onCreateFolder,
-    required this.onExit,
     required this.onMoveToFolder,
     required this.backgroundColor,
     required this.borderColor,
@@ -1518,7 +1603,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.accentColor,
   });
 
-  double get _height => subfolders.isNotEmpty ? 96.0 : 50.0;
+  double get _height => subfolders.isNotEmpty ? 92.0 : 48.0;
 
   @override
   double get minExtent => _height;
@@ -1530,7 +1615,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       height: _height,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(bottom: BorderSide(color: borderColor)),
@@ -1558,54 +1643,9 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
                 ),
               ),
               const Spacer(),
-              ElevatedButton.icon(
-                onPressed: selectedCount > 0 ? onCreateFolder : null,
-                icon: const Icon(Icons.create_new_folder, size: 15, color: Color(0xFF000000)),
-                label: const Text(
-                  'Create Folder',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF000000),
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFf89838),
-                  foregroundColor: const Color(0xFF000000),
-                  disabledBackgroundColor: mutedColor.withValues(alpha: 0.15),
-                  disabledForegroundColor: mutedColor,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onExit,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: mutedColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Text(
-                      'Done',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                  ),
-                ),
+              _CreateFolderButton(
+                onTap: onCreateFolder,
+                fullWidth: false,
               ),
             ],
           ),
@@ -1823,14 +1863,12 @@ class _RightSideSelectionPane extends StatelessWidget {
   final int selectedCount;
   final List<String> subfolders;
   final VoidCallback onCreateFolder;
-  final VoidCallback onExit;
   final void Function(String) onMoveToFolder;
 
   const _RightSideSelectionPane({
     required this.selectedCount,
     required this.subfolders,
     required this.onCreateFolder,
-    required this.onExit,
     required this.onMoveToFolder,
   });
 
@@ -1842,83 +1880,45 @@ class _RightSideSelectionPane extends StatelessWidget {
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: sc.surfaceElevated,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.05), sc.surfaceElevated),
+                  sc.surfaceElevated,
+                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.02), sc.surfaceElevated),
+                ]
+              : [
+                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.06), sc.surfaceElevated),
+                  sc.surfaceElevated,
+                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.02), sc.surfaceMuted),
+                ],
+        ),
         border: Border(left: BorderSide(color: sc.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Header (total selected, create folder, done at top)
+          // Top Header (total selected, create folder at top)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$selectedCount selected',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: onExit,
-                        borderRadius: BorderRadius.circular(6),
-                        hoverColor: sc.menuHover,
-                        splashColor: sc.rippleColor,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: sc.surfaceMuted,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: sc.border),
-                          ),
-                          child: Text(
-                            'Done',
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  '$selectedCount selected',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: selectedCount > 0 ? onCreateFolder : null,
-                    icon: const Icon(Icons.create_new_folder, size: 16, color: Color(0xFF000000)),
-                    label: const Text(
-                      'Create Folder',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF000000),
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFf89838),
-                      foregroundColor: const Color(0xFF000000),
-                      disabledBackgroundColor: sc.surfaceMuted,
-                      disabledForegroundColor: sc.muted,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    ),
-                  ),
+                _CreateFolderButton(
+                  onTap: onCreateFolder,
+                  fullWidth: true,
                 ),
               ],
             ),
@@ -1975,7 +1975,151 @@ class _RightSideSelectionPane extends StatelessWidget {
   }
 }
 
-class _ActionChip extends StatelessWidget {
+class _CreateFolderButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool fullWidth;
+
+  const _CreateFolderButton({
+    required this.onTap,
+    this.fullWidth = false,
+  });
+
+  @override
+  State<_CreateFolderButton> createState() => _CreateFolderButtonState();
+}
+
+class _CreateFolderButtonState extends State<_CreateFolderButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color defaultBg = Color(0xFFf89838);
+    const Color hoverBg = Color(0xFFe68524);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: widget.fullWidth ? double.infinity : null,
+        decoration: BoxDecoration(
+          color: _isHovered ? hoverBg : defaultBg,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFf89838).withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(6),
+            splashColor: Colors.black.withValues(alpha: 0.15),
+            hoverColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(
+                mainAxisSize: widget.fullWidth ? MainAxisSize.max : MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.create_new_folder, size: 16, color: Color(0xFF000000)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Create Folder',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF000000),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectAllButton extends StatefulWidget {
+  final bool isAllSelected;
+  final VoidCallback onTap;
+
+  const _SelectAllButton({
+    required this.isAllSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_SelectAllButton> createState() => _SelectAllButtonState();
+}
+
+class _SelectAllButtonState extends State<_SelectAllButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: _isHovered ? sc.menuHover : sc.surfaceMuted,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: sc.border),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(8),
+            splashColor: sc.rippleColor,
+            hoverColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.isAllSelected ? Icons.deselect : Icons.done_all,
+                    size: 16,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.isAllSelected ? 'Unselect All' : 'Select All',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
 
@@ -1985,50 +2129,77 @@ class _ActionChip extends StatelessWidget {
   });
 
   @override
+  State<_ActionChip> createState() => _ActionChipState();
+}
+
+class _ActionChipState extends State<_ActionChip> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        hoverColor: sc.accent.withValues(alpha: 0.15),
-        splashColor: sc.accent.withValues(alpha: 0.25),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1a1a1a) : const Color(0xFFf3f3f3),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isDark ? const Color(0xFF2f2f2f) : const Color(0xFFd7d7d7),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.folder_outlined,
-                size: 14,
-                color: isDark ? Colors.white70 : Colors.black87,
+
+    final Color defaultBg = isDark ? const Color(0xFF1a1a1a) : const Color(0xFFf3f3f3);
+    final Color hoverBg = isDark ? const Color(0xFF282828) : const Color(0xFFe5e5e5);
+    final Color defaultBorder = isDark ? const Color(0xFF2f2f2f) : const Color(0xFFd7d7d7);
+    final Color hoverBorder = isDark ? const Color(0xFF4a4a4a) : const Color(0xFFb5b5b5);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(6),
+          splashColor: const Color(0xFFf89838).withValues(alpha: 0.25),
+          hoverColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : defaultBg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _isHovered ? hoverBorder : defaultBorder,
               ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black87,
+              boxShadow: _isHovered
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 14,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
