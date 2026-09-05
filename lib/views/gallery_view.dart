@@ -184,12 +184,16 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       g += (c.g * 255.0).round();
       b += (c.b * 255.0).round();
     }
-    return Color.fromARGB(
+    final raw = Color.fromARGB(
       255,
       (r ~/ colors.length).clamp(0, 255),
       (g ~/ colors.length).clamp(0, 255),
       (b ~/ colors.length).clamp(0, 255),
     );
+    final hsv = HSVColor.fromColor(raw);
+    final boostedSat = (hsv.saturation * 1.85).clamp(0.45, 1.0);
+    final boostedVal = hsv.value.clamp(0.75, 0.98);
+    return hsv.withSaturation(boostedSat).withValue(boostedVal).toColor();
   }
 
   Future<Color> _extractImageColor(String path) async {
@@ -232,7 +236,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               final maxC = [r, g, b].reduce((curr, next) => curr > next ? curr : next);
               final minC = [r, g, b].reduce((curr, next) => curr < next ? curr : next);
               final sat = maxC == 0 ? 0.0 : (maxC - minC) / maxC;
-              final weight = 1 + (sat * 3).toInt();
+              // Strongly weight colorful/saturated pixels over dull gray/monochrome
+              final weight = 1 + (sat * sat * 12).toInt();
 
               rSum += r * weight;
               gSum += g * weight;
@@ -242,14 +247,19 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           }
 
           if (count > 0) {
-            final color = Color.fromARGB(
+            final raw = Color.fromARGB(
               255,
               (rSum ~/ count).clamp(0, 255),
               (gSum ~/ count).clamp(0, 255),
               (bSum ~/ count).clamp(0, 255),
             );
-            _imageColorCache[path] = color;
-            return color;
+            final hsv = HSVColor.fromColor(raw);
+            final boostedSat = (hsv.saturation * 1.85).clamp(0.45, 1.0);
+            final boostedVal = hsv.value.clamp(0.75, 0.98);
+            final vibrantColor = hsv.withSaturation(boostedSat).withValue(boostedVal).toColor();
+
+            _imageColorCache[path] = vibrantColor;
+            return vibrantColor;
           }
         }
       }
@@ -1303,6 +1313,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               textColor: isDark ? Colors.white : Colors.black,
               mutedColor: sc.muted,
               accentColor: sc.accent,
+              topAmbientColor: _ambientTopColor,
+              bottomAmbientColor: _ambientBottomColor,
             ),
           ),
         if (isLoading && _viewModel.files.isEmpty)
@@ -1820,6 +1832,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final Color textColor;
   final Color mutedColor;
   final Color accentColor;
+  final Color topAmbientColor;
+  final Color bottomAmbientColor;
 
   _TopSelectionPaneDelegate({
     required this.selectedCount,
@@ -1831,6 +1845,8 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.textColor,
     required this.mutedColor,
     required this.accentColor,
+    this.topAmbientColor = const Color(0xFFf89838),
+    this.bottomAmbientColor = const Color(0xFFf89838),
   });
 
   double get _height => subfolders.isNotEmpty ? 92.0 : 48.0;
@@ -1853,12 +1869,26 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: backgroundColor.withValues(alpha: 0.70),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.40), backgroundColor.withValues(alpha: 0.65)),
+                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.32), backgroundColor.withValues(alpha: 0.70)),
+                    ]
+                  : [
+                      Color.alphaBlend(topAmbientColor.withValues(alpha: 0.35), backgroundColor.withValues(alpha: 0.65)),
+                      Color.alphaBlend(bottomAmbientColor.withValues(alpha: 0.28), backgroundColor.withValues(alpha: 0.70)),
+                    ],
+            ),
             border: Border(bottom: BorderSide(color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000))),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: topAmbientColor.withValues(alpha: isDark ? 0.30 : 0.20),
+                blurRadius: 36,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -1903,7 +1933,9 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.selectedCount != selectedCount ||
         oldDelegate.subfolders != subfolders ||
         oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.borderColor != borderColor;
+        oldDelegate.borderColor != borderColor ||
+        oldDelegate.topAmbientColor != topAmbientColor ||
+        oldDelegate.bottomAmbientColor != bottomAmbientColor;
   }
 }
 
@@ -2128,32 +2160,61 @@ class _RightSideSelectionPane extends StatelessWidget {
           decoration: BoxDecoration(
             color: (isDark ? sc.surfaceElevated : Colors.white).withValues(alpha: 0.70),
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              stops: const [0.0, 0.4, 0.75, 1.0],
               colors: isDark
                   ? [
                       Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.20),
+                        topAmbientColor.withValues(alpha: 0.42),
+                        sc.surfaceElevated.withValues(alpha: 0.65),
+                      ),
+                      Color.alphaBlend(
+                        topAmbientColor.withValues(alpha: 0.24),
                         sc.surfaceElevated.withValues(alpha: 0.70),
                       ),
-                      sc.surfaceElevated.withValues(alpha: 0.70),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.16),
+                        bottomAmbientColor.withValues(alpha: 0.28),
                         sc.surfaceElevated.withValues(alpha: 0.70),
+                      ),
+                      Color.alphaBlend(
+                        bottomAmbientColor.withValues(alpha: 0.40),
+                        sc.surfaceElevated.withValues(alpha: 0.65),
                       ),
                     ]
                   : [
                       Color.alphaBlend(
-                        topAmbientColor.withValues(alpha: 0.18),
+                        topAmbientColor.withValues(alpha: 0.36),
+                        Colors.white.withValues(alpha: 0.65),
+                      ),
+                      Color.alphaBlend(
+                        topAmbientColor.withValues(alpha: 0.20),
                         Colors.white.withValues(alpha: 0.70),
                       ),
-                      Colors.white.withValues(alpha: 0.70),
                       Color.alphaBlend(
-                        bottomAmbientColor.withValues(alpha: 0.14),
+                        bottomAmbientColor.withValues(alpha: 0.24),
                         sc.surfaceMuted.withValues(alpha: 0.70),
+                      ),
+                      Color.alphaBlend(
+                        bottomAmbientColor.withValues(alpha: 0.32),
+                        sc.surfaceMuted.withValues(alpha: 0.65),
                       ),
                     ],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: topAmbientColor.withValues(alpha: isDark ? 0.32 : 0.22),
+                blurRadius: 50,
+                spreadRadius: 4,
+                offset: const Offset(-10, 0),
+              ),
+              BoxShadow(
+                color: bottomAmbientColor.withValues(alpha: isDark ? 0.28 : 0.18),
+                blurRadius: 60,
+                spreadRadius: 4,
+                offset: const Offset(-10, 100),
+              ),
+            ],
             border: Border(
               left: BorderSide(
                 color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
