@@ -218,7 +218,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     return 12;
   }
 
-  int _getEffectiveColumns(double width) {
+  int _getEffectiveColumns(double width, {bool isRightPaneOpen = false}) {
+    if (isRightPaneOpen) {
+      return 5;
+    }
     final isMobile = width < 600;
     final defaultCols = isMobile ? 3 : 7;
     final maxAllowed = _getMaxAllowedColumns(width);
@@ -751,7 +754,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final effectiveColumns = _getEffectiveColumns(width);
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isDesktop = !isAndroid && width >= 720;
+    final useSidePane = _isSelectionMode && isDesktop;
+    final useTopPane = _isSelectionMode && !isDesktop;
+    final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
 
     return Focus(
       autofocus: true,
@@ -786,290 +793,265 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             
             return Scaffold(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              body: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
-                slivers: [
-                  SliverAppBar(
-                    expandedHeight: (width < 400) ? 128.0 : 120.0,
-                    floating: false,
-                    pinned: true,
-                    elevation: 0,
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    leading: IconButton(
-                      icon: SvgPicture.asset(
-                        'assets/icons/Back-Btn.svg',
-                        width: 24,
-                        height: 24,
-                        colorFilter: ColorFilter.mode(
-                          isDark ? Colors.white : Colors.black,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      onPressed: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
-                    ),
-                    actions: [
-                      if (_isSelectionMode)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 16),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${_selectedIndices.length} selected',
-                                style: TextStyle(
-                                  fontFamily: 'JetBrains Mono',
-                                  fontSize: 13,
-                                  color: sc.muted,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Tooltip(
-                                message: 'Select all',
-                                child: _IconSquare(
-                                  icon: Icons.done_all,
-                                  onTap: _selectAll,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              _IconSquare(
-                                svgPath: 'assets/icons/Back-Btn.svg',
-                                onTap: () => _confirmExitSelectionMode(context),
-                              ),
-                            ],
+              body: useSidePane
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: _buildGalleryScrollView(
+                            context: context,
+                            width: width - 280,
+                            effectiveColumns: effectiveColumns,
+                            isLoading: isLoading,
+                            isDark: isDark,
+                            sc: sc,
+                            useTopPane: false,
                           ),
-                        )
-                    else if (!isLoading && _viewModel.files.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Tooltip(
-                              message: 'Select images',
-                              child: _IconSquare(
-                                icon: Icons.done_all,
-                                onTap: () => _enterSelectionMode(),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            _IconSquare(
-                              svgPath: 'assets/icons/sort.svg',
-                              onTap: _showSortDialog,
-                            ),
-                            const SizedBox(width: 10),
-                            _IconSquare(
-                              svgPath: 'assets/icons/grid.svg',
-                              onTap: () => _showViewDialog(width),
-                            ),
-                            const SizedBox(width: 10),
-                            _IconSquare(
-                              svgPath: 'assets/icons/palette.svg',
-                              onTap: () {
-                                final appVM = locator<AppViewModel>();
-                                showGeneralDialog(
-                                  context: context,
-                                  barrierDismissible: true,
-                                  barrierLabel: 'Dismiss',
-                                  barrierColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.2),
-                                  transitionDuration: const Duration(milliseconds: 250),
-                                  pageBuilder: (ctx, anim1, anim2) => ThemeDialog(
-                                    currentTheme: appVM.themeMode,
-                                    onThemeChanged: appVM.setThemeMode,
-                                  ),
-                                  transitionBuilder: (ctx, anim1, anim2, child) {
-                                    final curve = Curves.easeOutBack.transform(anim1.value);
-                                    return Transform.scale(
-                                      scale: 0.9 + (0.1 * curve),
-                                      child: Opacity(opacity: anim1.value, child: child),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
                         ),
-                      ),
-                  ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    title: !_isSelectionMode
-                        ? LayoutBuilder(
-                            builder: (context, constraints) {
-                              final folderName = _getDisplayFolderName(widget.path, widget.title);
-                              final double fontSize = width < 380
-                                  ? (folderName.length > 14 ? 13.0 : 15.0)
-                                  : (width < 600 ? (folderName.length > 20 ? 14.0 : 16.0) : 18.0);
-                              final double rightPad = !isLoading && _viewModel.files.isNotEmpty
-                                  ? (width < 600 ? 190.0 : 210.0)
-                                  : 48.0;
-
-                              return Padding(
-                                padding: EdgeInsets.only(left: 56, right: rightPad, bottom: 16),
-                                child: Text(
-                                  folderName,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: fontSize,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.15,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : null,
-                    centerTitle: false,
-                    titlePadding: EdgeInsets.zero,
-                  ),
-                ),
-                if (isLoading && _viewModel.files.isEmpty)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: effectiveColumns,
-                        mainAxisSpacing: 6,
-                        crossAxisSpacing: 6,
-                        childAspectRatio: 1.0,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => const SkeletonLoader(),
-                        childCount: effectiveColumns * 3, // Render a few rows of skeletons
-                      ),
+                        _RightSideSelectionPane(
+                          selectedCount: _selectedIndices.length,
+                          subfolders: _viewModel.subfolders,
+                          onCreateFolder: _showCreateFolderDialog,
+                          onExit: _exitSelectionMode,
+                          onMoveToFolder: _moveSelectedToFolder,
+                        ),
+                      ],
+                    )
+                  : _buildGalleryScrollView(
+                      context: context,
+                      width: width,
+                      effectiveColumns: effectiveColumns,
+                      isLoading: isLoading,
+                      isDark: isDark,
+                      sc: sc,
+                      useTopPane: useTopPane,
                     ),
-                  )
-                else if (_viewModel.files.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.photo_library_outlined, size: 48, color: sc.muted.withValues(alpha: 0.5)),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No screenshots found.',
-                            style: TextStyle(fontFamily: 'Lora', color: sc.muted, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: effectiveColumns,
-                        mainAxisSpacing: 6,
-                        crossAxisSpacing: 6,
-                        childAspectRatio: 1.0,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final path = _viewModel.files[index];
-                          return _GalleryItem(
-                            path: path,
-                            buildImage: () => _buildImage(context, path),
-                            files: _viewModel.files,
-                            initialIndex: index,
-                            isSelectionMode: _isSelectionMode,
-                            isSelected: _selectedIndices.contains(index),
-                            onSelectionTap: () => _toggleSelection(index),
-                            onLongPress: () => _enterSelectionMode(initialIndex: index),
-                            onRightClick: (position) => _showContextMenu(context, position, index),
-                          );
-                        },
-                        childCount: _viewModel.files.length,
-                        addAutomaticKeepAlives: false,
-                        addRepaintBoundaries: true,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            bottomSheet: _isSelectionMode ? _buildSelectionActionBar() : null,
-          );
-        },
+            );
+          },
+        ),
       ),
-    ),
-  );
+    );
   }
 
-  Widget _buildSelectionActionBar() {
-    final sc = context.snapgroveColors;
-    final subfolders = _viewModel.subfolders;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(top: BorderSide(color: sc.border)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Text(
-                  '${_selectedIndices.length} selected',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 14,
-                    color: sc.muted,
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _selectedIndices.isNotEmpty ? _showCreateFolderDialog : null,
-                  icon: Icon(Icons.create_new_folder, size: 18, color: sc.accent),
-                  label: Text(
-                    'Create Folder',
-                    style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: sc.accent),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: _exitSelectionMode,
-                  child: Text(
-                    'Done',
-                    style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: sc.muted),
-                  ),
-                ),
-              ],
+  Widget _buildGalleryScrollView({
+    required BuildContext context,
+    required double width,
+    required int effectiveColumns,
+    required bool isLoading,
+    required bool isDark,
+    required SnapgroveColors sc,
+    required bool useTopPane,
+  }) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
+      slivers: [
+        SliverAppBar(
+          expandedHeight: _isSelectionMode ? kToolbarHeight : ((width < 400) ? 128.0 : 120.0),
+          floating: false,
+          pinned: true,
+          elevation: 0,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          leading: IconButton(
+            icon: SvgPicture.asset(
+              'assets/icons/Back-Btn.svg',
+              width: 24,
+              height: 24,
+              colorFilter: ColorFilter.mode(
+                isDark ? Colors.white : Colors.black,
+                BlendMode.srcIn,
+              ),
             ),
-            if (subfolders.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+            onPressed: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
+          ),
+          actions: [
+            if (_isSelectionMode)
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    ...subfolders.map((folder) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _ActionChip(
-                        label: folder,
-                        onTap: () => _moveSelectedToFolder(folder),
+                    Tooltip(
+                      message: 'Select all',
+                      child: _IconSquare(
+                        icon: Icons.done_all,
+                        onTap: _selectAll,
                       ),
-                    )),
+                    ),
+                    const SizedBox(width: 10),
+                    _IconSquare(
+                      svgPath: 'assets/icons/Back-Btn.svg',
+                      onTap: () => _confirmExitSelectionMode(context),
+                    ),
+                  ],
+                ),
+              )
+            else if (!isLoading && _viewModel.files.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: 'Select images',
+                      child: _IconSquare(
+                        icon: Icons.done_all,
+                        onTap: () => _enterSelectionMode(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _IconSquare(
+                      svgPath: 'assets/icons/sort.svg',
+                      onTap: _showSortDialog,
+                    ),
+                    const SizedBox(width: 10),
+                    _IconSquare(
+                      svgPath: 'assets/icons/grid.svg',
+                      onTap: () => _showViewDialog(width),
+                    ),
+                    const SizedBox(width: 10),
+                    _IconSquare(
+                      svgPath: 'assets/icons/palette.svg',
+                      onTap: () {
+                        final appVM = locator<AppViewModel>();
+                        showGeneralDialog(
+                          context: context,
+                          barrierDismissible: true,
+                          barrierLabel: 'Dismiss',
+                          barrierColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.2),
+                          transitionDuration: const Duration(milliseconds: 250),
+                          pageBuilder: (ctx, anim1, anim2) => ThemeDialog(
+                            currentTheme: appVM.themeMode,
+                            onThemeChanged: appVM.setThemeMode,
+                          ),
+                          transitionBuilder: (ctx, anim1, anim2, child) {
+                            final curve = Curves.easeOutBack.transform(anim1.value);
+                            return Transform.scale(
+                              scale: 0.9 + (0.1 * curve),
+                              child: Opacity(opacity: anim1.value, child: child),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-            ],
           ],
+          flexibleSpace: FlexibleSpaceBar(
+            title: !_isSelectionMode
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      final folderName = _getDisplayFolderName(widget.path, widget.title);
+                      final double fontSize = width < 380
+                          ? (folderName.length > 14 ? 13.0 : 15.0)
+                          : (width < 600 ? (folderName.length > 20 ? 14.0 : 16.0) : 18.0);
+                      final double rightPad = !isLoading && _viewModel.files.isNotEmpty
+                          ? (width < 600 ? 190.0 : 210.0)
+                          : 48.0;
+
+                      return Padding(
+                        padding: EdgeInsets.only(left: 56, right: rightPad, bottom: 16),
+                        child: Text(
+                          folderName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : null,
+            centerTitle: false,
+            titlePadding: EdgeInsets.zero,
+          ),
         ),
-      ),
+        if (useTopPane)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TopSelectionPaneDelegate(
+              selectedCount: _selectedIndices.length,
+              subfolders: _viewModel.subfolders,
+              onCreateFolder: _showCreateFolderDialog,
+              onExit: _exitSelectionMode,
+              onMoveToFolder: _moveSelectedToFolder,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              borderColor: sc.border,
+              textColor: isDark ? Colors.white : Colors.black,
+              mutedColor: sc.muted,
+              accentColor: sc.accent,
+            ),
+          ),
+        if (isLoading && _viewModel.files.isEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: effectiveColumns,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+                childAspectRatio: 1.0,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => const SkeletonLoader(),
+                childCount: effectiveColumns * 3, // Render a few rows of skeletons
+              ),
+            ),
+          )
+        else if (_viewModel.files.isEmpty)
+          SliverFillRemaining(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.photo_library_outlined, size: 48, color: sc.muted.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No screenshots found.',
+                    style: TextStyle(fontFamily: 'Lora', color: sc.muted, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: effectiveColumns,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+                childAspectRatio: 1.0,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final path = _viewModel.files[index];
+                  return _GalleryItem(
+                    path: path,
+                    buildImage: () => _buildImage(context, path),
+                    files: _viewModel.files,
+                    initialIndex: index,
+                    isSelectionMode: _isSelectionMode,
+                    isSelected: _selectedIndices.contains(index),
+                    onSelectionTap: () => _toggleSelection(index),
+                    onLongPress: () => _enterSelectionMode(initialIndex: index),
+                    onRightClick: (position) => _showContextMenu(context, position, index),
+                  );
+                },
+                childCount: _viewModel.files.length,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1511,6 +1493,284 @@ class _GalleryItem extends StatelessWidget {
   }
 }
 
+class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
+  final int selectedCount;
+  final List<String> subfolders;
+  final VoidCallback onCreateFolder;
+  final VoidCallback onExit;
+  final void Function(String) onMoveToFolder;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color textColor;
+  final Color mutedColor;
+  final Color accentColor;
+
+  _TopSelectionPaneDelegate({
+    required this.selectedCount,
+    required this.subfolders,
+    required this.onCreateFolder,
+    required this.onExit,
+    required this.onMoveToFolder,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.textColor,
+    required this.mutedColor,
+    required this.accentColor,
+  });
+
+  double get _height => subfolders.isNotEmpty ? 92.0 : 48.0;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: _height,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$selectedCount selected',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: selectedCount > 0 ? onCreateFolder : null,
+                icon: Icon(Icons.create_new_folder, size: 16, color: accentColor),
+                label: Text(
+                  'Create Folder',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onExit,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Done',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: mutedColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (subfolders.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 32,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: subfolders.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final folder = subfolders[index];
+                  return _ActionChip(
+                    label: folder,
+                    onTap: () => onMoveToFolder(folder),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _TopSelectionPaneDelegate oldDelegate) {
+    return oldDelegate.selectedCount != selectedCount ||
+        oldDelegate.subfolders != subfolders ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.borderColor != borderColor;
+  }
+}
+
+class _RightSideSelectionPane extends StatelessWidget {
+  final int selectedCount;
+  final List<String> subfolders;
+  final VoidCallback onCreateFolder;
+  final VoidCallback onExit;
+  final void Function(String) onMoveToFolder;
+
+  const _RightSideSelectionPane({
+    required this.selectedCount,
+    required this.subfolders,
+    required this.onCreateFolder,
+    required this.onExit,
+    required this.onMoveToFolder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: sc.surfaceElevated,
+        border: Border(left: BorderSide(color: sc.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top Header (total selected, create folder, done at top)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$selectedCount selected',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: onExit,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: sc.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: selectedCount > 0 ? onCreateFolder : null,
+                  icon: const Icon(Icons.create_new_folder, size: 16),
+                  label: const Text(
+                    'Create Folder',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: sc.accent,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: sc.surfaceMuted,
+                    disabledForegroundColor: sc.muted,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: sc.border),
+          // Subfolders / Tags (2 per row with vertical scroll if overflow)
+          Expanded(
+            child: subfolders.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.folder_open_outlined, size: 36, color: sc.muted.withValues(alpha: 0.5)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No subfolders.\nCreate a folder to move files.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Lora',
+                              fontSize: 13,
+                              color: sc.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Scrollbar(
+                    thumbVisibility: true,
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 2.6,
+                      ),
+                      itemCount: subfolders.length,
+                      itemBuilder: (context, index) {
+                        final folder = subfolders[index];
+                        return _ActionChip(
+                          label: folder,
+                          onTap: () => onMoveToFolder(folder),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -1523,25 +1783,47 @@ class _ActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: sc.accent.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: sc.accent.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        hoverColor: sc.accent.withValues(alpha: 0.15),
+        splashColor: sc.accent.withValues(alpha: 0.25),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: sc.accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: sc.accent.withValues(alpha: 0.4),
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'JetBrains Mono',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: sc.accent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.folder_outlined,
+                size: 14,
+                color: sc.accent,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: sc.accent,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
