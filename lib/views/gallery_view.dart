@@ -1391,7 +1391,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   final path = _viewModel.files[index];
                   return _GalleryItem(
                     path: path,
-                    buildImage: () => _buildImage(context, path),
+                    thumbnailManager: _thumbnailManager,
                     isSelectionMode: _isSelectionMode,
                     isSelected: _selectedIndices.contains(index),
                     onSelectionTap: () => _toggleSelection(index),
@@ -1421,76 +1421,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildImage(BuildContext context, String path) {
-    if (kIsWeb) {
-      return FutureBuilder<String?>(
-        key: ValueKey('web_$path'),
-        future: WebImageUtils.getThumbnail(path),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-            return Image.network(
-              snapshot.data!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
-            );
-          }
-          return const SkeletonLoader(isThumbnail: true);
-        },
-      );
-    }
-    
-    // For both Windows and Android (SAF), use ThumbnailManager for high performance
-    if (Platform.isWindows || path.startsWith('content://')) {
-      return FutureBuilder<Uint8List?>(
-        key: ValueKey('native_$path'),
-        future: _thumbnailManager.getThumbnail(path),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-            return Image.memory(
-              snapshot.data!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              cacheWidth: 350,
-              gaplessPlayback: true,
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.done && !snapshot.hasData) {
-            // Fallback to full read if thumbnail fails
-            return FutureBuilder<Uint8List?>(
-              future: locator<FileService>().readFile(path),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null) {
-                  return Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    cacheWidth: 350,
-                  );
-                }
-                return _ErrorPlaceholder();
-              },
-            );
-          }
-          return const SkeletonLoader(isThumbnail: true);
-        },
-      );
-    }
-
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      cacheWidth: 350,
-      errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
     );
   }
 
@@ -1865,7 +1795,7 @@ class _GroupedOptionTileState extends State<_GroupedOptionTile> {
 
 class _GalleryItem extends StatefulWidget {
   final String path;
-  final Widget Function() buildImage;
+  final ThumbnailManager thumbnailManager;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onSelectionTap;
@@ -1875,7 +1805,7 @@ class _GalleryItem extends StatefulWidget {
 
   const _GalleryItem({
     required this.path, 
-    required this.buildImage,
+    required this.thumbnailManager,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectionTap,
@@ -1938,7 +1868,10 @@ class _GalleryItemState extends State<_GalleryItem> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                widget.buildImage(),
+                _GalleryThumbnail(
+                  path: widget.path,
+                  thumbnailManager: widget.thumbnailManager,
+                ),
                 IgnorePointer(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
@@ -1974,6 +1907,142 @@ class _GalleryItemState extends State<_GalleryItem> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _GalleryThumbnail extends StatefulWidget {
+  final String path;
+  final ThumbnailManager thumbnailManager;
+
+  const _GalleryThumbnail({
+    required this.path,
+    required this.thumbnailManager,
+  });
+
+  @override
+  State<_GalleryThumbnail> createState() => _GalleryThumbnailState();
+}
+
+class _GalleryThumbnailState extends State<_GalleryThumbnail> {
+  String? _webUrl;
+  Uint8List? _nativeBytes;
+  bool _isError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GalleryThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _loadThumbnail();
+    }
+  }
+
+  void _loadThumbnail() {
+    if (kIsWeb) {
+      final cachedUrl = WebImageUtils.getCachedThumbnailUrl(widget.path);
+      if (cachedUrl != null) {
+        _webUrl = cachedUrl;
+        _isError = false;
+        return;
+      }
+      _isError = false;
+      WebImageUtils.getThumbnail(widget.path).then((url) {
+        if (!mounted) return;
+        setState(() {
+          _webUrl = url;
+          _isError = (url == null);
+        });
+      }).catchError((_) {
+        if (!mounted) return;
+        setState(() {
+          _isError = true;
+        });
+      });
+    } else if (Platform.isWindows || widget.path.startsWith('content://')) {
+      final cachedBytes = widget.thumbnailManager.getCachedThumbnail(widget.path);
+      if (cachedBytes != null) {
+        _nativeBytes = cachedBytes;
+        _isError = false;
+        return;
+      }
+      _isError = false;
+      widget.thumbnailManager.getThumbnail(widget.path).then((bytes) {
+        if (!mounted) return;
+        if (bytes != null) {
+          setState(() {
+            _nativeBytes = bytes;
+            _isError = false;
+          });
+        } else {
+          locator<FileService>().readFile(widget.path).then((fullBytes) {
+            if (!mounted) return;
+            setState(() {
+              _nativeBytes = fullBytes;
+              _isError = (fullBytes == null);
+            });
+          }).catchError((_) {
+            if (!mounted) return;
+            setState(() {
+              _isError = true;
+            });
+          });
+        }
+      }).catchError((_) {
+        if (!mounted) return;
+        setState(() {
+          _isError = true;
+        });
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb) {
+      if (_webUrl != null) {
+        return Image.network(
+          _webUrl!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
+        );
+      }
+      if (_isError) return _ErrorPlaceholder();
+      return const SkeletonLoader(isThumbnail: true);
+    }
+
+    if (Platform.isWindows || widget.path.startsWith('content://')) {
+      if (_nativeBytes != null) {
+        return Image.memory(
+          _nativeBytes!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          cacheWidth: 350,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
+        );
+      }
+      if (_isError) return _ErrorPlaceholder();
+      return const SkeletonLoader(isThumbnail: true);
+    }
+
+    return Image.file(
+      File(widget.path),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      cacheWidth: 350,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => _ErrorPlaceholder(),
     );
   }
 }

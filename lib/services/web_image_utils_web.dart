@@ -68,6 +68,8 @@ class WebImageUtils {
     }
   }
 
+  static String? getCachedThumbnailUrl(String path) => _blobCache[path];
+
   static Future<List<String>> listImages(dynamic root) async {
     final dir = _lastPickerHandle;
     if (dir == null) return [];
@@ -75,31 +77,23 @@ class WebImageUtils {
     final List<String> files = [];
     _handleMap.clear();
 
-    Future<void> walk(web.FileSystemDirectoryHandle dir, String path) async {
+    try {
       final entries = dir.values();
       while (true) {
         final result = await entries.next().toDart;
         if (result.done) break;
         
         final entry = result.value as web.FileSystemHandle;
-        final currentPath = path.isEmpty ? entry.name : '$path/${entry.name}';
-
-        if (entry.kind == 'directory') {
-          await walk(entry as web.FileSystemDirectoryHandle, currentPath);
-        } else if (entry.kind == 'file') {
+        if (entry.kind == 'file') {
           if (_isImage(entry.name)) {
-            files.add(currentPath);
-            _handleMap[currentPath] = entry as web.FileSystemFileHandle;
+            files.add(entry.name);
+            _handleMap[entry.name] = entry as web.FileSystemFileHandle;
           }
         }
       }
-    }
-
-    try {
-      await walk(dir, '');
-      setExitWarning(true); // Trigger warning once a folder is picked
+      setExitWarning(true);
     } catch (e) {
-      debugPrint('Error walking directory: $e');
+      debugPrint('Error listing directory: $e');
     }
     return files;
   }

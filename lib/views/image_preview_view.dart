@@ -1002,9 +1002,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                             child: Hero(
                               tag: index == _currentIndex ? path : 'preview_$path',
                               child: Center(
-                                child: _PreviewImageItem(
-                                  child: _buildImage(context, path),
-                                ),
+                                child: _buildImage(context, path),
                               ),
                             ),
                           ),
@@ -1883,51 +1881,6 @@ class _BottomBarActionState extends State<_BottomBarAction> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PreviewImageItem extends StatefulWidget {
-  final Widget child;
-
-  const _PreviewImageItem({
-    required this.child,
-  });
-
-  @override
-  State<_PreviewImageItem> createState() => _PreviewImageItemState();
-}
-
-class _PreviewImageItemState extends State<_PreviewImageItem> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = isDark
-        ? Colors.white.withValues(alpha: 0.3)
-        : Colors.black.withValues(alpha: 0.3);
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          widget.child,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: _isHovered ? 1.0 : 0.0,
-                child: Container(
-                  color: overlayColor,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

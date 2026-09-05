@@ -25,6 +25,8 @@ class ThumbnailManager {
   int _running = 0;
   final _queue = ListQueue<String>();
 
+  Uint8List? getCachedThumbnail(String path) => _cache[path];
+
   Future<Uint8List?> getThumbnail(String path) {
     if (_cache.containsKey(path)) {
       _touch(path);
