@@ -144,7 +144,7 @@ class _LandingPageState extends State<LandingPage> {
                       children: [
                         _MenuButton(
                           svgPath: 'assets/icons/palette.svg',
-                          label: 'Themes',
+                          label: 'Theme',
                           onTap: () async {
                             await _removeMenu();
                             _showThemeDialog();
@@ -156,13 +156,18 @@ class _LandingPageState extends State<LandingPage> {
                           onTap: () => _removeMenu(),
                         ),
                         _MenuButton(
-                          svgPath: 'assets/icons/info-circle.svg',
-                          label: 'About',
+                          svgPath: 'assets/icons/github.svg',
+                          label: 'Source code',
                           onTap: () => _removeMenu(),
                         ),
                         _MenuButton(
-                          svgPath: 'assets/icons/github.svg',
-                          label: 'Source code',
+                          svgPath: 'assets/icons/license.svg',
+                          label: 'Open source license',
+                          onTap: () => _removeMenu(),
+                        ),
+                        _MenuButton(
+                          svgPath: 'assets/icons/info-circle.svg',
+                          label: 'About',
                           onTap: () => _removeMenu(),
                         ),
                       ],
@@ -573,7 +578,7 @@ class _ScreenshotButton extends StatelessWidget {
   }
 }
 
-class _DownloadAppButton extends StatelessWidget {
+class _DownloadAppButton extends StatefulWidget {
   final double actionFontSize;
   final double buttonIconSize;
   final double ssPaddingH;
@@ -587,49 +592,69 @@ class _DownloadAppButton extends StatelessWidget {
   });
 
   @override
+  State<_DownloadAppButton> createState() => _DownloadAppButtonState();
+}
+
+class _DownloadAppButtonState extends State<_DownloadAppButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Ink(
-      decoration: BoxDecoration(
-        color: sc.accent,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(5),
-        onTap: () {
-          // Future: link to download page
-        },
-        splashColor: rippleColor(sc.accent),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(
-            horizontal: ssPaddingH,
-            vertical: ssPaddingV,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                'assets/icons/desktop.svg',
-                width: buttonIconSize,
-                height: buttonIconSize,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF000000),
-                  BlendMode.srcIn,
-                ),
+    final Color bgColor = _isHovered ? const Color(0xFF2fad5c) : sc.accent;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(5),
+            onTap: () {
+              // Future: link to download page
+            },
+            hoverColor: Colors.transparent,
+            splashColor: rippleColor(bgColor),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.ssPaddingH,
+                vertical: widget.ssPaddingV,
               ),
-              SizedBox(width: actionFontSize * 0.67),
-              Text(
-                'Download App',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: actionFontSize,
-                  letterSpacing: 0.2,
-                  color: const Color(0xFF000000),
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/download.svg',
+                    width: widget.buttonIconSize,
+                    height: widget.buttonIconSize,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF000000),
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  SizedBox(width: widget.actionFontSize * 0.67),
+                  Text(
+                    'Download App',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: widget.actionFontSize,
+                      letterSpacing: 0.2,
+                      color: const Color(0xFF000000),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
