@@ -34,6 +34,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   double _currentZoom = 1.0;
   Timer? _zoomCapsuleTimer;
   bool _showZoomCapsule = false;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -185,11 +186,19 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                   child: GestureDetector(
                     onDoubleTapDown: _handleDoubleTap,
                     child: MouseRegion(
-                      cursor: _isDesktopOrWeb ? SystemMouseCursors.grab : MouseCursor.defer,
+                      cursor: _isDesktopOrWeb
+                          ? (_isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab)
+                          : MouseCursor.defer,
                       child: InteractiveViewer(
                         transformationController: _transformController,
                         minScale: 1.0,
                         maxScale: 5.0,
+                        onInteractionStart: (details) {
+                          if (mounted) setState(() => _isDragging = true);
+                        },
+                        onInteractionEnd: (details) {
+                          if (mounted) setState(() => _isDragging = false);
+                        },
                         child: Hero(
                           tag: index == _currentIndex ? path : 'preview_$path',
                           child: Center(

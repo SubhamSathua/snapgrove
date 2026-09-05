@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -426,6 +427,95 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     );
   }
 
+  Future<void> _confirmExitSelectionMode(BuildContext context) async {
+    if (_selectedIndices.isEmpty) {
+      _exitSelectionMode();
+      return;
+    }
+
+    final sc = context.snapgroveColors;
+    final result = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: sc.surfaceElevated,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: sc.border),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Discard selection?',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Your current selection of ${_selectedIndices.length} item(s) will be lost.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Lora',
+                    fontSize: 14,
+                    color: sc.muted,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text('Stay', style: TextStyle(color: sc.muted)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: sc.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Discard'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(anim1),
+            child: child,
+          ),
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      _exitSelectionMode();
+    }
+  }
+
   Future<void> _showExitConfirmation(BuildContext context) async {
     final sc = context.snapgroveColors;
     final result = await showGeneralDialog<bool>(
@@ -517,72 +607,90 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     final width = MediaQuery.of(context).size.width;
     final effectiveColumns = _getEffectiveColumns(width);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        await _showExitConfirmation(context);
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          if (_isSelectionMode) {
+            _confirmExitSelectionMode(context);
+            return KeyEventResult.handled;
+          } else {
+            _showExitConfirmation(context);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
       },
-      child: ListenableBuilder(
-        listenable: _viewModel,
-        builder: (context, child) {
-          final isLoading = _viewModel.isLoading || _isTransitioning;
-          
-          return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            body: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-              scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
-              slivers: [
-                SliverAppBar(
-                  expandedHeight: 120.0,
-                  floating: false,
-                  pinned: true,
-                  elevation: 0,
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  leading: IconButton(
-                    icon: SvgPicture.asset(
-                      'assets/icons/Back-Btn.svg',
-                      width: 24,
-                      height: 24,
-                      colorFilter: ColorFilter.mode(
-                        isDark ? Colors.white : Colors.black,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    onPressed: () => _isSelectionMode ? _exitSelectionMode() : _showExitConfirmation(context),
-                  ),
-                  actions: [
-                    if (_isSelectionMode)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${_selectedIndices.length} selected',
-                              style: TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 13,
-                                color: sc.muted,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Tooltip(
-                              message: 'Select all',
-                              child: _IconSquare(
-                                icon: Icons.done_all,
-                                onTap: _selectAll,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            _IconSquare(
-                              svgPath: 'assets/icons/Back-Btn.svg',
-                              onTap: _exitSelectionMode,
-                            ),
-                          ],
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          if (_isSelectionMode) {
+            await _confirmExitSelectionMode(context);
+          } else {
+            await _showExitConfirmation(context);
+          }
+        },
+        child: ListenableBuilder(
+          listenable: Listenable.merge([_viewModel, locator<AppViewModel>()]),
+          builder: (context, child) {
+            final isLoading = _viewModel.isLoading || _isTransitioning;
+            
+            return Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              body: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: 120.0,
+                    floating: false,
+                    pinned: true,
+                    elevation: 0,
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                    leading: IconButton(
+                      icon: SvgPicture.asset(
+                        'assets/icons/Back-Btn.svg',
+                        width: 24,
+                        height: 24,
+                        colorFilter: ColorFilter.mode(
+                          isDark ? Colors.white : Colors.black,
+                          BlendMode.srcIn,
                         ),
-                      )
+                      ),
+                      onPressed: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
+                    ),
+                    actions: [
+                      if (_isSelectionMode)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_selectedIndices.length} selected',
+                                style: TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontSize: 13,
+                                  color: sc.muted,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Tooltip(
+                                message: 'Select all',
+                                child: _IconSquare(
+                                  icon: Icons.done_all,
+                                  onTap: _selectAll,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _IconSquare(
+                                svgPath: 'assets/icons/Back-Btn.svg',
+                                onTap: () => _confirmExitSelectionMode(context),
+                              ),
+                            ],
+                          ),
+                        )
                     else if (!isLoading && _viewModel.files.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 16),
@@ -720,7 +828,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           );
         },
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSelectionActionBar() {
@@ -1127,70 +1236,73 @@ class _GalleryItem extends StatelessWidget {
     final sc = context.snapgroveColors;
     final bool activeSelection = isSelectionMode && isSelected;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (isSelectionMode) {
-          onSelectionTap?.call();
-        } else {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ImagePreviewView(
-                files: files,
-                initialIndex: initialIndex,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (isSelectionMode) {
+            onSelectionTap?.call();
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ImagePreviewView(
+                  files: files,
+                  initialIndex: initialIndex,
+                ),
               ),
+            );
+          }
+        },
+        onLongPress: onLongPress,
+        onSecondaryTapUp: onRightClick != null
+            ? (details) => onRightClick!(details.globalPosition)
+            : null,
+        child: Container(
+          decoration: BoxDecoration(
+            color: sc.surfaceElevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: activeSelection ? sc.accent : sc.border,
+              width: activeSelection ? 2.5 : 1.0,
             ),
-          );
-        }
-      },
-      onLongPress: onLongPress,
-      onSecondaryTapUp: onRightClick != null
-          ? (details) => onRightClick!(details.globalPosition)
-          : null,
-      child: Container(
-        decoration: BoxDecoration(
-          color: sc.surfaceElevated,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: activeSelection ? sc.accent : sc.border,
-            width: activeSelection ? 2.5 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(activeSelection ? 5.5 : 7.0),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              buildImage(),
-              if (activeSelection)
-                Container(
-                  color: sc.accent.withValues(alpha: 0.25),
-                ),
-              if (activeSelection)
-                const Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Icon(
-                    Icons.done_all,
-                    size: 22,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black87,
-                        blurRadius: 6,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(activeSelection ? 5.5 : 7.0),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                buildImage(),
+                if (activeSelection)
+                  Container(
+                    color: sc.accent.withValues(alpha: 0.25),
+                  ),
+                if (activeSelection)
+                  const Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Icon(
+                      Icons.done_all,
+                      size: 22,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black87,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

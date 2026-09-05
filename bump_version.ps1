@@ -156,11 +156,15 @@ Write-Host "[OK] Updated internal iteration tracking in version_history.json" -F
 # 6. Git commit and push
 $defaultMsg = "chore: bump version to $newVersionFormatted (Build #$newIteration)"
 if ([string]::IsNullOrWhiteSpace($CommitMessage)) {
-    $userMsg = Read-Host "Enter commit message (press Enter for default: '$defaultMsg')"
-    if ([string]::IsNullOrWhiteSpace($userMsg)) {
-        $CommitMessage = $defaultMsg
+    if ([string]::IsNullOrWhiteSpace($Type)) {
+        $userMsg = Read-Host "Enter commit message (press Enter for default: '$defaultMsg')"
+        if ([string]::IsNullOrWhiteSpace($userMsg)) {
+            $CommitMessage = $defaultMsg
+        } else {
+            $CommitMessage = $userMsg
+        }
     } else {
-        $CommitMessage = $userMsg
+        $CommitMessage = $defaultMsg
     }
 }
 
