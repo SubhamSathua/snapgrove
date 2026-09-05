@@ -1347,10 +1347,29 @@ class _GroupedOptionTile extends StatelessWidget {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final borderRadius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(10) : Radius.zero,
-      bottom: isLast ? const Radius.circular(10) : Radius.zero,
-    );
+    const double outerRadius = 10.0;
+    const double innerRadius = 3.5;
+
+    final BorderRadius borderRadius;
+    if (isFirst && isLast) {
+      borderRadius = BorderRadius.circular(outerRadius);
+    } else if (isFirst) {
+      borderRadius = const BorderRadius.only(
+        topLeft: Radius.circular(outerRadius),
+        topRight: Radius.circular(outerRadius),
+        bottomLeft: Radius.circular(innerRadius),
+        bottomRight: Radius.circular(innerRadius),
+      );
+    } else if (isLast) {
+      borderRadius = const BorderRadius.only(
+        topLeft: Radius.circular(innerRadius),
+        topRight: Radius.circular(innerRadius),
+        bottomLeft: Radius.circular(outerRadius),
+        bottomRight: Radius.circular(outerRadius),
+      );
+    } else {
+      borderRadius = BorderRadius.circular(innerRadius);
+    }
 
     final bgColor = isActive
         ? (isDark ? Colors.white : Colors.black)

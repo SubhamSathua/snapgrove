@@ -16,7 +16,7 @@ Future<void> setupLocator() async {
   locator.registerSingleton<NotificationService>(NotificationService());
 
   // ViewModels
-  locator.registerFactory(() => AppViewModel(
+  locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
         locator<StorageService>(),
         locator<NotificationService>(),
       ));

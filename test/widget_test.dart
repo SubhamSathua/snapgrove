@@ -60,7 +60,7 @@ void main() {
     locator.registerSingleton<StorageService>(MockStorageService());
     locator.registerSingleton<FileService>(MockFileService());
     locator.registerSingleton<NotificationService>(NotificationService());
-    locator.registerFactory(() => AppViewModel(
+    locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
           locator<StorageService>(),
           locator<NotificationService>(),
         ));
