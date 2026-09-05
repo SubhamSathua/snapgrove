@@ -96,11 +96,11 @@ class _LandingPageState extends State<LandingPage> {
 
     double menuWidth;
     if (width >= 1100) {
-      menuWidth = 240;
+      menuWidth = 250;
     } else if (width >= 720) {
-      menuWidth = 220;
+      menuWidth = 245;
     } else {
-      menuWidth = 200;
+      menuWidth = (width - 32.0).clamp(200.0, 240.0);
     }
 
     return OverlayEntry(
@@ -834,11 +834,15 @@ class _MenuButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],

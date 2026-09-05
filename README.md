@@ -1,14 +1,16 @@
-﻿<!--
-# RULES for README.md
-- no emojies.
-- the intro description will be design based on: main feature, functionality at first of the sentence as nobody reads full sentence so they must learn just by reading few first words of sentence.
--->
+﻿# Snapgrove
+<p align="center">
+  <img src=".github/assets/logo/logo.png" alt="Snapgrove Logo" width="128">
+</p>
 
-# Snapgrove
+**Organize screenshots and images into subfolders instantly.**
 
-**Organize screenshots and images into tagged subfolders instantly.**
+**Organize screenshots with a single tap.** Open an image, select a target folder tag (a real sub-folder), and Snapgrove moves the file immediately without complicated menus.
 
-Snapgrove is a cross-platform visual screenshot organizer built for Windows, Android, and Web. It allows you to sort cluttered screenshot directories into dedicated folders (tags) with batch selection and responsive grid navigation.
+- Organize screenshots directly in your **local storage** with a single tap. 
+- Snapgrove is a cross-platform organizer for **Windows, Android, and Web** that files images straight into your device's actual folders.
+- Reflects changes in your **system gallery** without proprietary locks.
+- [View Screenshots](##screenshots)
 
 **Use Case:**
 Users accumulate hundreds or thousands of screenshots across desktops, phones, and browsers. Instead of navigating tedious file managers, Snapgrove provides a clean visual workspace to batch-select, preview, sort, and move images into custom subfolders in seconds.
