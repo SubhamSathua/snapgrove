@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -33,6 +34,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   late GalleryViewModel _viewModel;
   bool _isTransitioning = true;
   final _thumbnailManager = ThumbnailManager();
+  final ScrollController _scrollController = ScrollController();
+
+  // Ambience generation from visible images
+  final Map<String, Color> _imageColorCache = {};
+  Color _ambientTopColor = const Color(0xFFf89838);
+  Color _ambientBottomColor = const Color(0xFFf89838);
+  bool _isExtractingAmbience = false;
 
   // Grid Configuration
   int? _userSelectedColumns;
@@ -48,15 +56,208 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
     _loadGridPreference();
 
+    _scrollController.addListener(_handleGalleryScroll);
+
     // Delay loading until transition finishes for smoother entrance
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 400), () {
         if (mounted) {
           setState(() => _isTransitioning = false);
-          _viewModel.loadFiles();
+          _viewModel.loadFiles().then((_) {
+            if (mounted) {
+              _handleGalleryScroll();
+            }
+          });
         }
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_handleGalleryScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleGalleryScroll() {
+    if (!mounted) return;
+    final width = MediaQuery.maybeOf(context)?.size.width ?? 1000.0;
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isDesktop = !isAndroid && width >= 720;
+    final useSidePane = _isSelectionMode && isDesktop;
+    final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
+    final gridWidth = useSidePane ? width - 280 : width;
+    _updateAmbienceFromVisibleImages(gridWidth, effectiveColumns);
+  }
+
+  void _updateAmbienceFromVisibleImages(double width, int effectiveColumns) {
+    if (!mounted || _viewModel.files.isEmpty) return;
+
+    final files = _viewModel.files;
+    final int count = files.length;
+
+    int firstVisible = 0;
+    int lastVisible = (effectiveColumns * 3).clamp(0, count - 1);
+
+    if (_scrollController.hasClients && _scrollController.position.hasViewportDimension) {
+      final offset = _scrollController.offset.clamp(0.0, _scrollController.position.maxScrollExtent);
+      final viewportHeight = _scrollController.position.viewportDimension;
+      final gridWidth = width - 20; // 10 horizontal padding on each side
+      final itemWidth = (gridWidth - (effectiveColumns - 1) * 6) / effectiveColumns;
+      final rowHeight = itemWidth + 6;
+
+      if (rowHeight > 0) {
+        final firstRow = (offset / rowHeight).floor().clamp(0, (count / effectiveColumns).ceil());
+        final lastRow = ((offset + viewportHeight) / rowHeight).ceil().clamp(0, (count / effectiveColumns).ceil());
+
+        firstVisible = (firstRow * effectiveColumns).clamp(0, count - 1);
+        lastVisible = ((lastRow + 1) * effectiveColumns - 1).clamp(0, count - 1);
+      }
+    }
+
+    if (firstVisible > lastVisible) {
+      final temp = firstVisible;
+      firstVisible = lastVisible;
+      lastVisible = temp;
+    }
+
+    final visiblePaths = <String>[];
+    for (int i = firstVisible; i <= lastVisible && i < count; i++) {
+      visiblePaths.add(files[i]);
+    }
+
+    if (visiblePaths.isEmpty) return;
+
+    final uncached = visiblePaths.where((p) => !_imageColorCache.containsKey(p)).toList();
+    if (uncached.isNotEmpty && !_isExtractingAmbience) {
+      _isExtractingAmbience = true;
+      Future.microtask(() async {
+        for (final p in uncached) {
+          await _extractImageColor(p);
+        }
+        if (mounted) {
+          _isExtractingAmbience = false;
+          _computeAmbientGradient(visiblePaths);
+        }
+      });
+    }
+
+    _computeAmbientGradient(visiblePaths);
+  }
+
+  void _computeAmbientGradient(List<String> visiblePaths) {
+    if (visiblePaths.isEmpty) return;
+
+    final mid = (visiblePaths.length / 2).ceil();
+    final topHalf = visiblePaths.sublist(0, mid);
+    final bottomHalf = visiblePaths.sublist(mid > 0 && mid < visiblePaths.length ? mid : 0);
+
+    final topColors = topHalf.map((p) => _imageColorCache[p]).whereType<Color>().toList();
+    final bottomColors = bottomHalf.map((p) => _imageColorCache[p]).whereType<Color>().toList();
+
+    Color newTop = _ambientTopColor;
+    Color newBottom = _ambientBottomColor;
+
+    if (topColors.isNotEmpty) {
+      newTop = _blendColors(topColors);
+    }
+    if (bottomColors.isNotEmpty) {
+      newBottom = _blendColors(bottomColors);
+    } else if (topColors.isNotEmpty) {
+      newBottom = newTop;
+    }
+
+    if (newTop != _ambientTopColor || newBottom != _ambientBottomColor) {
+      setState(() {
+        _ambientTopColor = newTop;
+        _ambientBottomColor = newBottom;
+      });
+    }
+  }
+
+  Color _blendColors(List<Color> colors) {
+    if (colors.isEmpty) return const Color(0xFFf89838);
+    int r = 0, g = 0, b = 0;
+    for (final c in colors) {
+      r += (c.r * 255.0).round();
+      g += (c.g * 255.0).round();
+      b += (c.b * 255.0).round();
+    }
+    return Color.fromARGB(
+      255,
+      (r ~/ colors.length).clamp(0, 255),
+      (g ~/ colors.length).clamp(0, 255),
+      (b ~/ colors.length).clamp(0, 255),
+    );
+  }
+
+  Future<Color> _extractImageColor(String path) async {
+    if (_imageColorCache.containsKey(path)) {
+      return _imageColorCache[path]!;
+    }
+
+    try {
+      Uint8List? bytes;
+      if (!kIsWeb) {
+        bytes = await _thumbnailManager.getThumbnail(path);
+        bytes ??= await locator<FileService>().readFile(path);
+      }
+
+      if (bytes != null && bytes.isNotEmpty) {
+        final codec = await ui.instantiateImageCodec(
+          bytes,
+          targetWidth: 16,
+          targetHeight: 16,
+        );
+        final frame = await codec.getNextFrame();
+        final image = frame.image;
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        image.dispose();
+
+        if (byteData != null) {
+          int rSum = 0;
+          int gSum = 0;
+          int bSum = 0;
+          int count = 0;
+          final len = byteData.lengthInBytes;
+
+          for (int i = 0; i < len; i += 4) {
+            final r = byteData.getUint8(i);
+            final g = byteData.getUint8(i + 1);
+            final b = byteData.getUint8(i + 2);
+            final a = byteData.getUint8(i + 3);
+
+            if (a > 50) {
+              final maxC = [r, g, b].reduce((curr, next) => curr > next ? curr : next);
+              final minC = [r, g, b].reduce((curr, next) => curr < next ? curr : next);
+              final sat = maxC == 0 ? 0.0 : (maxC - minC) / maxC;
+              final weight = 1 + (sat * 3).toInt();
+
+              rSum += r * weight;
+              gSum += g * weight;
+              bSum += b * weight;
+              count += weight;
+            }
+          }
+
+          if (count > 0) {
+            final color = Color.fromARGB(
+              255,
+              (rSum ~/ count).clamp(0, 255),
+              (gSum ~/ count).clamp(0, 255),
+              (bSum ~/ count).clamp(0, 255),
+            );
+            _imageColorCache[path] = color;
+            return color;
+          }
+        }
+      }
+    } catch (_) {}
+
+    const fallback = Color(0xFFf89838);
+    _imageColorCache[path] = fallback;
+    return fallback;
   }
 
   Future<void> _loadGridPreference() async {
@@ -818,6 +1019,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           subfolders: _viewModel.subfolders,
                           onCreateFolder: _showCreateFolderDialog,
                           onMoveToFolder: _moveSelectedToFolder,
+                          topAmbientColor: _ambientTopColor,
+                          bottomAmbientColor: _ambientBottomColor,
                         ),
                       ],
                     )
@@ -847,6 +1050,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     required bool useTopPane,
   }) {
     return CustomScrollView(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
       slivers: [
@@ -1613,50 +1817,55 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      height: _height,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        border: Border(bottom: BorderSide(color: borderColor)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Text(
-                '$selectedCount selected',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-              const Spacer(),
-              _CreateFolderButton(
-                onTap: onCreateFolder,
-                fullWidth: false,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          height: _height,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: backgroundColor.withValues(alpha: 0.70),
+            border: Border(bottom: BorderSide(color: borderColor.withValues(alpha: 0.85))),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          if (subfolders.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _HorizontalChipsBar(
-              subfolders: subfolders,
-              onMoveToFolder: onMoveToFolder,
-            ),
-          ],
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '$selectedCount selected',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  _CreateFolderButton(
+                    onTap: onCreateFolder,
+                    fullWidth: false,
+                  ),
+                ],
+              ),
+              if (subfolders.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _HorizontalChipsBar(
+                  subfolders: subfolders,
+                  onMoveToFolder: onMoveToFolder,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1774,8 +1983,8 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      bgColor,
-                      bgColor.withValues(alpha: 0.95),
+                      bgColor.withValues(alpha: 0.70),
+                      bgColor.withValues(alpha: 0.65),
                       bgColor.withValues(alpha: 0.0),
                     ],
                   ),
@@ -1789,7 +1998,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: sc.surfaceElevated,
+                        color: sc.surfaceElevated.withValues(alpha: 0.85),
                         shape: BoxShape.circle,
                         border: Border.all(color: sc.border),
                         boxShadow: [
@@ -1819,8 +2028,8 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                   gradient: LinearGradient(
                     colors: [
                       bgColor.withValues(alpha: 0.0),
-                      bgColor.withValues(alpha: 0.95),
-                      bgColor,
+                      bgColor.withValues(alpha: 0.65),
+                      bgColor.withValues(alpha: 0.70),
                     ],
                   ),
                 ),
@@ -1833,7 +2042,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: sc.surfaceElevated,
+                        color: sc.surfaceElevated.withValues(alpha: 0.85),
                         shape: BoxShape.circle,
                         border: Border.all(color: sc.border),
                         boxShadow: [
@@ -1864,12 +2073,16 @@ class _RightSideSelectionPane extends StatelessWidget {
   final List<String> subfolders;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
+  final Color topAmbientColor;
+  final Color bottomAmbientColor;
 
   const _RightSideSelectionPane({
     required this.selectedCount,
     required this.subfolders,
     required this.onCreateFolder,
     required this.onMoveToFolder,
+    this.topAmbientColor = const Color(0xFFf89838),
+    this.bottomAmbientColor = const Color(0xFFf89838),
   });
 
   @override
@@ -1877,99 +2090,119 @@ class _RightSideSelectionPane extends StatelessWidget {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isDark
-              ? [
-                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.05), sc.surfaceElevated),
-                  sc.surfaceElevated,
-                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.02), sc.surfaceElevated),
-                ]
-              : [
-                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.06), sc.surfaceElevated),
-                  sc.surfaceElevated,
-                  Color.alphaBlend(const Color(0xFFf89838).withValues(alpha: 0.02), sc.surfaceMuted),
-                ],
-        ),
-        border: Border(left: BorderSide(color: sc.border)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top Header (total selected, create folder at top)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '$selectedCount selected',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _CreateFolderButton(
-                  onTap: onCreateFolder,
-                  fullWidth: true,
-                ),
-              ],
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          width: 280,
+          decoration: BoxDecoration(
+            color: (isDark ? sc.surfaceElevated : Colors.white).withValues(alpha: 0.70),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isDark
+                  ? [
+                      Color.alphaBlend(
+                        topAmbientColor.withValues(alpha: 0.20),
+                        sc.surfaceElevated.withValues(alpha: 0.70),
+                      ),
+                      sc.surfaceElevated.withValues(alpha: 0.70),
+                      Color.alphaBlend(
+                        bottomAmbientColor.withValues(alpha: 0.16),
+                        sc.surfaceElevated.withValues(alpha: 0.70),
+                      ),
+                    ]
+                  : [
+                      Color.alphaBlend(
+                        topAmbientColor.withValues(alpha: 0.18),
+                        Colors.white.withValues(alpha: 0.70),
+                      ),
+                      Colors.white.withValues(alpha: 0.70),
+                      Color.alphaBlend(
+                        bottomAmbientColor.withValues(alpha: 0.14),
+                        sc.surfaceMuted.withValues(alpha: 0.70),
+                      ),
+                    ],
             ),
+            border: Border(left: BorderSide(color: sc.border.withValues(alpha: 0.85))),
           ),
-          Divider(height: 1, thickness: 1, color: sc.border),
-          // Subfolders / Tags (2 per row with vertical scroll if overflow)
-          Expanded(
-            child: subfolders.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.folder_open_outlined, size: 36, color: sc.muted.withValues(alpha: 0.5)),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No subfolders.\nCreate a folder to move files.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Lora',
-                              fontSize: 13,
-                              color: sc.muted,
-                            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Header (total selected, create folder at top)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '$selectedCount selected',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _CreateFolderButton(
+                      onTap: onCreateFolder,
+                      fullWidth: true,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, thickness: 1, color: sc.border.withValues(alpha: 0.75)),
+              // Subfolders / Tags (2 per row with vertical scroll if overflow)
+              Expanded(
+                child: subfolders.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.folder_open_outlined, size: 36, color: sc.muted.withValues(alpha: 0.5)),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No subfolders.\nCreate a folder to move files.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Lora',
+                                  fontSize: 13,
+                                  color: sc.muted,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      )
+                    : Scrollbar(
+                        thumbVisibility: true,
+                        child: GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 2.6,
+                          ),
+                          itemCount: subfolders.length,
+                          itemBuilder: (context, index) {
+                            final folder = subfolders[index];
+                            return _ActionChip(
+                              label: folder,
+                              onTap: () => onMoveToFolder(folder),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  )
-                : Scrollbar(
-                    thumbVisibility: true,
-                    child: GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 2.6,
-                      ),
-                      itemCount: subfolders.length,
-                      itemBuilder: (context, index) {
-                        final folder = subfolders[index];
-                        return _ActionChip(
-                          label: folder,
-                          onTap: () => onMoveToFolder(folder),
-                        );
-                      },
-                    ),
-                  ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2139,8 +2372,8 @@ class _ActionChipState extends State<_ActionChip> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final Color defaultBg = isDark ? const Color(0xFF1a1a1a) : const Color(0xFFf3f3f3);
-    final Color hoverBg = isDark ? const Color(0xFF282828) : const Color(0xFFe5e5e5);
+    final Color defaultBg = isDark ? const Color(0xFF1a1a1a).withValues(alpha: 0.75) : const Color(0xFFf3f3f3).withValues(alpha: 0.75);
+    final Color hoverBg = isDark ? const Color(0xFF282828).withValues(alpha: 0.85) : const Color(0xFFe5e5e5).withValues(alpha: 0.85);
     final Color defaultBorder = isDark ? const Color(0xFF2f2f2f) : const Color(0xFFd7d7d7);
     final Color hoverBorder = isDark ? const Color(0xFF4a4a4a) : const Color(0xFFb5b5b5);
 
