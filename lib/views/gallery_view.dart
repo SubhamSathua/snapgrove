@@ -476,21 +476,42 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: sc.accent,
+                          foregroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(false),
-                        child: Text('Stay', style: TextStyle(color: sc.muted)),
+                        child: const Text(
+                          'Stay',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: sc.accent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: sc.muted,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Discard'),
+                        child: const Text(
+                          'Discard',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -560,21 +581,42 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: Text('Stay', style: TextStyle(color: sc.muted)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: sc.accent,
                           foregroundColor: Colors.black,
                           elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text(
+                          'Stay',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: sc.muted,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Quit'),
+                        child: const Text(
+                          'Quit',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ),
                   ],
