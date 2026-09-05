@@ -446,6 +446,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             builder: (_) => ImagePreviewView(
               files: _viewModel.files,
               initialIndex: index,
+              directoryPath: _viewModel.path,
+              subfolders: _viewModel.subfolders,
+              onFolderCreated: (name) => _viewModel.createSubfolder(name),
+              onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
+              onFileDeleted: (file) => _viewModel.deleteFile(file),
             ),
           ),
         );
@@ -1387,11 +1392,24 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   return _GalleryItem(
                     path: path,
                     buildImage: () => _buildImage(context, path),
-                    files: _viewModel.files,
-                    initialIndex: index,
                     isSelectionMode: _isSelectionMode,
                     isSelected: _selectedIndices.contains(index),
                     onSelectionTap: () => _toggleSelection(index),
+                    onOpenPreview: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ImagePreviewView(
+                            files: _viewModel.files,
+                            initialIndex: index,
+                            directoryPath: _viewModel.path,
+                            subfolders: _viewModel.subfolders,
+                            onFolderCreated: (name) => _viewModel.createSubfolder(name),
+                            onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
+                            onFileDeleted: (file) => _viewModel.deleteFile(file),
+                          ),
+                        ),
+                      );
+                    },
                     onLongPress: () => _enterSelectionMode(initialIndex: index),
                     onRightClick: (position) => _showContextMenu(context, position, index),
                   );
@@ -1848,22 +1866,20 @@ class _GroupedOptionTileState extends State<_GroupedOptionTile> {
 class _GalleryItem extends StatelessWidget {
   final String path;
   final Widget Function() buildImage;
-  final List<String> files;
-  final int initialIndex;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onSelectionTap;
+  final VoidCallback? onOpenPreview;
   final VoidCallback? onLongPress;
   final void Function(Offset)? onRightClick;
 
   const _GalleryItem({
     required this.path, 
     required this.buildImage,
-    required this.files,
-    required this.initialIndex,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectionTap,
+    this.onOpenPreview,
     this.onLongPress,
     this.onRightClick,
   });
@@ -1881,14 +1897,7 @@ class _GalleryItem extends StatelessWidget {
           if (isSelectionMode) {
             onSelectionTap?.call();
           } else {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ImagePreviewView(
-                  files: files,
-                  initialIndex: initialIndex,
-                ),
-              ),
-            );
+            onOpenPreview?.call();
           }
         },
         onLongPress: onLongPress,

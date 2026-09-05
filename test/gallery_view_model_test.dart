@@ -115,6 +115,16 @@ class MockFileService implements FileService {
     }
     return true;
   }
+
+  @override
+  Future<bool> deleteFile(String path) async {
+    final file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+      return true;
+    }
+    return false;
+  }
 }
 
 void main() {
@@ -319,6 +329,19 @@ void main() {
       final undoResult = await viewModel.undoMoveFiles([file.path], 'Archive');
       expect(undoResult, true);
       expect(await file.exists(), true);
+    });
+
+    test('deleteFile removes file from disk and updates file list', () async {
+      final file = File('${tempDir.path}\\to_delete.png');
+      await file.create();
+
+      await viewModel.loadFiles();
+      expect(viewModel.files.contains(file.path), true);
+
+      final deleteResult = await viewModel.deleteFile(file.path);
+      expect(deleteResult, true);
+      expect(await file.exists(), false);
+      expect(viewModel.files.contains(file.path), false);
     });
   });
 }

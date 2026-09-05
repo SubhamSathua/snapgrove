@@ -56,6 +56,9 @@ class MockFileService implements FileService {
 
   @override
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async => true;
+
+  @override
+  Future<bool> deleteFile(String path) async => true;
 }
 
 void main() {

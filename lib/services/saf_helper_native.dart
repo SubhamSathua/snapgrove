@@ -130,4 +130,14 @@ class SafHelper {
       return false;
     }
   }
+
+  static Future<bool> deleteFile(String uri) async {
+    try {
+      await SafUtil().delete(uri, false);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: deleteFile failed: $e');
+      return false;
+    }
+  }
 }

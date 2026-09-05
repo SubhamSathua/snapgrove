@@ -318,4 +318,18 @@ class WebImageUtils {
       return false;
     }
   }
+
+  static Future<bool> deleteFile(String path) async {
+    try {
+      final dir = getLastPickerHandle();
+      if (dir == null) return false;
+      final fileName = path.split('/').last;
+      await dir.removeEntry(fileName).toDart;
+      _handleMap.remove(path);
+      return true;
+    } catch (e) {
+      debugPrint('Web Error: deleteFile failed: $e');
+      return false;
+    }
+  }
 }

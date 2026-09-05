@@ -310,4 +310,15 @@ class GalleryViewModel extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> deleteFile(String filePath) async {
+    try {
+      final success = await _fileService.deleteFile(filePath);
+      if (success) await loadFiles();
+      return success;
+    } catch (e) {
+      debugPrint('Error deleting file: $e');
+      return false;
+    }
+  }
 }

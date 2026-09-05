@@ -12,6 +12,7 @@ abstract class FileService {
   Future<bool> createSubfolder(String path, String name);
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files);
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files);
+  Future<bool> deleteFile(String path);
 }
 
 class FileServiceImpl implements FileService {
@@ -155,6 +156,27 @@ class FileServiceImpl implements FileService {
       }
     } catch (e) {
       debugPrint('Error undoing file move: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteFile(String path) async {
+    try {
+      if (kIsWeb) {
+        return await WebImageUtils.deleteFile(path);
+      } else if (Platform.isAndroid) {
+        return await SafHelper.deleteFile(path);
+      } else {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          return true;
+        }
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error deleting file: $e');
       return false;
     }
   }
