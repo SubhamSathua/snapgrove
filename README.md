@@ -1,4 +1,4 @@
-# Snapgrove
+﻿# Snapgrove
 <p align="center">
   <img src=".github/assets/logo/logo.png" alt="Snapgrove Logo" width="128">
 </p>
@@ -40,23 +40,16 @@ Users accumulate hundreds or thousands of screenshots across desktops, phones, a
 - **Safe Selection Mode:** Protect your workflow with custom discard confirmations on Escape or Back navigation.
 - **Full-Screen Viewer:** Inspect images with double-tap zoom, gesture panning, and keyboard navigation.
 
----
 
 ## # Screenshots
 
-> **Full Gallery:** [View all screenshots and interface states](.github/assets/screenshots/screenshot.md)
+> **Full Gallery:** [View all screenshots](.github/assets/screenshots/screenshot.md)
 
-### Desktop Gallery
-<p align="center">
-  <img src=".github/assets/screenshots/main-working.png" alt="Snapgrove Desktop Gallery" width="900">
-</p>
 
-### Mobile Gallery
-<p align="center">
-  <img src=".github/assets/screenshots/mob-gallery.jpg" alt="Snapgrove Mobile Gallery" width="400">
-</p>
+| Desktop Gallery | Mobile Gallery |
+| :---: | :---: |
+| <img src=".github/assets/screenshots/main-working.png" alt="Snapgrove Desktop Gallery" width="400"> | <img src=".github/assets/screenshots/mob-gallery.jpg" alt="Snapgrove Mobile Gallery" width="400"> |
 
----
 
 ## # How to install
 
