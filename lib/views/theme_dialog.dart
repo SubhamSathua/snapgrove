@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../theme/app_theme.dart';
@@ -208,9 +208,6 @@ class _ThemeOptionState extends State<_ThemeOption>
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: widget.isActive ? Colors.transparent : sc.border.withValues(alpha: 0.4),
-          ),
         ),
         child: Material(
           color: Colors.transparent,

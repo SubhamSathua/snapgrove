@@ -105,55 +105,114 @@ class GalleryViewModel extends ChangeNotifier {
         _files.sort((a, b) {
           final nameA = _extractFileName(a).toLowerCase();
           final nameB = _extractFileName(b).toLowerCase();
-          final cmp = nameA.compareTo(nameB);
+          final cmp = naturalCompare(nameA, nameB);
           return _sortOrder == SortOrder.ascending ? cmp : -cmp;
         });
         break;
+
       case SortField.dateModified:
+        final dateMap = <String, DateTime>{};
+        for (final path in _files) {
+          dateMap[path] = _getDateForPath(path);
+        }
+
         _files.sort((a, b) {
-          int cmp = 0;
-          if (!kIsWeb && !a.startsWith('content://') && !b.startsWith('content://')) {
-            try {
-              final fileA = File(a);
-              final fileB = File(b);
-              if (fileA.existsSync() && fileB.existsSync()) {
-                final dateA = fileA.lastModifiedSync();
-                final dateB = fileB.lastModifiedSync();
-                cmp = dateA.compareTo(dateB);
-              }
-            } catch (_) {}
-          }
+          final dateA = dateMap[a]!;
+          final dateB = dateMap[b]!;
+          int cmp = dateA.compareTo(dateB);
           if (cmp == 0) {
             final nameA = _extractFileName(a).toLowerCase();
             final nameB = _extractFileName(b).toLowerCase();
-            cmp = nameA.compareTo(nameB);
+            cmp = naturalCompare(nameA, nameB);
           }
           return _sortOrder == SortOrder.ascending ? cmp : -cmp;
         });
         break;
+
       case SortField.size:
+        final sizeMap = <String, int>{};
+        for (final path in _files) {
+          sizeMap[path] = _getSizeForPath(path);
+        }
+
         _files.sort((a, b) {
-          int cmp = 0;
-          if (!kIsWeb && !a.startsWith('content://') && !b.startsWith('content://')) {
-            try {
-              final fileA = File(a);
-              final fileB = File(b);
-              if (fileA.existsSync() && fileB.existsSync()) {
-                final sizeA = fileA.lengthSync();
-                final sizeB = fileB.lengthSync();
-                cmp = sizeA.compareTo(sizeB);
-              }
-            } catch (_) {}
-          }
+          final sizeA = sizeMap[a]!;
+          final sizeB = sizeMap[b]!;
+          int cmp = sizeA.compareTo(sizeB);
           if (cmp == 0) {
             final nameA = _extractFileName(a).toLowerCase();
             final nameB = _extractFileName(b).toLowerCase();
-            cmp = nameA.compareTo(nameB);
+            cmp = naturalCompare(nameA, nameB);
           }
           return _sortOrder == SortOrder.ascending ? cmp : -cmp;
         });
         break;
     }
+  }
+
+  static int naturalCompare(String a, String b) {
+    final regex = RegExp(r'(\d+|\D+)');
+    final matchesA = regex.allMatches(a).map((m) => m.group(0)!).toList();
+    final matchesB = regex.allMatches(b).map((m) => m.group(0)!).toList();
+
+    final minLength = matchesA.length < matchesB.length ? matchesA.length : matchesB.length;
+    for (int i = 0; i < minLength; i++) {
+      final segA = matchesA[i];
+      final segB = matchesB[i];
+
+      final numA = int.tryParse(segA);
+      final numB = int.tryParse(segB);
+
+      if (numA != null && numB != null) {
+        final cmp = numA.compareTo(numB);
+        if (cmp != 0) return cmp;
+      } else {
+        final cmp = segA.compareTo(segB);
+        if (cmp != 0) return cmp;
+      }
+    }
+    return matchesA.length.compareTo(matchesB.length);
+  }
+
+  static DateTime _getDateForPath(String path) {
+    if (!kIsWeb && !path.startsWith('content://')) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          return file.lastModifiedSync();
+        }
+      } catch (_) {}
+    }
+
+    final filename = _extractFileName(path);
+    final dateMatch = RegExp(r'(\d{4})[-_]?(\d{2})[-_]?(\d{2})(?:[_\s-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})?)?').firstMatch(filename);
+    if (dateMatch != null) {
+      try {
+        final year = int.parse(dateMatch.group(1)!);
+        final month = int.parse(dateMatch.group(2)!);
+        final day = int.parse(dateMatch.group(3)!);
+        final hour = dateMatch.group(4) != null ? int.parse(dateMatch.group(4)!) : 0;
+        final minute = dateMatch.group(5) != null ? int.parse(dateMatch.group(5)!) : 0;
+        final second = dateMatch.group(6) != null ? int.parse(dateMatch.group(6)!) : 0;
+        if (year >= 1990 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+          return DateTime(year, month, day, hour, minute, second);
+        }
+      } catch (_) {}
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static int _getSizeForPath(String path) {
+    if (!kIsWeb && !path.startsWith('content://')) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          return file.lengthSync();
+        }
+      } catch (_) {}
+    }
+    return 0;
   }
 
   static String _extractFileName(String path) {

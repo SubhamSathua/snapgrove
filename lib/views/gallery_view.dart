@@ -1374,10 +1374,6 @@ class _GroupedOptionTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: borderRadius,
-            border: Border.all(
-              color: isActive ? Colors.transparent : sc.border.withValues(alpha: 0.6),
-              width: 0.8,
-            ),
           ),
           child: Text(
             label,
