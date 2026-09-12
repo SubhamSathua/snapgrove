@@ -125,35 +125,38 @@ class SafHelper {
     }
   }
 
-  static Future<String> _getUniqueSafFileName(String destDirUri, String originalName) async {
-    try {
-      final contents = await SafUtil().list(destDirUri);
-      final existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
-      final lastDot = originalName.lastIndexOf('.');
-      final baseName = lastDot != -1 ? originalName.substring(0, lastDot) : originalName;
-      final ext = lastDot != -1 ? originalName.substring(lastDot) : '';
+  static String _generateUniqueName(Set<String> existingNames, String originalName) {
+    final lastDot = originalName.lastIndexOf('.');
+    final baseName = lastDot != -1 ? originalName.substring(0, lastDot) : originalName;
+    final ext = lastDot != -1 ? originalName.substring(lastDot) : '';
 
-      String candidate = originalName;
-      int counter = 1;
-      while (existingNames.contains(candidate.toLowerCase())) {
-        candidate = '$baseName ($counter)$ext';
-        counter++;
-      }
-      return candidate;
-    } catch (_) {
-      return originalName;
+    String candidate = originalName;
+    int counter = 1;
+    while (existingNames.contains(candidate.toLowerCase())) {
+      candidate = '$baseName ($counter)$ext';
+      counter++;
     }
+    return candidate;
   }
 
   static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
       final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
+      
+      // Query destination folder once for batch collision checking
+      Set<String> existingNames = {};
+      try {
+        final contents = await SafUtil().list(destUri);
+        existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
+      } catch (_) {}
+
       for (final fileUri in files) {
         String effectiveFileUri = fileUri;
         try {
           final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
-          final uniqueName = await _getUniqueSafFileName(destUri, originalName);
+          final uniqueName = _generateUniqueName(existingNames, originalName);
+          existingNames.add(uniqueName.toLowerCase());
           if (uniqueName != originalName) {
             final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
             effectiveFileUri = renamedDoc.uri;
@@ -188,11 +191,20 @@ class SafHelper {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
       final targetDirUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
+      
+      // Query parent folder once for batch collision checking
+      Set<String> existingNames = {};
+      try {
+        final contents = await SafUtil().list(parentUri);
+        existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
+      } catch (_) {}
+
       for (final fileUri in files) {
         String effectiveFileUri = fileUri;
         try {
           final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
-          final uniqueName = await _getUniqueSafFileName(parentUri, originalName);
+          final uniqueName = _generateUniqueName(existingNames, originalName);
+          existingNames.add(uniqueName.toLowerCase());
           if (uniqueName != originalName) {
             final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
             effectiveFileUri = renamedDoc.uri;
