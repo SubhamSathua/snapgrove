@@ -1712,11 +1712,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     );
 
     if (result != null && result.isNotEmpty) {
+      locator<NotificationService>().showSnackBar('Folder "$result" created');
       final success = await _viewModel.createSubfolder(result);
-      if (success && mounted) {
-        locator<NotificationService>().showSnackBar('Folder "$result" created');
-      } else if (mounted) {
-        locator<NotificationService>().showSnackBar('Failed to create folder', isError: true);
+      if (!success && mounted) {
+        locator<NotificationService>().showSnackBar('Failed to create folder "$result"', isError: true);
       }
     }
   }
