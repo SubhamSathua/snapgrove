@@ -311,16 +311,28 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<bool> createSubfolder(String name) async {
-    if (name.trim().isEmpty) return false;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+    if (_subfolders.any((s) => s.toLowerCase() == trimmed.toLowerCase())) {
+      return false;
+    }
+
+    // Optimistically update subfolders list in memory
+    _subfolders.add(trimmed);
+    _subfolders.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    notifyListeners();
+
     try {
-      final success = await _fileService.createSubfolder(path, name);
-      if (success) {
-        await _loadSubfolders();
+      final success = await _fileService.createSubfolder(path, trimmed);
+      if (!success) {
+        _subfolders.remove(trimmed);
         notifyListeners();
       }
       return success;
     } catch (e) {
       debugPrint('Error creating subfolder: $e');
+      _subfolders.remove(trimmed);
+      notifyListeners();
       return false;
     }
   }
@@ -341,11 +353,27 @@ class GalleryViewModel extends ChangeNotifier {
         return true;
       }
 
+      // Optimistic removal when viewing current folder without subfolders
+      if (!_includeSubfolders && !isMovingToRoot) {
+        for (final f in filesToMove) {
+          _files.remove(f);
+        }
+        _selectedIndices.clear();
+        notifyListeners();
+      }
+
       final success = await _fileService.moveFilesToFolder(path, folderName, filesToMove);
-      if (success) await loadFiles();
+      if (success) {
+        if (_includeSubfolders || isMovingToRoot) {
+          await loadFiles();
+        }
+      } else {
+        await loadFiles();
+      }
       return success;
     } catch (e) {
       debugPrint('Error moving files: $e');
+      await loadFiles();
       return false;
     }
   }
@@ -362,12 +390,22 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteFile(String filePath) async {
+    final index = _files.indexOf(filePath);
+    if (index != -1) {
+      _files.removeAt(index);
+      _selectedIndices.remove(index);
+      notifyListeners();
+    }
+
     try {
       final success = await _fileService.deleteFile(filePath);
-      if (success) await loadFiles();
+      if (!success) {
+        await loadFiles();
+      }
       return success;
     } catch (e) {
       debugPrint('Error deleting file: $e');
+      await loadFiles();
       return false;
     }
   }
