@@ -518,5 +518,34 @@ void main() {
       final inStorage = await storage.read('settings', 'show_subfolders_images');
       expect(inStorage, isNull);
     });
+
+    test('OPTIMISTIC UPDATE: createSubfolder updates subfolder list immediately', () async {
+      expect(viewModel.subfolders.contains('NewAlbum'), false);
+      final created = await viewModel.createSubfolder('NewAlbum');
+      expect(created, true);
+      expect(viewModel.subfolders.contains('NewAlbum'), true);
+    });
+
+    test('OPTIMISTIC UPDATE: moveFilesToFolder removes items from root file list immediately when includeSubfolders is false', () async {
+      final file1 = File('${tempDir.path}\\opt_move.png');
+      await file1.create();
+      await viewModel.loadFiles();
+      expect(viewModel.files.contains(file1.path), true);
+
+      final moved = await viewModel.moveFilesToFolder([file1.path], 'NewAlbum');
+      expect(moved, true);
+      expect(viewModel.files.contains(file1.path), false);
+    });
+
+    test('OPTIMISTIC UPDATE: deleteFile removes item immediately from memory list', () async {
+      final file1 = File('${tempDir.path}\\opt_delete.png');
+      await file1.create();
+      await viewModel.loadFiles();
+      expect(viewModel.files.contains(file1.path), true);
+
+      final deleted = await viewModel.deleteFile(file1.path);
+      expect(deleted, true);
+      expect(viewModel.files.contains(file1.path), false);
+    });
   });
 }
