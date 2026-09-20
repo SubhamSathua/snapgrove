@@ -72,10 +72,27 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateTagsScrollIndicators();
+      _preloadAdjacent(_currentIndex);
     });
 
     if (_subfolders.isEmpty && widget.directoryPath != null && widget.directoryPath!.isNotEmpty) {
       _loadSubfolders();
+    }
+  }
+
+  void _preloadAdjacent(int index) {
+    for (final offset in [-1, 1]) {
+      final target = index + offset;
+      if (target >= 0 && target < _files.length) {
+        final path = _files[target];
+        if ((kIsWeb || path.startsWith('content://')) && !_PreviewImageTileState.isCached(path)) {
+          locator<FileService>().readFile(path).then((bytes) {
+            if (bytes != null) {
+              _PreviewImageTileState.addToCache(path, bytes);
+            }
+          }).catchError((_) {});
+        }
+      }
     }
   }
 
@@ -357,43 +374,41 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       return;
     }
 
-    bool success = false;
-    if (widget.onFileMoved != null) {
-      success = await widget.onFileMoved!(currentPath, folderName);
-    } else if (widget.directoryPath != null) {
-      success = await locator<FileService>().moveFilesToFolder(widget.directoryPath!, folderName, [currentPath]);
-    }
+    // Optimistic removal from preview
+    final currentIndex = _currentIndex;
+    setState(() {
+      _files.removeAt(currentIndex);
+      if (_files.isEmpty) {
+        Navigator.of(context).pop();
+      } else if (_currentIndex >= _files.length) {
+        _currentIndex = _files.length - 1;
+      }
+    });
 
-    if (success) {
-      locator<NotificationService>().showSnackBar(
-        'Moved "$fileName" to $folderName',
-        actionLabel: 'Undo',
-        onAction: () async {
-          if (widget.directoryPath != null) {
-            final undoSuccess = await locator<FileService>().undoMoveFiles(widget.directoryPath!, folderName, [currentPath]);
-            if (undoSuccess) {
-              if (mounted) {
-                setState(() {
-                  _files.insert(_currentIndex.clamp(0, _files.length), currentPath);
-                });
-              }
-              locator<NotificationService>().showSnackBar('Restored "$fileName"');
+    locator<NotificationService>().showSnackBar(
+      'Moved "$fileName" to $folderName',
+      actionLabel: 'Undo',
+      onAction: () async {
+        if (widget.directoryPath != null) {
+          final undoSuccess = await locator<FileService>().undoMoveFiles(widget.directoryPath!, folderName, [currentPath]);
+          if (undoSuccess) {
+            if (mounted) {
+              setState(() {
+                _files.insert(currentIndex.clamp(0, _files.length), currentPath);
+              });
             }
+            locator<NotificationService>().showSnackBar('Restored "$fileName"');
           }
-        },
-        duration: const Duration(seconds: 6),
-      );
-
-      setState(() {
-        _files.removeAt(_currentIndex);
-        if (_files.isEmpty) {
-          Navigator.of(context).pop();
-        } else if (_currentIndex >= _files.length) {
-          _currentIndex = _files.length - 1;
         }
-      });
-    } else {
-      locator<NotificationService>().showSnackBar('Failed to move image', isError: true);
+      },
+      duration: const Duration(seconds: 6),
+    );
+
+    // Perform file move in background
+    if (widget.onFileMoved != null) {
+      widget.onFileMoved!(currentPath, folderName);
+    } else if (widget.directoryPath != null) {
+      locator<FileService>().moveFilesToFolder(widget.directoryPath!, folderName, [currentPath]);
     }
   }
 
@@ -500,25 +515,22 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     );
 
     if (confirmed == true && mounted) {
-      bool success = false;
-      if (widget.onFileDeleted != null) {
-        success = await widget.onFileDeleted!(currentPath);
-      } else {
-        success = await locator<FileService>().deleteFile(currentPath);
-      }
+      final currentIndex = _currentIndex;
+      setState(() {
+        _files.removeAt(currentIndex);
+        if (_files.isEmpty) {
+          Navigator.of(context).pop();
+        } else if (_currentIndex >= _files.length) {
+          _currentIndex = _files.length - 1;
+        }
+      });
 
-      if (success) {
-        locator<NotificationService>().showSnackBar('Image deleted');
-        setState(() {
-          _files.removeAt(_currentIndex);
-          if (_files.isEmpty) {
-            Navigator.of(context).pop();
-          } else if (_currentIndex >= _files.length) {
-            _currentIndex = _files.length - 1;
-          }
-        });
+      locator<NotificationService>().showSnackBar('Image deleted');
+
+      if (widget.onFileDeleted != null) {
+        widget.onFileDeleted!(currentPath);
       } else {
-        locator<NotificationService>().showSnackBar('Failed to delete image', isError: true);
+        locator<FileService>().deleteFile(currentPath);
       }
     }
   }
@@ -987,6 +999,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                       _currentIndex = idx;
                       _transformController.value = Matrix4.identity();
                     });
+                    _preloadAdjacent(idx);
                   },
                   itemBuilder: (context, index) {
                     final path = _files[index];
@@ -1356,29 +1369,121 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   }
 
   Widget _buildImage(BuildContext context, String path) {
-    if (kIsWeb || path.startsWith('content://')) {
-      return FutureBuilder<Uint8List?>(
-        future: locator<FileService>().readFile(path),
-        builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              snapshot.data!,
-              fit: BoxFit.contain,
-              gaplessPlayback: true,
-            );
-          }
-          if (snapshot.hasError) {
-            return const Icon(Icons.broken_image, size: 100, color: Colors.white);
-          }
-          return const CircularProgressIndicator(color: Colors.white);
-        },
+    return _PreviewImageTile(path: path);
+  }
+}
+
+class _PreviewImageTile extends StatefulWidget {
+  final String path;
+  const _PreviewImageTile({required this.path});
+
+  @override
+  State<_PreviewImageTile> createState() => _PreviewImageTileState();
+}
+
+class _PreviewImageTileState extends State<_PreviewImageTile> {
+  static final Map<String, Uint8List> _previewCache = {};
+  static final List<String> _cacheKeys = [];
+  static const int _maxCacheSize = 25;
+
+  Uint8List? _bytes;
+  bool _hasError = false;
+
+  static bool isCached(String path) => _previewCache.containsKey(path);
+
+  static void addToCache(String key, Uint8List bytes) {
+    if (_cacheKeys.length >= _maxCacheSize) {
+      final oldest = _cacheKeys.removeAt(0);
+      _previewCache.remove(oldest);
+    }
+    _previewCache[key] = bytes;
+    _cacheKeys.remove(key);
+    _cacheKeys.add(key);
+  }
+
+  static void _touchCache(String key) {
+    _cacheKeys.remove(key);
+    _cacheKeys.add(key);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(_PreviewImageTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _loadImage();
+    }
+  }
+
+  void _loadImage() {
+    if (!kIsWeb && !widget.path.startsWith('content://')) {
+      return;
+    }
+
+    if (_previewCache.containsKey(widget.path)) {
+      _touchCache(widget.path);
+      setState(() {
+        _bytes = _previewCache[widget.path];
+        _hasError = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _hasError = false;
+    });
+
+    final targetPath = widget.path;
+    locator<FileService>().readFile(targetPath).then((bytes) {
+      if (!mounted || widget.path != targetPath) return;
+      if (bytes != null) {
+        addToCache(targetPath, bytes);
+        setState(() {
+          _bytes = bytes;
+          _hasError = false;
+        });
+      } else {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }).catchError((_) {
+      if (!mounted || widget.path != targetPath) return;
+      setState(() {
+        _hasError = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb && !widget.path.startsWith('content://')) {
+      return Image.file(
+        File(widget.path),
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
       );
     }
 
-    return Image.file(
-      File(path),
-      fit: BoxFit.contain,
-      gaplessPlayback: true,
+    if (_bytes != null) {
+      return Image.memory(
+        _bytes!,
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+      );
+    }
+
+    if (_hasError) {
+      return const Icon(Icons.broken_image, size: 100, color: Colors.white);
+    }
+
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.white),
     );
   }
 }
