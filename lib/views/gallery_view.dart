@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -75,8 +76,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     });
   }
 
+  Timer? _ambienceDebounceTimer;
+
   @override
   void dispose() {
+    _ambienceDebounceTimer?.cancel();
     _scrollController.removeListener(_handleGalleryScroll);
     _scrollController.dispose();
     super.dispose();
@@ -84,13 +88,17 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   void _handleGalleryScroll() {
     if (!mounted) return;
-    final width = MediaQuery.maybeOf(context)?.size.width ?? 1000.0;
-    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    final isDesktop = !isAndroid && width >= 720;
-    final useSidePane = _isSelectionMode && isDesktop;
-    final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
-    final gridWidth = useSidePane ? width - 280 : width;
-    _updateAmbienceFromVisibleImages(gridWidth, effectiveColumns);
+    _ambienceDebounceTimer?.cancel();
+    _ambienceDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+      if (!mounted) return;
+      final width = MediaQuery.maybeOf(context)?.size.width ?? 1000.0;
+      final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      final isDesktop = !isAndroid && width >= 720;
+      final useSidePane = _isSelectionMode && isDesktop;
+      final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
+      final gridWidth = useSidePane ? width - 280 : width;
+      _updateAmbienceFromVisibleImages(gridWidth, effectiveColumns);
+    });
   }
 
   void _updateAmbienceFromVisibleImages(double width, int effectiveColumns) {
@@ -458,6 +466,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     }
   }
 
+  /// Dynamically computes maximum allowable columns based on viewport width
   int _getMaxAllowedColumns(double width) {
     if (width < 380) return 3;
     if (width < 600) return 5;
@@ -466,6 +475,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     return 12;
   }
 
+  /// Calculates effective columns respecting screen constraints and user preference
   int _getEffectiveColumns(double width, {bool isRightPaneOpen = false}) {
     if (isRightPaneOpen) {
       return 5;
