@@ -174,13 +174,20 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   }
 
   void _setZoom(double targetZoom, [Offset? focalPoint]) {
+    if (targetZoom <= 1.01) {
+      _transformController.value = Matrix4.identity();
+      return;
+    }
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     final Size size = box?.hasSize == true ? box!.size : (MediaQuery.maybeOf(context)?.size ?? Size.zero);
-    final double cx = focalPoint?.dx ?? (size.width / 2.0);
-    final double cy = focalPoint?.dy ?? (size.height / 2.0);
+    final double cx = (focalPoint?.dx ?? (size.width / 2.0)).clamp(0.0, size.width);
+    final double cy = (focalPoint?.dy ?? (size.height / 2.0)).clamp(0.0, size.height);
+
+    final double tx = (size.width / 2.0 - cx) * (targetZoom - 1.0);
+    final double ty = (size.height / 2.0 - cy) * (targetZoom - 1.0);
 
     final Matrix4 matrix = Matrix4.identity()
-      ..translateByDouble(cx * (1.0 - targetZoom), cy * (1.0 - targetZoom), 0.0, 1.0)
+      ..translateByDouble(tx, ty, 0.0, 1.0)
       ..scaleByDouble(targetZoom, targetZoom, 1.0, 1.0);
     _transformController.value = matrix;
   }
