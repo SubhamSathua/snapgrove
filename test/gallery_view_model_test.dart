@@ -547,5 +547,22 @@ void main() {
       expect(deleted, true);
       expect(viewModel.files.contains(file1.path), false);
     });
+
+    test('SORTING: correctly sorts by date modified and file size', () async {
+      final fileSmall = File('${tempDir.path}\\small.png');
+      await fileSmall.create();
+      await fileSmall.writeAsString('a');
+
+      final fileLarge = File('${tempDir.path}\\large.png');
+      await fileLarge.create();
+      await fileLarge.writeAsString('aaaaaaaaaa');
+
+      await viewModel.loadFiles();
+      viewModel.setSort(SortField.size, SortOrder.ascending);
+      expect(viewModel.files.first, fileSmall.path);
+
+      viewModel.setSort(SortField.size, SortOrder.descending);
+      expect(viewModel.files.first, fileLarge.path);
+    });
   });
 }
