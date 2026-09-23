@@ -1,4 +1,4 @@
-﻿# Snapgrove
+# Snapgrove
 <p align="center">
   <img src=".github/assets/logo/logo.png" alt="Snapgrove Logo" width="128">
 </p>
@@ -39,6 +39,7 @@ Users accumulate hundreds or thousands of screenshots across desktops, phones, a
 - **Dynamic Theming:** Switch instantly between System, Light, and Dark modes across all views and modals.
 - **Safe Selection Mode:** Protect your workflow with custom discard confirmations on Escape or Back navigation.
 - **Full-Screen Viewer:** Inspect images with double-tap zoom, gesture panning, and keyboard navigation.
+- **Instant Preview & High-Res Caching:** Seamless slide transitions backed by in-memory LRU caching and background preloading.
 
 
 ## # Screenshots
