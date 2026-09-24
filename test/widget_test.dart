@@ -105,4 +105,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SnapgroveApp), findsOneWidget);
   });
+
+  testWidgets('NotificationService initializes correctly', (WidgetTester tester) async {
+    final notification = locator<NotificationService>();
+    expect(notification, isNotNull);
+  });
 }
