@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -7,6 +8,10 @@ import '../services/picker_service.dart';
 import '../theme/app_theme.dart';
 import 'gallery_view.dart';
 import 'theme_dialog.dart';
+import 'privacy_policy_view.dart';
+import 'licenses_view.dart';
+import 'source_code_view.dart';
+import 'about_view.dart';
 
 class LandingPage extends StatefulWidget {
   final AppViewModel viewModel;
@@ -90,8 +95,14 @@ class _LandingPageState extends State<LandingPage> {
     _removeMenuSync();
   }
 
+  void _navigateTo(Widget page) async {
+    await _removeMenu();
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
   OverlayEntry _createOverlayEntry() {
-    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
 
     double menuWidth;
@@ -121,56 +132,64 @@ class _LandingPageState extends State<LandingPage> {
               targetAnchor: Alignment.bottomRight,
               followerAnchor: Alignment.topRight,
               offset: const Offset(0, 10),
-              child: Container(
-                width: menuWidth,
-                decoration: BoxDecoration(
-                  color: sc.surfaceElevated,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.16),
-                      blurRadius: 40,
-                      offset: const Offset(0, 18),
-                    ),
-                  ],
-                  border: Border.all(color: sc.border),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _MenuButton(
-                          svgPath: 'assets/icons/palette.svg',
-                          label: 'Theme',
-                          onTap: () async {
-                            await _removeMenu();
-                            _showThemeDialog();
-                          },
-                        ),
-                        _MenuButton(
-                          svgPath: 'assets/icons/shield.svg',
-                          label: 'Privacy Policy',
-                          onTap: () => _removeMenu(),
-                        ),
-                        _MenuButton(
-                          svgPath: 'assets/icons/github.svg',
-                          label: 'Source code',
-                          onTap: () => _removeMenu(),
-                        ),
-                        _MenuButton(
-                          svgPath: 'assets/icons/license.svg',
-                          label: 'Open source license',
-                          onTap: () => _removeMenu(),
-                        ),
-                        _MenuButton(
-                          svgPath: 'assets/icons/info-circle.svg',
-                          label: 'About',
-                          onTap: () => _removeMenu(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    width: menuWidth,
+                    decoration: BoxDecoration(
+                      color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 30,
+                          offset: const Offset(0, 12),
                         ),
                       ],
+                      border: Border.all(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _MenuButton(
+                              svgPath: 'assets/icons/palette.svg',
+                              label: 'Theme',
+                              onTap: () async {
+                                await _removeMenu();
+                                _showThemeDialog();
+                              },
+                            ),
+                            _MenuButton(
+                              svgPath: 'assets/icons/shield.svg',
+                              label: 'Privacy Policy',
+                              onTap: () => _navigateTo(const PrivacyPolicyView()),
+                            ),
+                            _MenuButton(
+                              svgPath: 'assets/icons/github.svg',
+                              label: 'Source code',
+                              onTap: () => _navigateTo(const SourceCodeView()),
+                            ),
+                            _MenuButton(
+                              svgPath: 'assets/icons/license.svg',
+                              label: 'Open source license',
+                              onTap: () => _navigateTo(const LicensesView()),
+                            ),
+                            _MenuButton(
+                              svgPath: 'assets/icons/info-circle.svg',
+                              label: 'About',
+                              onTap: () => _navigateTo(const AboutView()),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -670,28 +689,36 @@ class FolderPromptDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Center(
       child: Material(
         color: Colors.transparent,
-        child: Container(
-          width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: sc.surfaceElevated,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
               const Text(
                 'Screenshot folder is not saved',
                 textAlign: TextAlign.center,
@@ -735,7 +762,9 @@ class FolderPromptDialog extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 

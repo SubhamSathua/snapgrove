@@ -1012,87 +1012,105 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: sc.surfaceElevated,
+      pageBuilder: (ctx, anim1, anim2) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: sc.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Discard selection?',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 320,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Your current selection of ${_selectedIndices.length} item(s) will be lost.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Lora',
-                    fontSize: 14,
-                    color: sc.muted,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: sc.accent,
-                          foregroundColor: Colors.black,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text(
-                          'Stay',
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Discard selection?',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: sc.muted,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text(
-                          'Discard',
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your current selection of ${_selectedIndices.length} item(s) will be lost.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Lora',
+                          fontSize: 14,
+                          color: sc.muted,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: sc.accent,
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text(
+                                'Stay',
+                                style: TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: sc.muted,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text(
+                                'Discard',
+                                style: TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
       transitionBuilder: (ctx, anim1, anim2, child) {
         return FadeTransition(
           opacity: anim1,
@@ -1117,28 +1135,43 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: sc.surfaceElevated,
+      pageBuilder: (ctx, anim1, anim2) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: sc.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Quit without saving?',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 320,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Quit without saving?',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                 const SizedBox(height: 12),
                 Text(
                   'Your temporary selection will be lost.',
@@ -1198,6 +1231,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           ),
         ),
       ),
+    ),
+  );
+},
       transitionBuilder: (ctx, anim1, anim2, child) {
         return FadeTransition(
           opacity: anim1,
