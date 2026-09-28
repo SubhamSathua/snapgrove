@@ -3,8 +3,10 @@ import '../services/storage_service.dart';
 import '../services/file_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
+import '../services/bin_service.dart';
 import '../viewmodels/app_view_model.dart';
 import '../viewmodels/gallery_view_model.dart';
+import '../viewmodels/bin_view_model.dart';
 
 final locator = GetIt.instance;
 
@@ -16,6 +18,7 @@ Future<void> setupLocator() async {
   locator.registerLazySingleton<FileService>(() => FileServiceImpl());
   locator.registerSingleton<NotificationService>(NotificationService());
   locator.registerLazySingleton<ShareService>(() => getShareService());
+  locator.registerLazySingleton<BinService>(() => BinService());
 
   // ViewModels
   locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
@@ -24,5 +27,8 @@ Future<void> setupLocator() async {
       ));
   locator.registerFactoryParam<GalleryViewModel, String, void>(
     (path, _) => GalleryViewModel(path: path, fileService: locator<FileService>()),
+  );
+  locator.registerFactory<BinViewModel>(
+    () => BinViewModel(locator<BinService>(), locator<NotificationService>()),
   );
 }
