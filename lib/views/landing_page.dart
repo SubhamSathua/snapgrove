@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:animations/animations.dart';
+import 'package:local_auth/local_auth.dart';
 import '../viewmodels/app_view_model.dart';
 import '../services/picker_service.dart';
 import '../theme/app_theme.dart';
 import 'gallery_view.dart';
+import 'bin_view.dart';
 import 'theme_dialog.dart';
 import 'privacy_policy_view.dart';
 import 'licenses_view.dart';
@@ -101,6 +103,41 @@ class _LandingPageState extends State<LandingPage> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
+  Future<void> _openBinWithAuth() async {
+    await _removeMenu();
+    if (!mounted) return;
+
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+      try {
+        final auth = LocalAuthentication();
+        final canAuth = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+        if (canAuth) {
+          final authenticated = await auth.authenticate(
+            localizedReason: 'Authenticate to access Bin',
+            options: const AuthenticationOptions(
+              stickyAuth: true,
+              biometricOnly: false,
+            ),
+          );
+          if (!authenticated) {
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('Biometrics auth error: $e');
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BinView(
+          targetDirectory: widget.viewModel.screenshotDir ?? widget.viewModel.permanentScreenshotDir,
+        ),
+      ),
+    );
+  }
+
   OverlayEntry _createOverlayEntry() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
@@ -159,6 +196,12 @@ class _LandingPageState extends State<LandingPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (!kIsWeb)
+                              _MenuButton(
+                                svgPath: 'assets/icons/trash.svg',
+                                label: 'Bin',
+                                onTap: _openBinWithAuth,
+                              ),
                             _MenuButton(
                               svgPath: 'assets/icons/palette.svg',
                               label: 'Theme',
