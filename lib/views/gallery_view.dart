@@ -1672,82 +1672,100 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: sc.surfaceElevated,
+      pageBuilder: (ctx, anim1, anim2) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: sc.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Create New Folder',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: 'Folder name',
-                    hintStyle: TextStyle(fontFamily: 'Lora', color: sc.muted),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: sc.border),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 320,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: sc.accent),
-                    ),
-                  ),
-                  style: const TextStyle(fontFamily: 'Lora'),
-                  onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text('Cancel', style: TextStyle(color: sc.muted)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: sc.accent,
-                          foregroundColor: Colors.black,
-                          elevation: 0,
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Create New Folder',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                         ),
-                        onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-                        child: const Text('Create'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Folder name',
+                          hintStyle: TextStyle(fontFamily: 'Lora', color: sc.muted),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: sc.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: sc.accent),
+                          ),
+                        ),
+                        style: const TextStyle(fontFamily: 'Lora'),
+                        onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: Text('Cancel', style: TextStyle(color: sc.muted)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: sc.accent,
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+                              child: const Text(
+                                'Create',
+                                style: TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = Curves.easeOutBack.transform(anim1.value);
         return Transform.scale(
@@ -2464,15 +2482,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _TopSelectionPaneDelegate oldDelegate) {
-    return oldDelegate.selectedCount != selectedCount ||
-        oldDelegate.subfolders != subfolders ||
-        oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.borderColor != borderColor ||
-        oldDelegate.topAmbientColor != topAmbientColor ||
-        oldDelegate.midAmbientColor != midAmbientColor ||
-        oldDelegate.bottomAmbientColor != bottomAmbientColor;
-  }
+  bool shouldRebuild(covariant _TopSelectionPaneDelegate oldDelegate) => true;
 }
 
 class _HorizontalChipsBar extends StatefulWidget {
