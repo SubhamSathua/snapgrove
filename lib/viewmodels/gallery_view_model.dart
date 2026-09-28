@@ -408,4 +408,42 @@ class GalleryViewModel extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> moveToBin(List<String> files) async {
+    final toRemove = Set<String>.from(files);
+    _files = _files.where((f) => !toRemove.contains(f)).toList();
+    _selectedIndices.clear();
+    notifyListeners();
+
+    try {
+      final success = await _fileService.moveToBin(path, files);
+      if (!success) {
+        await loadFiles();
+      }
+      return success;
+    } catch (e) {
+      debugPrint('Error moving files to bin: $e');
+      await loadFiles();
+      return false;
+    }
+  }
+
+  Future<bool> deleteFilesPermanently(List<String> files) async {
+    final toRemove = Set<String>.from(files);
+    _files = _files.where((f) => !toRemove.contains(f)).toList();
+    _selectedIndices.clear();
+    notifyListeners();
+
+    try {
+      final success = await _fileService.deleteFilesPermanently(files);
+      if (!success) {
+        await loadFiles();
+      }
+      return success;
+    } catch (e) {
+      debugPrint('Error permanently deleting files: $e');
+      await loadFiles();
+      return false;
+    }
+  }
 }

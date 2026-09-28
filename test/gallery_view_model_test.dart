@@ -151,6 +151,22 @@ class MockFileService implements FileService {
   }
 
   @override
+  Future<bool> moveToBin(String path, List<String> files) async {
+    for (final f in files) {
+      await deleteFile(f);
+    }
+    return true;
+  }
+
+  @override
+  Future<bool> deleteFilesPermanently(List<String> files) async {
+    for (final f in files) {
+      await deleteFile(f);
+    }
+    return true;
+  }
+
+  @override
   Future<String?> renameFile(String path, String newName) async {
     final file = File(path);
     if (await file.exists()) {
@@ -572,6 +588,37 @@ void main() {
 
       viewModel.setSort(SortField.size, SortOrder.descending);
       expect(viewModel.files.first, fileLarge.path);
+    });
+
+    test('moveToBin removes selected files and clears selection state', () async {
+      final f1 = File('${tempDir.path}\\bin1.png');
+      final f2 = File('${tempDir.path}\\bin2.png');
+      await f1.create();
+      await f2.create();
+      await viewModel.loadFiles();
+
+      viewModel.enterSelectionMode();
+      viewModel.selectAll();
+      expect(viewModel.selectedCount, 2);
+
+      final success = await viewModel.moveToBin([f1.path]);
+      expect(success, true);
+      expect(viewModel.files.contains(f1.path), false);
+      expect(viewModel.files.contains(f2.path), true);
+      expect(viewModel.selectedCount, 0);
+    });
+
+    test('deleteFilesPermanently removes multiple files immediately', () async {
+      final f1 = File('${tempDir.path}\\perm1.png');
+      final f2 = File('${tempDir.path}\\perm2.png');
+      await f1.create();
+      await f2.create();
+      await viewModel.loadFiles();
+
+      final success = await viewModel.deleteFilesPermanently([f1.path, f2.path]);
+      expect(success, true);
+      expect(viewModel.files.contains(f1.path), false);
+      expect(viewModel.files.contains(f2.path), false);
     });
   });
 }

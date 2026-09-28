@@ -62,6 +62,12 @@ class MockFileService implements FileService {
   Future<bool> deleteFile(String path) async => true;
 
   @override
+  Future<bool> moveToBin(String path, List<String> files) async => true;
+
+  @override
+  Future<bool> deleteFilesPermanently(List<String> files) async => true;
+
+  @override
   Future<String?> renameFile(String path, String newName) async => newName;
 
   @override

@@ -1380,12 +1380,26 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         isEnabled: _selectedIndices.isNotEmpty,
                         onTap: _unselectAll,
                       ),
-                      const SizedBox(width: 10),
-                      _RoundBackButton(
-                        onTap: () => _confirmExitSelectionMode(context),
-                        tooltip: 'Exit selection',
+                      const SizedBox(width: 8),
+                      _SelectionActionButton(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        isEnabled: _selectedIndices.isNotEmpty,
+                        onTap: _showDeleteConfirmationDialog,
                       ),
                     ] else ...[
+                      IconButton(
+                        tooltip: 'Delete selected',
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          size: 22,
+                          color: _selectedIndices.isNotEmpty
+                              ? (isDark ? Colors.white : Colors.black)
+                              : sc.muted.withValues(alpha: 0.4),
+                        ),
+                        onPressed: _selectedIndices.isNotEmpty ? _showDeleteConfirmationDialog : null,
+                      ),
+                      const SizedBox(width: 4),
                       PopupMenuButton<String>(
                         icon: SvgPicture.asset(
                           'assets/icons/more.svg',
@@ -1407,8 +1421,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             _selectAll();
                           } else if (val == 'unselect_all') {
                             _unselectAll();
-                          } else if (val == 'exit') {
-                            _confirmExitSelectionMode(context);
+                          } else if (val == 'delete') {
+                            _showDeleteConfirmationDialog();
                           }
                         },
                         itemBuilder: (context) {
@@ -1457,35 +1471,32 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 ],
                               ),
                             ),
-                            const PopupMenuDivider(height: 1),
-                            PopupMenuItem(
-                              value: 'exit',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.close,
-                                    size: 18,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Exit Selection',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 13,
-                                      color: isDark ? Colors.white : Colors.black,
+                            if (_selectedIndices.isNotEmpty) ...[
+                              const PopupMenuDivider(height: 1),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                      color: Color(0xFFE53935),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 10),
+                                    const Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrains Mono',
+                                        fontSize: 13,
+                                        color: Color(0xFFE53935),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ];
                         },
-                      ),
-                      const SizedBox(width: 6),
-                      _RoundBackButton(
-                        onTap: () => _confirmExitSelectionMode(context),
-                        tooltip: 'Exit selection',
                       ),
                     ],
                   ],
@@ -1858,15 +1869,198 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       );
     }
   }
+
+  Future<void> _showDeleteConfirmationDialog() async {
+    final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
+    if (selectedFiles.isEmpty) return;
+
+    final sc = context.snapgroveColors;
+    final count = selectedFiles.length;
+
+    String destinationName;
+    if (kIsWeb) {
+      destinationName = '';
+    } else if (Platform.isAndroid) {
+      destinationName = 'bin';
+    } else if (Platform.isWindows) {
+      destinationName = 'Windows Recycle Bin';
+    } else {
+      destinationName = 'trash';
+    }
+
+    final String message = kIsWeb
+        ? '$count ${count == 1 ? "file is" : "files are"} being deleted permanently.'
+        : '$count ${count == 1 ? "file is" : "files are"} being moved to the $destinationName.';
+
+    final choice = await showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 330,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Delete $count ${count == 1 ? "file" : "files"}?',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Lora',
+                          fontSize: 14,
+                          color: sc.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Cancel Button (Solid / Primary filled style)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? Colors.white : Colors.black,
+                            foregroundColor: isDark ? Colors.black : Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Navigator.of(ctx).pop('cancel'),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (!kIsWeb) ...[
+                        // Bin Button (Outlined)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(color: isDark ? const Color(0x44FFFFFF) : const Color(0x33000000)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => Navigator.of(ctx).pop('bin'),
+                            child: Text(
+                              Platform.isWindows ? 'Windows Recycle Bin' : 'Bin',
+                              style: const TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      // Permanently Delete (Destructive red)
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFE53935),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () => Navigator.of(ctx).pop('permanent'),
+                          child: const Text(
+                            'Permanently Delete',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(anim1),
+            child: child,
+          ),
+        );
+      },
+    );
+
+    if (choice == 'bin' && mounted) {
+      final success = await _viewModel.moveToBin(selectedFiles);
+      if (success) {
+        _exitSelectionMode();
+        locator<NotificationService>().showSnackBar(
+          'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
+        );
+      } else {
+        locator<NotificationService>().showSnackBar('Failed to move files to $destinationName', isError: true);
+      }
+    } else if (choice == 'permanent' && mounted) {
+      final success = await _viewModel.deleteFilesPermanently(selectedFiles);
+      if (success) {
+        _exitSelectionMode();
+        locator<NotificationService>().showSnackBar(
+          'Permanently deleted $count ${count == 1 ? "file" : "files"}',
+        );
+      } else {
+        locator<NotificationService>().showSnackBar('Failed to delete files', isError: true);
+      }
+    }
+  }
 }
 
 class _RoundBackButton extends StatelessWidget {
   final VoidCallback onTap;
-  final String? tooltip;
 
   const _RoundBackButton({
     required this.onTap,
-    this.tooltip,
   });
 
   @override
@@ -1875,7 +2069,7 @@ class _RoundBackButton extends StatelessWidget {
     final sc = context.snapgroveColors;
     final iconColor = isDark ? Colors.white : Colors.black;
 
-    Widget button = SizedBox(
+    return SizedBox(
       width: 36,
       height: 36,
       child: Material(
@@ -1899,11 +2093,6 @@ class _RoundBackButton extends StatelessWidget {
         ),
       ),
     );
-
-    if (tooltip != null) {
-      return Tooltip(message: tooltip!, child: button);
-    }
-    return button;
   }
 }
 

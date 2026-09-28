@@ -14,6 +14,8 @@ abstract class FileService {
   Future<bool> moveFilesToFolder(String path, String folderName, List<String> files);
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files);
   Future<bool> deleteFile(String path);
+  Future<bool> moveToBin(String path, List<String> files);
+  Future<bool> deleteFilesPermanently(List<String> files);
   Future<String?> renameFile(String path, String newName);
   Future<bool> updateModifiedDate(String path, DateTime newDate);
   Future<bool> removeExifData(String path);
@@ -242,6 +244,62 @@ class FileServiceImpl implements FileService {
       }
     } catch (e) {
       debugPrint('Error deleting file: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _moveToWindowsRecycleBin(List<String> files) async {
+    for (final filePath in files) {
+      final file = File(filePath);
+      if (!await file.exists()) continue;
+      try {
+        final escaped = filePath.replaceAll("'", "''");
+        final result = await Process.run('powershell', [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('$escaped', 'OnlyErrorDialogs', 'SendToRecycleBin')",
+        ]);
+        if (result.exitCode != 0) {
+          await file.delete();
+        }
+      } catch (e) {
+        debugPrint('Error sending $filePath to Windows Recycle Bin: $e');
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
+    return true;
+  }
+
+  @override
+  Future<bool> moveToBin(String path, List<String> files) async {
+    try {
+      if (kIsWeb) {
+        return await deleteFilesPermanently(files);
+      } else if (Platform.isAndroid) {
+        return await SafHelper.moveToBin(path, files);
+      } else if (Platform.isWindows) {
+        return await _moveToWindowsRecycleBin(files);
+      } else {
+        return await deleteFilesPermanently(files);
+      }
+    } catch (e) {
+      debugPrint('Error moving files to bin: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteFilesPermanently(List<String> files) async {
+    try {
+      for (final filePath in files) {
+        await deleteFile(filePath);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Error permanently deleting files: $e');
       return false;
     }
   }

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'exif_cleaner.dart';
@@ -231,6 +233,79 @@ class SafHelper {
       return true;
     } catch (e) {
       debugPrint('SAF Error: undoMoveFiles failed: $e');
+      return false;
+    }
+  }
+
+  static Future<Directory> _getAndroidBinDir(String openedFolderName) async {
+    Directory? baseDir;
+    try {
+      final extDirs = await getExternalStorageDirectories(type: StorageDirectory.pictures);
+      if (extDirs != null && extDirs.isNotEmpty) {
+        final path = extDirs.first.path;
+        final parts = path.split('/Android/');
+        if (parts.length > 1) {
+          final rootStorage = parts.first;
+          baseDir = Directory('$rootStorage/Android/media/com.prism.snapgrove/.bin');
+        }
+      }
+    } catch (_) {}
+
+    baseDir ??= Directory('/storage/emulated/0/Android/media/com.prism.snapgrove/.bin');
+
+    if (!await baseDir.exists()) {
+      await baseDir.create(recursive: true);
+    }
+
+    final nomedia = File('${baseDir.path}/.nomedia');
+    if (!await nomedia.exists()) {
+      await nomedia.create();
+    }
+
+    final folderClean = openedFolderName.isEmpty ? 'Screenshots' : openedFolderName;
+    final targetFolder = Directory('${baseDir.path}/$folderClean');
+    if (!await targetFolder.exists()) {
+      await targetFolder.create(recursive: true);
+    }
+    return targetFolder;
+  }
+
+  static Uint8List _alterBytes(Uint8List original) {
+    final header = Uint8List.fromList([0x53, 0x47, 0x42, 0x49, 0x4E, 0x01, 0xAA, 0x55]); // SGBIN\x01\xAA\x55
+    final result = Uint8List(header.length + original.length);
+    result.setRange(0, header.length, header);
+    result.setRange(header.length, result.length, original);
+    final maskLen = (original.length < 128) ? original.length : 128;
+    for (int i = 0; i < maskLen; i++) {
+      result[header.length + i] ^= 0xAA;
+    }
+    return result;
+  }
+
+  static Future<bool> moveToBin(String parentUri, List<String> files) async {
+    try {
+      final openedFolderName = Uri.decodeFull(parentUri).split('/').last.split('%2F').last;
+      final targetBinDir = await _getAndroidBinDir(openedFolderName);
+
+      for (final fileUri in files) {
+        try {
+          final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+          final bytes = await _safStream.readFileBytes(fileUri);
+          if (bytes.isNotEmpty) {
+            final altered = _alterBytes(bytes);
+            final destFile = File('${targetBinDir.path}/$originalName.sgbin');
+            await destFile.writeAsBytes(altered, flush: true);
+            await SafUtil().delete(fileUri, false);
+          } else {
+            await SafUtil().delete(fileUri, false);
+          }
+        } catch (e) {
+          debugPrint('SAF Error: moveToBin failed for $fileUri: $e');
+        }
+      }
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: moveToBin overall failed: $e');
       return false;
     }
   }
