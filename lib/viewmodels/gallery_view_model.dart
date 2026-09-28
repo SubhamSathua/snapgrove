@@ -318,20 +318,19 @@ class GalleryViewModel extends ChangeNotifier {
     }
 
     // Optimistically update subfolders list in memory
-    _subfolders.add(trimmed);
-    _subfolders.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    _subfolders = [..._subfolders, trimmed]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     notifyListeners();
 
     try {
       final success = await _fileService.createSubfolder(path, trimmed);
       if (!success) {
-        _subfolders.remove(trimmed);
+        _subfolders = _subfolders.where((s) => s != trimmed).toList();
         notifyListeners();
       }
       return success;
     } catch (e) {
       debugPrint('Error creating subfolder: $e');
-      _subfolders.remove(trimmed);
+      _subfolders = _subfolders.where((s) => s != trimmed).toList();
       notifyListeners();
       return false;
     }
