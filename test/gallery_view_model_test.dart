@@ -320,6 +320,15 @@ void main() {
       await viewModel.createSubfolder('Gamma');
       expect(viewModel.subfolders, ['Alpha', 'Beta', 'Gamma']);
     });
+
+    test('createSubfolder creates new list instance and updates during active selection', () async {
+      viewModel.enterSelectionMode();
+      final initialList = viewModel.subfolders;
+      final created = await viewModel.createSubfolder('Projects');
+      expect(created, true);
+      expect(viewModel.subfolders, contains('Projects'));
+      expect(identical(initialList, viewModel.subfolders), false);
+    });
   });
 
   group('Move files', () {
