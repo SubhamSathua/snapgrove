@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../core/locator.dart';
+import '../services/bin_service.dart';
 import '../services/storage_service.dart';
-
 import '../services/notification_service.dart';
 
 class AppViewModel extends ChangeNotifier {
@@ -29,6 +32,11 @@ class AppViewModel extends ChangeNotifier {
     }
     _isLoading = false;
     notifyListeners();
+
+    // Lightweight non-blocking background 24h periodic bin cleanup check
+    if (!kIsWeb) {
+      unawaited(locator<BinService>().cleanOldBinFiles(storage: _storage));
+    }
   }
 
   void setThemeMode(ThemeMode mode) {

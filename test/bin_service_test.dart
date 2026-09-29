@@ -1,8 +1,20 @@
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snapgrove/services/bin_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async {
+        return '.';
+      },
+    );
+  });
+
   group('BinService Encryption & Decryption', () {
     test('decryptBytes reverses XOR alteration with header', () {
       final originalData = Uint8List.fromList(List.generate(256, (i) => i % 256));
@@ -58,5 +70,44 @@ void main() {
       expect(fileInfo.daysRemaining, equals(27));
       expect(fileInfo.formattedDeletedDate, equals('2026-09-28 14:30'));
     });
+
+    test('cleanOldBinFiles skips if checked within 24 hours', () async {
+      final binService = BinService();
+      final mockStorage = _MockMemoryStorage();
+      // Set last check to 2 hours ago
+      final twoHoursAgo = DateTime.now().subtract(const Duration(hours: 2));
+      await mockStorage.write('settings', 'last_bin_cleanup_check', twoHoursAgo.millisecondsSinceEpoch);
+
+      final deleted = await binService.cleanOldBinFiles(storage: mockStorage);
+      expect(deleted, equals(0));
+      // Timestamp should remain unchanged
+      final lastCheck = await mockStorage.read('settings', 'last_bin_cleanup_check');
+      expect(lastCheck, equals(twoHoursAgo.millisecondsSinceEpoch));
+    });
+
+    test('cleanOldBinFiles runs and updates timestamp if checked > 24 hours ago', () async {
+      final binService = BinService();
+      final mockStorage = _MockMemoryStorage();
+      // Set last check to 30 hours ago
+      final thirtyHoursAgo = DateTime.now().subtract(const Duration(hours: 30));
+      await mockStorage.write('settings', 'last_bin_cleanup_check', thirtyHoursAgo.millisecondsSinceEpoch);
+
+      await binService.cleanOldBinFiles(storage: mockStorage);
+      final newCheck = await mockStorage.read('settings', 'last_bin_cleanup_check') as int;
+      expect(newCheck, isNotNull);
+      expect(newCheck, greaterThan(thirtyHoursAgo.millisecondsSinceEpoch));
+    });
   });
+}
+
+class _MockMemoryStorage {
+  final Map<String, dynamic> _data = {};
+
+  Future<void> write(String store, String key, dynamic value) async {
+    _data['${store}_$key'] = value;
+  }
+
+  Future<dynamic> read(String store, String key) async {
+    return _data['${store}_$key'];
+  }
 }

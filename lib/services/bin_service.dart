@@ -387,4 +387,86 @@ class BinService {
     }
     return restored;
   }
+
+  /// Performs lightweight background cleanup of files older than 30 days.
+  /// Checks DB for `last_bin_cleanup_check`. If within 24h, stops immediately.
+  /// If > 24h, deletes expired files in all folders, clears empty folders, and updates timestamp.
+  Future<int> cleanOldBinFiles({required dynamic storage}) async {
+    if (kIsWeb) return 0;
+
+    try {
+      // 1. Check last check timestamp in DB
+      final lastCheckRaw = await storage.read('settings', 'last_bin_cleanup_check');
+      if (lastCheckRaw != null) {
+        DateTime? lastCheck;
+        if (lastCheckRaw is int) {
+          lastCheck = DateTime.fromMillisecondsSinceEpoch(lastCheckRaw);
+        } else if (lastCheckRaw is String) {
+          lastCheck = DateTime.tryParse(lastCheckRaw);
+        }
+
+        if (lastCheck != null) {
+          final diff = DateTime.now().difference(lastCheck);
+          // If within 24 hours, STOP immediately (0 disk I/O)
+          if (diff.inHours < 24 && !diff.isNegative) {
+            debugPrint('BinService: Periodic cleanup skipped (last checked ${diff.inHours}h ago < 24h)');
+            return 0;
+          }
+        }
+      }
+
+      debugPrint('BinService: Running 24h periodic bin auto-cleanup check...');
+      final root = await getBinRootDirectory();
+      if (!await root.exists()) {
+        await storage.write('settings', 'last_bin_cleanup_check', DateTime.now().millisecondsSinceEpoch);
+        return 0;
+      }
+
+      final now = DateTime.now();
+      int deletedCount = 0;
+      final entities = await root.list().toList();
+
+      for (final entity in entities) {
+        if (entity is Directory) {
+          final dirName = p.basename(entity.path);
+          if (dirName.startsWith('.')) continue;
+
+          final files = await entity.list().toList();
+          int remainingInFolder = 0;
+
+          for (final f in files) {
+            if (f is File && !p.basename(f.path).startsWith('.')) {
+              try {
+                final stat = await f.stat();
+                final ageInDays = now.difference(stat.modified).inDays;
+                if (ageInDays >= _retentionDays) {
+                  await f.delete();
+                  deletedCount++;
+                } else {
+                  remainingInFolder++;
+                }
+              } catch (_) {
+                remainingInFolder++;
+              }
+            }
+          }
+
+          // If folder became empty after deleting expired files, delete the empty directory
+          if (remainingInFolder == 0) {
+            try {
+              await entity.delete(recursive: true);
+            } catch (_) {}
+          }
+        }
+      }
+
+      // 2. Save new timestamp in DB
+      await storage.write('settings', 'last_bin_cleanup_check', DateTime.now().millisecondsSinceEpoch);
+      debugPrint('BinService: Periodic cleanup finished. Purged $deletedCount expired items.');
+      return deletedCount;
+    } catch (e) {
+      debugPrint('BinService: cleanOldBinFiles error: $e');
+      return 0;
+    }
+  }
 }

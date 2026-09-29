@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snapgrove/views/app_view.dart';
 import 'package:snapgrove/viewmodels/app_view_model.dart';
 import 'package:snapgrove/viewmodels/gallery_view_model.dart';
+import 'package:snapgrove/services/bin_service.dart';
 import 'package:snapgrove/services/storage_service.dart';
 import 'package:snapgrove/services/file_service.dart';
 import 'package:snapgrove/services/notification_service.dart';
@@ -92,6 +93,7 @@ void main() {
     locator.registerSingleton<FileService>(MockFileService());
     locator.registerSingleton<NotificationService>(NotificationService());
     locator.registerSingleton<ShareService>(MockShareService());
+    locator.registerSingleton<BinService>(BinService());
     locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
           locator<StorageService>(),
           locator<NotificationService>(),
