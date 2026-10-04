@@ -238,15 +238,15 @@ class BinService {
     }
 
     // Check V1 magic: SGBIN\x01\xAA\x55
-    if (encrypted.length >= 8 &&
-        encrypted[0] == 0x53 &&
-        encrypted[1] == 0x47 &&
-        encrypted[2] == 0x42 &&
-        encrypted[3] == 0x49 &&
-        encrypted[4] == 0x4E &&
-        encrypted[5] == 0x01 &&
-        encrypted[6] == 0xAA &&
-        encrypted[7] == 0x55) {
+    if (encrypted.length >= _magicHeaderV1.length &&
+        encrypted[0] == _magicHeaderV1[0] &&
+        encrypted[1] == _magicHeaderV1[1] &&
+        encrypted[2] == _magicHeaderV1[2] &&
+        encrypted[3] == _magicHeaderV1[3] &&
+        encrypted[4] == _magicHeaderV1[4] &&
+        encrypted[5] == _magicHeaderV1[5] &&
+        encrypted[6] == _magicHeaderV1[6] &&
+        encrypted[7] == _magicHeaderV1[7]) {
       final originalLen = encrypted.length - 8;
       final decrypted = Uint8List(originalLen);
       decrypted.setRange(0, originalLen, encrypted.sublist(8));

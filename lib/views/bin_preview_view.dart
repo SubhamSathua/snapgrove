@@ -364,6 +364,9 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                   const SizedBox(height: 18),
                   _InfoRow(label: 'File name', value: file.originalName),
                   _InfoRow(label: 'Folder', value: file.folderName),
+                  if (file.parentBreadcrumb != null && file.parentBreadcrumb!.isNotEmpty)
+                    _InfoRow(label: 'Origin breadcrumb', value: file.parentBreadcrumb!),
+                  _InfoRow(label: 'Restores to', value: file.parentBreadcrumb != null ? '${file.parentBreadcrumb}/${file.folderName}' : file.folderName),
                   _InfoRow(label: 'Size', value: file.formattedSize),
                   _InfoRow(label: 'Dimensions', value: imgWidth != null ? '$imgWidth × $imgHeight px' : 'Calculating...'),
                   _InfoRow(label: 'Deleted on', value: file.formattedDeletedDate),

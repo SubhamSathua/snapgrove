@@ -339,17 +339,7 @@ class SafHelper {
     return targetFolder;
   }
 
-  static Uint8List _alterBytes(Uint8List original) {
-    final header = Uint8List.fromList([0x53, 0x47, 0x42, 0x49, 0x4E, 0x01, 0xAA, 0x55]); // SGBIN\x01\xAA\x55
-    final result = Uint8List(header.length + original.length);
-    result.setRange(0, header.length, header);
-    result.setRange(header.length, result.length, original);
-    final maskLen = (original.length < 128) ? original.length : 128;
-    for (int i = 0; i < maskLen; i++) {
-      result[header.length + i] ^= 0xAA;
-    }
-    return result;
-  }
+
 
   static Future<bool> moveToBin(String parentUri, List<String> files) async {
     try {

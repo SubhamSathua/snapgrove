@@ -2,6 +2,18 @@ import 'package:flutter/foundation.dart';
 import '../services/bin_service.dart';
 import '../services/notification_service.dart';
 
+class BinFilterChipData {
+  final String label;
+  final String? folderName;
+  final int count;
+
+  const BinFilterChipData({
+    required this.label,
+    required this.folderName,
+    required this.count,
+  });
+}
+
 class BinViewModel extends ChangeNotifier {
   final BinService _binService;
   final NotificationService _notificationService;
@@ -11,80 +23,93 @@ class BinViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  List<BinFileInfo> _allFiles = [];
+  List<BinFileInfo> get allFiles => _allFiles;
+
+  String? _activeFilter; // null means 'All'
+  String? get activeFilter => _activeFilter;
+  String? get currentFolder => _activeFilter;
+
+  List<BinFilterChipData> _filterChips = [];
+  List<BinFilterChipData> get filterChips => _filterChips;
+
   List<BinFolderInfo> _folders = [];
   List<BinFolderInfo> get folders => _folders;
 
-  String? _currentFolder;
-  String? get currentFolder => _currentFolder;
-
-  List<BinFileInfo> _files = [];
-  List<BinFileInfo> get files => _files;
+  List<BinFileInfo> get files {
+    if (_activeFilter == null) return _allFiles;
+    return _allFiles.where((f) => f.folderName == _activeFilter).toList();
+  }
 
   final Set<String> _selectedFilePaths = {};
   Set<String> get selectedFilePaths => _selectedFilePaths;
 
   bool get isSelectionMode => _selectedFilePaths.isNotEmpty;
   int get selectedCount => _selectedFilePaths.length;
-  bool get isAllSelected => _files.isNotEmpty && _selectedFilePaths.length == _files.length;
+  bool get isAllSelected => files.isNotEmpty && _selectedFilePaths.length == files.length;
+  int get totalItemsInAllFolders => _allFiles.length;
 
-  int get totalItemsInAllFolders {
-    int total = 0;
-    for (final f in _folders) {
-      total += f.itemCount;
-    }
-    return total;
-  }
-
-  Future<void> loadFolders() async {
+  Future<void> loadBin() async {
     _isLoading = true;
-    _currentFolder = null;
     _selectedFilePaths.clear();
     notifyListeners();
 
     try {
+      _allFiles = await _binService.listAllFiles();
       _folders = await _binService.listFolders();
+      _computeFilterChips();
     } catch (e) {
-      debugPrint('BinViewModel: loadFolders error: $e');
+      debugPrint('BinViewModel: loadBin error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> openFolder(String folderName) async {
-    _currentFolder = folderName;
+  // Alias for backward compatibility
+  Future<void> loadFolders() => loadBin();
+
+  void _computeFilterChips() {
+    final Map<String, int> counts = {};
+    final Map<String, Set<String>> folderToBreadcrumbs = {};
+
+    for (final file in _allFiles) {
+      counts[file.folderName] = (counts[file.folderName] ?? 0) + 1;
+      if (file.parentBreadcrumb != null && file.parentBreadcrumb!.isNotEmpty) {
+        folderToBreadcrumbs.putIfAbsent(file.folderName, () => {}).add(file.parentBreadcrumb!);
+      }
+    }
+
+    final List<BinFilterChipData> chips = [
+      BinFilterChipData(label: 'All', folderName: null, count: _allFiles.length),
+    ];
+
+    final sortedFolders = counts.keys.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    for (final folder in sortedFolders) {
+      final count = counts[folder] ?? 0;
+      final breadcrumbs = folderToBreadcrumbs[folder];
+      String label = folder;
+      if (breadcrumbs != null && breadcrumbs.length > 1) {
+        label = folder;
+      }
+      chips.add(BinFilterChipData(label: label, folderName: folder, count: count));
+    }
+
+    _filterChips = chips;
+  }
+
+  void setFilter(String? folderName) {
+    if (_activeFilter == folderName) return;
+    _activeFilter = folderName;
     _selectedFilePaths.clear();
-    _isLoading = true;
     notifyListeners();
-
-    try {
-      _files = await _binService.listFiles(folderName);
-    } catch (e) {
-      debugPrint('BinViewModel: openFolder error: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
-  Future<void> refreshCurrentFolder() async {
-    if (_currentFolder == null) {
-      await loadFolders();
-      return;
-    }
+  void openFolder(String folderName) => setFilter(folderName);
 
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      _files = await _binService.listFiles(_currentFolder!);
-    } catch (e) {
-      debugPrint('BinViewModel: refreshCurrentFolder error: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  Future<void> refreshCurrentFolder() => loadBin();
 
   void toggleSelection(String filePath) {
     if (_selectedFilePaths.contains(filePath)) {
@@ -97,7 +122,7 @@ class BinViewModel extends ChangeNotifier {
 
   void selectAll() {
     _selectedFilePaths.clear();
-    for (final f in _files) {
+    for (final f in files) {
       _selectedFilePaths.add(f.path);
     }
     notifyListeners();
@@ -118,9 +143,11 @@ class BinViewModel extends ChangeNotifier {
 
     final success = await _binService.emptyFullBin();
     if (success) {
+      _allFiles.clear();
       _folders.clear();
-      _files.clear();
+      _filterChips.clear();
       _selectedFilePaths.clear();
+      _activeFilter = null;
       _notificationService.showSnackBar('Bin emptied');
     } else {
       _notificationService.showSnackBar('Failed to empty bin', isError: true);
@@ -132,16 +159,16 @@ class BinViewModel extends ChangeNotifier {
   }
 
   Future<bool> emptyCurrentFolder() async {
-    if (_currentFolder == null) return false;
+    if (_activeFilter == null) return emptyFullBin();
     _isLoading = true;
     notifyListeners();
 
-    final success = await _binService.emptyFolder(_currentFolder!);
+    final success = await _binService.emptyFolder(_activeFilter!);
     if (success) {
-      _files.clear();
       _selectedFilePaths.clear();
-      _notificationService.showSnackBar('Folder "$_currentFolder" cleared');
-      await loadFolders();
+      _notificationService.showSnackBar('Folder "$_activeFilter" cleared');
+      _activeFilter = null;
+      await loadBin();
     } else {
       _notificationService.showSnackBar('Failed to empty folder', isError: true);
     }
@@ -162,10 +189,7 @@ class BinViewModel extends ChangeNotifier {
     _selectedFilePaths.clear();
     _notificationService.showSnackBar('Permanently deleted $count item${count == 1 ? '' : 's'}');
 
-    if (_currentFolder != null) {
-      _files = await _binService.listFiles(_currentFolder!);
-    }
-    _folders = await _binService.listFolders();
+    await loadBin();
 
     _isLoading = false;
     notifyListeners();
@@ -183,10 +207,7 @@ class BinViewModel extends ChangeNotifier {
     _selectedFilePaths.clear();
     _notificationService.showSnackBar('Restored $count item${count == 1 ? '' : 's'}');
 
-    if (_currentFolder != null) {
-      _files = await _binService.listFiles(_currentFolder!);
-    }
-    _folders = await _binService.listFolders();
+    await loadBin();
 
     _isLoading = false;
     notifyListeners();
@@ -197,11 +218,7 @@ class BinViewModel extends ChangeNotifier {
     final success = await _binService.restoreFile(filePath, targetDirectory: targetDirectory);
     if (success) {
       _notificationService.showSnackBar('Image restored');
-      if (_currentFolder != null) {
-        _files = await _binService.listFiles(_currentFolder!);
-      }
-      _folders = await _binService.listFolders();
-      notifyListeners();
+      await loadBin();
     } else {
       _notificationService.showSnackBar('Failed to restore image', isError: true);
     }
@@ -212,11 +229,7 @@ class BinViewModel extends ChangeNotifier {
     final success = await _binService.deleteBinFile(filePath);
     if (success) {
       _notificationService.showSnackBar('Image permanently deleted');
-      if (_currentFolder != null) {
-        _files = await _binService.listFiles(_currentFolder!);
-      }
-      _folders = await _binService.listFolders();
-      notifyListeners();
+      await loadBin();
     } else {
       _notificationService.showSnackBar('Failed to delete image', isError: true);
     }

@@ -26,7 +26,7 @@ class _BinViewState extends State<BinView> {
   void initState() {
     super.initState();
     _viewModel = locator<BinViewModel>();
-    _viewModel.loadFolders();
+    _viewModel.loadBin();
   }
 
   Future<void> _confirmEmptyFullBin() async {
@@ -132,110 +132,6 @@ class _BinViewState extends State<BinView> {
     }
   }
 
-  Future<void> _confirmEmptyFolder() async {
-    final sc = context.snapgroveColors;
-    final folderName = _viewModel.currentFolder ?? '';
-    final confirmed = await showGeneralDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (ctx, anim1, anim2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(ctx).size.width * 0.9 > 380 ? 380 : MediaQuery.of(ctx).size.width * 0.9,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: sc.surfaceElevated,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: sc.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 30,
-                    offset: const Offset(0, 15),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 22),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Empty Folder',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Are you sure you want to permanently delete all items in "$folderName"?',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 13,
-                      color: sc.muted,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogBtn(
-                        label: 'Cancel',
-                        isPrimary: false,
-                        onTap: () => Navigator.of(ctx).pop(false),
-                      ),
-                      const SizedBox(width: 10),
-                      _DialogBtn(
-                        label: 'Empty Folder',
-                        isPrimary: true,
-                        isDestructive: true,
-                        onTap: () => Navigator.of(ctx).pop(true),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (ctx, anim1, anim2, child) {
-        final curve = Curves.easeOutBack.transform(anim1.value);
-        return Transform.scale(
-          scale: 0.9 + (0.1 * curve),
-          child: Opacity(opacity: anim1.value, child: child),
-        );
-      },
-    );
-
-    if (confirmed == true) {
-      await _viewModel.emptyCurrentFolder();
-    }
-  }
-
   Future<void> _confirmDeleteSelected() async {
     final sc = context.snapgroveColors;
     final count = _viewModel.selectedCount;
@@ -278,13 +174,13 @@ class _BinViewState extends State<BinView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 22),
+                          child: Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Permanently Delete',
-                        style: TextStyle(
+                      Text(
+                        'Delete $count ${count == 1 ? "Item" : "Items"}?',
+                        style: const TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -294,7 +190,7 @@ class _BinViewState extends State<BinView> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Permanently delete $count selected item${count == 1 ? '' : 's'}? This action cannot be undone.',
+                    'Are you sure you want to permanently delete $count ${count == 1 ? "file" : "files"}? This action cannot be undone.',
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 13,
@@ -313,7 +209,7 @@ class _BinViewState extends State<BinView> {
                       ),
                       const SizedBox(width: 10),
                       _DialogBtn(
-                        label: 'Delete',
+                        label: 'Delete Permanently',
                         isPrimary: true,
                         isDestructive: true,
                         onTap: () => Navigator.of(ctx).pop(true),
@@ -340,6 +236,10 @@ class _BinViewState extends State<BinView> {
     }
   }
 
+  Future<void> _restoreSelected() async {
+    await _viewModel.restoreSelectedFiles(targetDirectory: widget.targetDirectory);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
@@ -348,8 +248,6 @@ class _BinViewState extends State<BinView> {
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, _) {
-        final isRoot = _viewModel.currentFolder == null;
-
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: PreferredSize(
@@ -368,51 +266,49 @@ class _BinViewState extends State<BinView> {
                 onPressed: () {
                   if (_viewModel.isSelectionMode) {
                     _viewModel.clearSelection();
-                  } else if (!isRoot) {
-                    _viewModel.loadFolders();
                   } else {
                     Navigator.of(context).pop();
                   }
                 },
               ),
-              title: Text(
-                _viewModel.isSelectionMode
-                    ? '${_viewModel.selectedCount} Selected'
-                    : (isRoot ? 'Bin' : _viewModel.currentFolder!),
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              actions: [
-                if (isRoot) ...[
-                  if (_viewModel.folders.isNotEmpty && _viewModel.totalItemsInAllFolders > 0)
-                    TextButton.icon(
-                      onPressed: _confirmEmptyFullBin,
-                      icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFEF4444), size: 20),
-                      label: const Text(
-                        'Empty Bin',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFEF4444),
-                        ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _viewModel.isSelectionMode
+                        ? '${_viewModel.selectedCount} Selected'
+                        : 'Bin',
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (!_viewModel.isSelectionMode && _viewModel.allFiles.isNotEmpty)
+                    Text(
+                      '${_viewModel.allFiles.length} item${_viewModel.allFiles.length == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 11,
+                        color: sc.muted,
                       ),
                     ),
-                ] else ...[
-                  if (!_viewModel.isSelectionMode && _viewModel.files.isNotEmpty) ...[
+                ],
+              ),
+              actions: [
+                if (!_viewModel.isSelectionMode) ...[
+                  if (_viewModel.allFiles.isNotEmpty) ...[
                     IconButton(
                       tooltip: 'Select',
                       icon: const Icon(Icons.checklist, size: 22),
                       onPressed: () => _viewModel.selectAll(),
                     ),
                     TextButton.icon(
-                      onPressed: _confirmEmptyFolder,
+                      onPressed: _confirmEmptyFullBin,
                       icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFEF4444), size: 18),
                       label: const Text(
-                        'Empty Folder',
+                        'Empty Bin',
                         style: TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 12,
@@ -422,25 +318,25 @@ class _BinViewState extends State<BinView> {
                       ),
                     ),
                   ],
-                  if (_viewModel.isSelectionMode)
-                    TextButton(
-                      onPressed: () {
-                        if (_viewModel.isAllSelected) {
-                          _viewModel.clearSelection();
-                        } else {
-                          _viewModel.selectAll();
-                        }
-                      },
-                      child: Text(
-                        _viewModel.isAllSelected ? 'Deselect All' : 'Select All',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: sc.accent,
-                        ),
+                ] else ...[
+                  TextButton(
+                    onPressed: () {
+                      if (_viewModel.isAllSelected) {
+                        _viewModel.clearSelection();
+                      } else {
+                        _viewModel.selectAll();
+                      }
+                    },
+                    child: Text(
+                      _viewModel.isAllSelected ? 'Deselect All' : 'Select All',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: sc.accent,
                       ),
                     ),
+                  ),
                 ],
                 const SizedBox(width: 8),
               ],
@@ -450,20 +346,17 @@ class _BinViewState extends State<BinView> {
               ? const Center(
                   child: CircularProgressIndicator(color: Color(0xFFff2a7b), strokeWidth: 2),
                 )
-              : (isRoot ? _buildFoldersList() : _buildFilesGrid()),
-          bottomNavigationBar: _viewModel.isSelectionMode && !isRoot
-              ? _buildSelectionBottomBar()
+              : _buildBody(sc, isDark),
+          bottomNavigationBar: _viewModel.isSelectionMode
+              ? _buildSelectionBottomBar(sc, isDark)
               : null,
         );
       },
     );
   }
 
-  Widget _buildFoldersList() {
-    final sc = context.snapgroveColors;
-    final folders = _viewModel.folders;
-
-    if (folders.isEmpty || _viewModel.totalItemsInAllFolders == 0) {
+  Widget _buildBody(SnapgroveColors sc, bool isDark) {
+    if (_viewModel.allFiles.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -471,22 +364,17 @@ class _BinViewState extends State<BinView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   color: sc.surfaceMuted,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/trash.svg',
-                    width: 32,
-                    height: 32,
-                    colorFilter: ColorFilter.mode(sc.muted, BlendMode.srcIn),
-                  ),
+                  child: Icon(Icons.delete_outline, size: 38, color: sc.muted),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               const Text(
                 'Bin is empty',
                 style: TextStyle(
@@ -497,13 +385,13 @@ class _BinViewState extends State<BinView> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Items moved to the bin are encrypted and safely stored for 30 days before permanent deletion.',
+                'Items deleted from screenshots are moved here\nand automatically cleared after 30 days.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Lora',
-                  fontSize: 14,
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 12.5,
                   color: sc.muted,
-                  height: 1.4,
+                  height: 1.45,
                 ),
               ),
             ],
@@ -512,43 +400,130 @@ class _BinViewState extends State<BinView> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      itemCount: folders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final folder = folders[index];
-        return _FolderCard(
-          folder: folder,
-          onTap: () => _viewModel.openFolder(folder.name),
-        );
-      },
+    return Column(
+      children: [
+        // 30 Days Retention Notice Banner
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: sc.surfaceMuted.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sc.border),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: sc.muted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Items are permanently deleted after 30 days.',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11.5,
+                    color: sc.muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Horizontal Folder Filter Chips
+        if (_viewModel.filterChips.length > 2)
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              scrollDirection: Axis.horizontal,
+              itemCount: _viewModel.filterChips.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final chip = _viewModel.filterChips[index];
+                final isSelected = _viewModel.activeFilter == chip.folderName;
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _viewModel.setFilter(chip.folderName),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? (isDark ? Colors.white : Colors.black)
+                          : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F3F3)),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.transparent
+                            : (isDark ? const Color(0x33FFFFFF) : const Color(0x22000000)),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          chip.label,
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? (isDark ? Colors.black : Colors.white)
+                                : (isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? (isDark ? Colors.black.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.25))
+                                : sc.surfaceElevated,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${chip.count}',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? (isDark ? Colors.black : Colors.white)
+                                  : sc.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+        const SizedBox(height: 6),
+
+        // Unified Thumbnail Grid
+        Expanded(
+          child: _buildFilesGrid(sc, isDark),
+        ),
+      ],
     );
   }
 
-  Widget _buildFilesGrid() {
-    final sc = context.snapgroveColors;
+  Widget _buildFilesGrid(SnapgroveColors sc, bool isDark) {
     final files = _viewModel.files;
 
     if (files.isEmpty) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.folder_open_outlined, size: 56, color: sc.muted),
-              const SizedBox(height: 16),
-              Text(
-                'Folder is empty',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: sc.muted,
-                ),
-              ),
-            ],
+        child: Text(
+          'No items in this category',
+          style: TextStyle(
+            fontFamily: 'JetBrains Mono',
+            fontSize: 14,
+            color: sc.muted,
           ),
         ),
       );
@@ -558,7 +533,7 @@ class _BinViewState extends State<BinView> {
     final crossAxisCount = width > 900 ? 5 : (width > 600 ? 4 : 3);
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 8,
@@ -597,148 +572,67 @@ class _BinViewState extends State<BinView> {
     );
   }
 
-  Widget _buildSelectionBottomBar() {
-    final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+  Widget _buildSelectionBottomBar(SnapgroveColors sc, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: Border(top: BorderSide(color: sc.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
-            offset: const Offset(0, -4),
+            offset: const Offset(0, -3),
           ),
         ],
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            // Delete Permanently
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _viewModel.selectedCount > 0 ? _confirmDeleteSelected : null,
-                icon: const Icon(Icons.delete_forever, size: 18),
-                label: const Text(
-                  'Delete Permanently',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.4),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        children: [
+          // Restore Button (Solid / Primary)
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              onPressed: _viewModel.selectedCount > 0 ? _restoreSelected : null,
+              icon: const Icon(Icons.restore_rounded, size: 19),
+              label: Text(
+                'Restore (${_viewModel.selectedCount})',
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // Restore Selected
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _viewModel.selectedCount > 0
-                    ? () => _viewModel.restoreSelectedFiles(targetDirectory: widget.targetDirectory)
-                    : null,
-                icon: const Icon(Icons.restore, size: 18),
-                label: const Text(
-                  'Restore',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2fad5c),
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: const Color(0xFF2fad5c).withValues(alpha: 0.4),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FolderCard extends StatelessWidget {
-  final BinFolderInfo folder;
-  final VoidCallback onTap;
-
-  const _FolderCard({required this.folder, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: sc.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: sc.border),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFff2a7b).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.folder_outlined, color: Color(0xFFff2a7b), size: 24),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        folder.name,
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${folder.itemCount} item${folder.itemCount == 1 ? '' : 's'} • ${folder.formattedSize}',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 12,
-                          color: sc.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: sc.muted, size: 20),
-              ],
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          // Delete Permanently Button (Destructive Outlined)
+          Expanded(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFEF4444),
+                side: const BorderSide(color: Color(0xFFEF4444)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              onPressed: _viewModel.selectedCount > 0 ? _confirmDeleteSelected : null,
+              icon: const Icon(Icons.delete_forever, size: 19, color: Color(0xFFEF4444)),
+              label: Text(
+                'Delete (${_viewModel.selectedCount})',
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -797,81 +691,126 @@ class _BinThumbnailTileState extends State<_BinThumbnailTile> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Image
+          // Image / Thumbnail
           Container(
             color: sc.surfaceMuted,
             child: _isLoading
-                ? const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Color(0xFFff2a7b), strokeWidth: 2),
-                    ),
-                  )
+                ? Center(child: CircularProgressIndicator(strokeWidth: 1.5, color: sc.accent))
                 : (_decryptedBytes != null
                     ? Image.memory(
                         _decryptedBytes!,
                         fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) =>
-                            const Center(child: Icon(Icons.broken_image, color: Colors.white38, size: 28)),
+                        cacheWidth: 300,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Icon(Icons.broken_image_outlined, color: sc.muted, size: 28),
+                        ),
                       )
-                    : const Center(child: Icon(Icons.image, color: Colors.white38, size: 28))),
+                    : Center(
+                        child: Icon(Icons.broken_image_outlined, color: sc.muted, size: 28),
+                      )),
           ),
 
-          // Days remaining badge
+          // Bottom Gradient Overlay with Days & Folder Badge
           Positioned(
-            top: 6,
-            left: 6,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.fromLTRB(6, 18, 6, 6),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${days}d',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: days <= 5 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.8),
+                    Colors.black.withValues(alpha: 0.0),
+                  ],
                 ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Days Remaining Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: days <= 5
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.9)
+                          : Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${days}d',
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Origin Folder Pill
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        widget.file.folderName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // Selection indicator checkbox
+          // Selection Overlay Indicator
           if (widget.isSelectionMode)
             Positioned(
               top: 6,
-              right: 6,
+              left: 6,
               child: Container(
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
+                  color: widget.isSelected ? const Color(0xFFff2a7b) : Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
-                  color: widget.isSelected ? const Color(0xFFff2a7b) : Colors.black45,
                   border: Border.all(
-                    color: widget.isSelected ? Colors.transparent : Colors.white,
+                    color: Colors.white,
                     width: 1.5,
                   ),
                 ),
                 child: widget.isSelected
-                    ? const Center(child: Icon(Icons.check, size: 14, color: Colors.black))
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
                     : null,
               ),
             ),
 
-          // Selection overlay border
+          // Selection Border Highlight
           if (widget.isSelected)
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFff2a7b), width: 2.5),
+                border: Border.all(
+                  color: const Color(0xFFff2a7b),
+                  width: 3,
+                ),
               ),
             ),
 
-          // Touch inkwell
+          // Tap gesture
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -901,39 +840,42 @@ class _DialogBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    final Color bgColor = isPrimary
-        ? (isDestructive ? const Color(0xFFEF4444) : const Color(0xFFff2a7b))
-        : Colors.transparent;
-    final Color fgColor = isPrimary
-        ? Colors.white
-        : (isDestructive ? const Color(0xFFEF4444) : sc.muted);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      constraints: const BoxConstraints(minWidth: 90, minHeight: 38),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-        border: !isPrimary ? Border.all(color: sc.border) : null,
+    Color bg;
+    Color fg;
+    Color border;
+
+    if (isDestructive) {
+      bg = isPrimary ? const Color(0xFFEF4444) : Colors.transparent;
+      fg = isPrimary ? Colors.white : const Color(0xFFEF4444);
+      border = isPrimary ? Colors.transparent : const Color(0xFFEF4444).withValues(alpha: 0.4);
+    } else if (isPrimary) {
+      bg = isDark ? Colors.white : Colors.black;
+      fg = isDark ? Colors.black : Colors.white;
+      border = Colors.transparent;
+    } else {
+      bg = Colors.transparent;
+      fg = isDark ? Colors.white70 : Colors.black87;
+      border = sc.border;
+    }
+
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: bg,
+        foregroundColor: fg,
+        side: BorderSide(color: border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: fgColor,
-                ),
-              ),
-            ),
-          ),
+      onPressed: onTap,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'JetBrains Mono',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: fg,
         ),
       ),
     );
