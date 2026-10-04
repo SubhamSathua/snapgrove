@@ -458,7 +458,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               subfolders: _viewModel.subfolders,
               onFolderCreated: (name) => _viewModel.createSubfolder(name),
               onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
-              onFileDeleted: (file) => _viewModel.deleteFile(file),
+              onFileDeleted: (file) => _viewModel.deleteFilesPermanently([file]),
+                            onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
             ),
           ),
         );
@@ -1653,7 +1654,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             subfolders: _viewModel.subfolders,
                             onFolderCreated: (name) => _viewModel.createSubfolder(name),
                             onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
-                            onFileDeleted: (file) => _viewModel.deleteFile(file),
+                            onFileDeleted: (file) => _viewModel.deleteFilesPermanently([file]),
+                            onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
                           ),
                         ),
                       );

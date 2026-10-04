@@ -42,6 +42,29 @@ void main() {
       expect(result, equals(normalBytes));
     });
 
+    test('alterBytesV2 encodes metadata and decryptBytes recovers original payload', () {
+      final originalData = Uint8List.fromList(List.generate(512, (i) => (i * 3) % 256));
+      final encrypted = BinService.alterBytesV2(
+        originalBytes: originalData,
+        originalName: 'pic.png',
+        folderName: 'Reddit',
+        parentBreadcrumb: 'Pictures/Screenshots',
+        originUri: 'content://tree/primary%3APictures%2FScreenshots/document/123',
+      );
+
+      // Verify V2 Magic
+      expect(encrypted[0], equals(0x53));
+      expect(encrypted[1], equals(0x47));
+      expect(encrypted[2], equals(0x42));
+      expect(encrypted[3], equals(0x49));
+      expect(encrypted[4], equals(0x4E));
+      expect(encrypted[5], equals(0x02));
+
+      // Decrypt
+      final decrypted = BinService.decryptBytes(encrypted);
+      expect(decrypted, equals(originalData));
+    });
+
     test('BinFolderInfo formats bytes correctly', () {
       const folderInfo = BinFolderInfo(
         name: 'Screenshots',

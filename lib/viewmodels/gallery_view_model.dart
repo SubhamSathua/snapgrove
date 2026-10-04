@@ -66,7 +66,33 @@ class GalleryViewModel extends ChangeNotifier {
       }
       return null;
     }
-    if (!filePath.startsWith('content://') && rootPath.isNotEmpty) {
+    if (filePath.startsWith('content://')) {
+      try {
+        final decodedFile = Uri.decodeFull(filePath).split('?').first;
+        final parts = decodedFile.split('/');
+        if (parts.length >= 2) {
+          final parentPart = parts[parts.length - 2].split(':').last.trim();
+          String rootName = '';
+          if (rootPath.isNotEmpty) {
+            final decodedRoot = Uri.decodeFull(rootPath).split('?').first;
+            final lastSlash = decodedRoot.lastIndexOf('/');
+            final lastColon = decodedRoot.lastIndexOf(':');
+            if (lastSlash != -1 || lastColon != -1) {
+              final splitPoint = lastColon > lastSlash ? lastColon : lastSlash;
+              rootName = decodedRoot.substring(splitPoint + 1).trim();
+            }
+          }
+          if (parentPart.isNotEmpty &&
+              parentPart != 'document' &&
+              parentPart != 'tree' &&
+              parentPart.toLowerCase() != rootName.toLowerCase()) {
+            return parentPart;
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+    if (rootPath.isNotEmpty) {
       final parent = p.dirname(filePath);
       final normParent = p.normalize(parent).toLowerCase();
       final normRoot = p.normalize(rootPath).toLowerCase();

@@ -1,3 +1,4 @@
+import 'bin_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -237,7 +238,74 @@ class SafHelper {
     }
   }
 
-  static Future<Directory> _getAndroidBinDir(String openedFolderName) async {
+  static String _extractCleanFolderName(String uri) {
+    if (uri.isEmpty) return 'Screenshots';
+    try {
+      final decoded = Uri.decodeFull(uri).split('?').first;
+      final lastSlash = decoded.lastIndexOf('/');
+      final lastColon = decoded.lastIndexOf(':');
+      String name = decoded;
+      if (lastSlash != -1 || lastColon != -1) {
+        final splitPoint = lastColon > lastSlash ? lastColon : lastSlash;
+        name = decoded.substring(splitPoint + 1);
+      }
+      name = name.replaceAll(RegExp(r'[\/:*?"<>|]'), '_').trim();
+      if (name.isNotEmpty && name != 'tree' && name != 'document') {
+        return name;
+      }
+    } catch (_) {}
+    return 'Screenshots';
+  }
+
+  static String _extractFileFolder(String fileUri, String defaultParentUri) {
+    try {
+      final decoded = Uri.decodeFull(fileUri).split('?').first;
+      final parts = decoded.split('/');
+      if (parts.length >= 2) {
+        String parentPart = parts[parts.length - 2];
+        if (parentPart.contains(':')) {
+          parentPart = parentPart.split(':').last;
+        }
+        parentPart = parentPart.replaceAll(RegExp(r'[\/:*?"<>|]'), '_').trim();
+        if (parentPart.isNotEmpty && parentPart != 'document' && parentPart != 'tree') {
+          return parentPart;
+        }
+      }
+    } catch (_) {}
+    return _extractCleanFolderName(defaultParentUri);
+  }
+
+  static String _extractCleanFileName(String fileUri) {
+    try {
+      final decoded = Uri.decodeFull(fileUri).split('?').first;
+      final lastSlash = decoded.lastIndexOf('/');
+      final lastColon = decoded.lastIndexOf(':');
+      String name = decoded;
+      if (lastSlash != -1 || lastColon != -1) {
+        final splitPoint = lastColon > lastSlash ? lastColon : lastSlash;
+        name = decoded.substring(splitPoint + 1);
+      }
+      name = name.replaceAll(RegExp(r'[\/:*?"<>|]'), '_').trim();
+      if (name.isNotEmpty) return name;
+    } catch (_) {}
+    return 'image.png';
+  }
+
+  static String _generateUniqueBinFileName(Directory dir, String originalName) {
+    final lastDot = originalName.lastIndexOf('.');
+    final baseName = lastDot != -1 ? originalName.substring(0, lastDot) : originalName;
+    final ext = lastDot != -1 ? originalName.substring(lastDot) : '';
+
+    String candidate = '$originalName.sgbin';
+    int counter = 1;
+    while (File('${dir.path}/$candidate').existsSync()) {
+      candidate = '$baseName ($counter)$ext.sgbin';
+      counter++;
+    }
+    return candidate;
+  }
+
+  static Future<Directory> _getAndroidBinDir(String folderName) async {
     Directory? baseDir;
     try {
       final extDirs = await getExternalStorageDirectories(type: StorageDirectory.pictures);
@@ -262,8 +330,9 @@ class SafHelper {
       await nomedia.create();
     }
 
-    final folderClean = openedFolderName.isEmpty ? 'Screenshots' : openedFolderName;
-    final targetFolder = Directory('${baseDir.path}/$folderClean');
+    final folderClean = folderName.replaceAll(RegExp(r'[\/:*?"<>|]'), '_').trim();
+    final effectiveFolder = folderClean.isEmpty ? 'Screenshots' : folderClean;
+    final targetFolder = Directory('${baseDir.path}/$effectiveFolder');
     if (!await targetFolder.exists()) {
       await targetFolder.create(recursive: true);
     }
@@ -284,18 +353,28 @@ class SafHelper {
 
   static Future<bool> moveToBin(String parentUri, List<String> files) async {
     try {
-      final openedFolderName = Uri.decodeFull(parentUri).split('/').last.split('%2F').last;
-      final targetBinDir = await _getAndroidBinDir(openedFolderName);
-
+      bool anySuccess = false;
       for (final fileUri in files) {
         try {
-          final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+          final originalName = _extractCleanFileName(fileUri);
+          final folderName = _extractFileFolder(fileUri, parentUri);
+          final parentBreadcrumb = _extractCleanFolderName(parentUri);
+          final targetBinDir = await _getAndroidBinDir(folderName);
+          final binFileName = _generateUniqueBinFileName(targetBinDir, originalName);
+
           final bytes = await _safStream.readFileBytes(fileUri);
           if (bytes.isNotEmpty) {
-            final altered = _alterBytes(bytes);
-            final destFile = File('${targetBinDir.path}/$originalName.sgbin');
+            final altered = BinService.alterBytesV2(
+              originalBytes: bytes,
+              originalName: originalName,
+              folderName: folderName,
+              parentBreadcrumb: parentBreadcrumb,
+              originUri: fileUri,
+            );
+            final destFile = File('${targetBinDir.path}/$binFileName');
             await destFile.writeAsBytes(altered, flush: true);
             await SafUtil().delete(fileUri, false);
+            anySuccess = true;
           } else {
             await SafUtil().delete(fileUri, false);
           }
@@ -303,7 +382,7 @@ class SafHelper {
           debugPrint('SAF Error: moveToBin failed for $fileUri: $e');
         }
       }
-      return true;
+      return anySuccess || files.isEmpty;
     } catch (e) {
       debugPrint('SAF Error: moveToBin overall failed: $e');
       return false;

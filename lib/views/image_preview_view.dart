@@ -22,6 +22,7 @@ class ImagePreviewView extends StatefulWidget {
   final Future<bool> Function(String name)? onFolderCreated;
   final Future<bool> Function(String filePath, String folderName)? onFileMoved;
   final Future<bool> Function(String filePath)? onFileDeleted;
+  final Future<bool> Function(String filePath)? onFileMoveToBin;
 
   const ImagePreviewView({
     super.key,
@@ -32,6 +33,7 @@ class ImagePreviewView extends StatefulWidget {
     this.onFolderCreated,
     this.onFileMoved,
     this.onFileDeleted,
+    this.onFileMoveToBin,
   });
 
   @override
@@ -425,103 +427,162 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
     final sc = context.snapgroveColors;
 
-    final confirmed = await showGeneralDialog<bool>(
+    String destinationName;
+    if (kIsWeb) {
+      destinationName = '';
+    } else if (Platform.isAndroid) {
+      destinationName = 'bin';
+    } else if (Platform.isWindows) {
+      destinationName = 'Windows Recycle Bin';
+    } else {
+      destinationName = 'trash';
+    }
+
+    final String message = kIsWeb
+        ? 'Are you sure you want to permanently delete "$fileName"?'
+        : '"$fileName" is being moved to the $destinationName.';
+
+    final choice = await showGeneralDialog<String>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Center(
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(ctx).size.width * 0.9 > 380 ? 380 : MediaQuery.of(ctx).size.width * 0.9,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: sc.surfaceElevated,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: sc.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 30,
-                    offset: const Offset(0, 15),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
-                        ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 330,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
                       ),
-                      const SizedBox(width: 12),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       const Text(
-                        'Delete Image',
+                        'Delete image?',
                         style: TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Lora',
+                          fontSize: 14,
+                          color: sc.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Cancel Button (Solid / Primary filled style)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? Colors.white : Colors.black,
+                            foregroundColor: isDark ? Colors.black : Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Navigator.of(ctx).pop('cancel'),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (!kIsWeb) ...[
+                        // Bin Button (Outlined)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(color: isDark ? const Color(0x44FFFFFF) : const Color(0x33000000)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => Navigator.of(ctx).pop('bin'),
+                            child: Text(
+                              Platform.isWindows ? 'Windows Recycle Bin' : 'Bin',
+                              style: const TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      // Permanently Delete (Destructive red)
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFE53935),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () => Navigator.of(ctx).pop('permanent'),
+                          child: const Text(
+                            'Permanently Delete',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Are you sure you want to permanently delete "$fileName"?',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 13,
-                      color: sc.muted,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _DialogActionButton(
-                        label: 'Cancel',
-                        isPrimary: false,
-                        onTap: () => Navigator.of(ctx).pop(false),
-                      ),
-                      const SizedBox(width: 10),
-                      _DialogActionButton(
-                        label: 'Delete',
-                        isPrimary: true,
-                        isDestructive: true,
-                        onTap: () => Navigator.of(ctx).pop(true),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         );
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
-        final curve = Curves.easeOutBack.transform(anim1.value);
-        return Transform.scale(
-          scale: 0.9 + (0.1 * curve),
-          child: Opacity(opacity: anim1.value, child: child),
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(anim1),
+            child: child,
+          ),
         );
       },
     );
 
-    if (confirmed == true && mounted) {
+    if (choice == 'bin' && mounted) {
       final currentIndex = _currentIndex;
       setState(() {
         _files.removeAt(currentIndex);
@@ -532,12 +593,38 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         }
       });
 
-      locator<NotificationService>().showSnackBar('Image deleted');
-
-      if (widget.onFileDeleted != null) {
-        widget.onFileDeleted!(currentPath);
+      bool success;
+      if (widget.onFileMoveToBin != null) {
+        success = await widget.onFileMoveToBin!(currentPath);
       } else {
-        locator<FileService>().deleteFile(currentPath);
+        success = await locator<FileService>().moveToBin(widget.directoryPath ?? '', [currentPath]);
+      }
+      if (success) {
+        locator<NotificationService>().showSnackBar('Moved to $destinationName');
+      } else {
+        locator<NotificationService>().showSnackBar('Failed to move image to $destinationName', isError: true);
+      }
+    } else if (choice == 'permanent' && mounted) {
+      final currentIndex = _currentIndex;
+      setState(() {
+        _files.removeAt(currentIndex);
+        if (_files.isEmpty) {
+          Navigator.of(context).pop();
+        } else if (_currentIndex >= _files.length) {
+          _currentIndex = _files.length - 1;
+        }
+      });
+
+      bool success;
+      if (widget.onFileDeleted != null) {
+        success = await widget.onFileDeleted!(currentPath);
+      } else {
+        success = await locator<FileService>().deleteFilesPermanently([currentPath]);
+      }
+      if (success) {
+        locator<NotificationService>().showSnackBar('Permanently deleted');
+      } else {
+        locator<NotificationService>().showSnackBar('Failed to delete image', isError: true);
       }
     }
   }
@@ -2240,13 +2327,11 @@ class _DialogCloseButtonState extends State<_DialogCloseButton> {
 class _DialogActionButton extends StatefulWidget {
   final String label;
   final bool isPrimary;
-  final bool isDestructive;
   final VoidCallback onTap;
 
   const _DialogActionButton({
     required this.label,
     required this.isPrimary,
-    this.isDestructive = false,
     required this.onTap,
   });
 
@@ -2266,13 +2351,7 @@ class _DialogActionButtonState extends State<_DialogActionButton> {
     Color fg;
     Color border;
 
-    if (widget.isDestructive) {
-      bg = widget.isPrimary
-          ? (_isHovered ? const Color(0xFFDC2626) : const Color(0xFFEF4444))
-          : (_isHovered ? const Color(0xFFEF4444).withValues(alpha: 0.15) : Colors.transparent);
-      fg = widget.isPrimary ? Colors.white : const Color(0xFFEF4444);
-      border = widget.isPrimary ? Colors.transparent : const Color(0xFFEF4444).withValues(alpha: 0.4);
-    } else if (widget.isPrimary) {
+    if (widget.isPrimary) {
       bg = _isHovered
           ? (isDark ? const Color(0xFFE0E0E0) : const Color(0xFF333333))
           : (isDark ? Colors.white : Colors.black);
@@ -2300,9 +2379,7 @@ class _DialogActionButtonState extends State<_DialogActionButton> {
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: widget.onTap,
-            splashColor: widget.isDestructive
-                ? Colors.white.withValues(alpha: 0.25)
-                : sc.rippleColor,
+            splashColor: sc.rippleColor,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
