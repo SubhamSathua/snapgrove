@@ -1,9 +1,10 @@
 # Snapgrove
 <p align="center">
   <img src=".github/assets/logo/logo.png" alt="Snapgrove Logo" width="128">
+  <br>
+  <b>Organize screenshots and images into subfolders instantly.</b>
 </p>
 
-**Organize screenshots and images into subfolders instantly.**
 
 **Organize screenshots with a single tap.** Open an image, select a target folder tag (a real sub-folder), and Snapgrove moves the file immediately without complicated menus.
 
