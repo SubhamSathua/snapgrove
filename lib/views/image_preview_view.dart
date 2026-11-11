@@ -1,3 +1,4 @@
+import 'widgets/folder_tree_picker_modal.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -369,6 +370,24 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     if (_files.isEmpty) return;
     final currentPath = _files[_currentIndex];
     final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
+
+    // Check if target folder has nested subfolders
+    if (widget.directoryPath != null && widget.directoryPath!.isNotEmpty) {
+      final tree = await locator<FileService>().getFolderTree(widget.directoryPath!);
+      final matchingNode = tree?.findByRelPath(folderName);
+      if (matchingNode != null && matchingNode.hasChildren) {
+        final currentTag = _getSubfolderTag(currentPath);
+        if (!mounted) return;
+        final chosen = await FolderTreePickerModal.show(
+          context,
+          rootNode: tree,
+          currentFolderName: folderName,
+          currentSelectedTags: [currentTag ?? 'ROOT'],
+        );
+        if (chosen == null || !mounted) return;
+        return _moveImageToFolder(chosen);
+      }
+    }
 
     final String? currentTag = _getSubfolderTag(currentPath);
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);

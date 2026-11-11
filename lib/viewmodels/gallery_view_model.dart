@@ -1,3 +1,4 @@
+import '../models/folder_node.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -37,6 +38,7 @@ class GalleryViewModel extends ChangeNotifier {
   
   // Subfolders for chips
   List<String> _subfolders = [];
+  FolderNode? _folderTree;
 
   GalleryViewModel({
     required this.path,
@@ -57,6 +59,7 @@ class GalleryViewModel extends ChangeNotifier {
   
   // Subfolders getter
   List<String> get subfolders => _subfolders;
+  FolderNode? get folderTree => _folderTree;
 
   static String? extractSubfolderTag(String rootPath, String filePath) {
     if (filePath.isEmpty) return null;
@@ -287,10 +290,19 @@ class GalleryViewModel extends ChangeNotifier {
   Future<void> _loadSubfolders() async {
     try {
       _subfolders = await _fileService.listSubfolders(path);
+      _folderTree = await _fileService.getFolderTree(path);
     } catch (e) {
       debugPrint('Error loading subfolders: $e');
       _subfolders = [];
     }
+  }
+
+  Future<void> refreshFolderTree() async {
+    try {
+      _folderTree = await _fileService.getFolderTree(path);
+      _subfolders = await _fileService.listSubfolders(path);
+      notifyListeners();
+    } catch (_) {}
   }
 
   void enterSelectionMode() {

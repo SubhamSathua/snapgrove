@@ -1,3 +1,4 @@
+import 'package:snapgrove/models/folder_node.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -191,6 +192,57 @@ class MockFileService implements FileService {
   @override
   Future<bool> removeExifData(String path) async {
     return true;
+  }
+  @override
+  Future<FolderNode?> getFolderTree(String rootPath) async {
+    final rootDir = Directory(rootPath);
+    if (!await rootDir.exists()) return null;
+    final entities = await rootDir.list().toList();
+    final children = <FolderNode>[];
+    for (final e in entities) {
+      if (e is Directory) {
+        children.add(FolderNode(
+          name: p.basename(e.path),
+          path: e.path,
+          relPath: p.basename(e.path),
+        ));
+      }
+    }
+    return FolderNode(
+      name: 'ROOT',
+      path: rootPath,
+      relPath: '',
+      children: children,
+    );
+  }
+
+  @override
+  Future<bool> createNestedFolder(String parentPath, String folderName) async {
+    final dir = Directory(p.join(parentPath, folderName));
+    if (await dir.exists()) return false;
+    await dir.create(recursive: true);
+    return true;
+  }
+
+  @override
+  Future<bool> renameFolderNode(String currentPath, String newName) async {
+    final dir = Directory(currentPath);
+    if (!await dir.exists()) return false;
+    final parent = dir.parent.path;
+    final targetPath = p.join(parent, newName);
+    if (await Directory(targetPath).exists()) return false;
+    await dir.rename(targetPath);
+    return true;
+  }
+
+  @override
+  Future<bool> deleteFolderNode(String folderPath) async {
+    final dir = Directory(folderPath);
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+      return true;
+    }
+    return false;
   }
 }
 

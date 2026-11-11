@@ -1,3 +1,4 @@
+import 'package:snapgrove/models/folder_node.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +77,18 @@ class MockFileService implements FileService {
 
   @override
   Future<bool> removeExifData(String path) async => true;
+
+  @override
+  Future<FolderNode?> getFolderTree(String rootPath) async => null;
+
+  @override
+  Future<bool> createNestedFolder(String parentPath, String folderName) async => true;
+
+  @override
+  Future<bool> renameFolderNode(String currentPath, String newName) async => true;
+
+  @override
+  Future<bool> deleteFolderNode(String folderPath) async => true;
 }
 
 class MockShareService implements ShareService {

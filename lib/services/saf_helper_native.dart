@@ -1,3 +1,4 @@
+import '../models/folder_node.dart';
 import 'bin_service.dart';
 import 'dart:async';
 import 'dart:io';
@@ -145,7 +146,7 @@ class SafHelper {
   static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
-      final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
+      final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, folderName.split('/'))).uri;
       
       // Query destination folder once for batch collision checking
       Set<String> existingNames = {};
@@ -415,6 +416,81 @@ class SafHelper {
       return true;
     } catch (e) {
       debugPrint('SAF Error: removeExifData failed: $e');
+      return false;
+    }
+  }
+
+  static Future<FolderNode?> getFolderTree(String rootUri) async {
+    try {
+      Future<FolderNode> scanNode(String currentUri, String currentName, String relPath) async {
+        final contents = await SafUtil().list(currentUri);
+        int directCount = 0;
+        final List<FolderNode> children = [];
+
+        for (final item in contents) {
+          if (item.isDir) {
+            final childRel = relPath.isEmpty ? item.name : '$relPath/${item.name}';
+            final childNode = await scanNode(item.uri, item.name, childRel);
+            children.add(childNode);
+          } else {
+            final lower = item.name.toLowerCase();
+            if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp')) {
+              directCount++;
+            }
+          }
+        }
+
+        children.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        int total = directCount;
+        for (final c in children) {
+          total += c.totalImageCount;
+        }
+
+        return FolderNode(
+          name: currentName,
+          path: currentUri,
+          relPath: relPath,
+          children: children,
+          directImageCount: directCount,
+          totalImageCount: total,
+        );
+      }
+
+      final rootCleanName = _extractCleanFolderName(rootUri);
+      return await scanNode(rootUri, rootCleanName, '');
+    } catch (e) {
+      debugPrint('SAF Error: getFolderTree failed: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> createNestedFolder(String parentUri, String folderName) async {
+    try {
+      final segments = folderName.split('/').where((s) => s.trim().isNotEmpty).toList();
+      await SafUtil().mkdirp(parentUri, segments);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: createNestedFolder failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> renameFolderNode(String currentUri, String newName) async {
+    try {
+      await SafUtil().rename(currentUri, true, newName);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: renameFolderNode failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteFolderNode(String folderUri) async {
+    try {
+      await SafUtil().delete(folderUri, true);
+      return true;
+    } catch (e) {
+      debugPrint('SAF Error: deleteFolderNode failed: $e');
       return false;
     }
   }

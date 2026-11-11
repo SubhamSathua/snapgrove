@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import '../models/folder_node.dart';
 
 abstract class SafHelper {
   static Future<List<String>> listImages(String uri, {bool includeSubfolders = false}) async => [];
@@ -14,4 +15,10 @@ abstract class SafHelper {
   static Future<String?> renameFile(String uri, String newName) async => null;
   static Future<bool> updateModifiedDate(String uri, DateTime newDate) async => false;
   static Future<bool> removeExifData(String uri) async => false;
+
+  // Hierarchical Folder Tree & Management
+  static Future<FolderNode?> getFolderTree(String rootUri) async => null;
+  static Future<bool> createNestedFolder(String parentUri, String folderName) async => false;
+  static Future<bool> renameFolderNode(String currentUri, String newName) async => false;
+  static Future<bool> deleteFolderNode(String folderUri) async => false;
 }

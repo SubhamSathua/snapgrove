@@ -16,6 +16,8 @@ import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
 import '../services/notification_service.dart';
 import 'image_preview_view.dart';
+import 'manage_folders_view.dart';
+import 'widgets/folder_tree_picker_modal.dart';
 import 'theme_dialog.dart';
 
 class OrganizerGallery extends StatefulWidget {
@@ -617,7 +619,23 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 height: 1,
                               ),
                             ),
-                            // Option 2: Theme
+                            // Option 2: Sort
+                            _DropdownMenuOptionTile(
+                              icon: Icons.sort_rounded,
+                              label: 'Sort',
+                              onTap: () {
+                                Navigator.of(ctx).pop();
+                                _showSortDialog();
+                              },
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                              child: Divider(
+                                color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+                                height: 1,
+                              ),
+                            ),
+                            // Option 3: Theme
                             _DropdownMenuOptionTile(
                               icon: Icons.palette_outlined,
                               label: 'Theme',
@@ -1518,10 +1536,19 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     ),
                     const SizedBox(width: 10),
                     Tooltip(
-                      message: 'Sort',
+                      message: 'Manage Tags / Folders',
                       child: _IconSquare(
-                        svgPath: 'assets/icons/sort.svg',
-                        onTap: _showSortDialog,
+                        icon: Icons.folder_open_rounded,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ManageFoldersView(
+                                rootPath: widget.path,
+                                rootTitle: widget.title,
+                              ),
+                            ),
+                          ).then((_) => _viewModel.loadFiles());
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1825,6 +1852,21 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return;
 
+    // Check if the target folder has children
+    final tree = _viewModel.folderTree;
+    final matchingNode = tree?.findByRelPath(folderName);
+    if (matchingNode != null && matchingNode.hasChildren) {
+      final currentTags = selectedFiles.map((f) => _viewModel.getSubfolderTag(f) ?? 'ROOT').toList();
+      final chosenRelPath = await FolderTreePickerModal.show(
+        context,
+        rootNode: tree,
+        currentFolderName: folderName,
+        currentSelectedTags: currentTags,
+      );
+      if (chosenRelPath == null) return;
+      return _moveSelectedToFolder(chosenRelPath);
+    }
+
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
     final filesToMove = selectedFiles.where((f) {
       final currentTag = _viewModel.getSubfolderTag(f);
@@ -2099,32 +2141,17 @@ class _RoundBackButton extends StatelessWidget {
 }
 
 class _IconSquare extends StatelessWidget {
-  final String? svgPath;
-  final IconData? icon;
+  final IconData icon;
   final VoidCallback onTap;
 
-  const _IconSquare({this.svgPath, this.icon, required this.onTap});
+  const _IconSquare({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fgColor = isDark ? Colors.white : Colors.black;
-
-    Widget childWidget;
-    if (icon != null) {
-      childWidget = Icon(icon, size: 20, color: fgColor);
-    } else if (svgPath != null) {
-      childWidget = SvgPicture.asset(
-        svgPath!,
-        colorFilter: ColorFilter.mode(
-          fgColor,
-          BlendMode.srcIn,
-        ),
-      );
-    } else {
-      childWidget = const SizedBox.shrink();
-    }
+    final childWidget = Icon(icon, size: 20, color: fgColor);
 
     return Container(
       width: 40,
