@@ -226,9 +226,9 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
-                                   isDark ? Colors.white : Colors.black,
+                                  isDark ? Colors.white : Colors.black,
                               foregroundColor:
-                                   isDark ? Colors.black : Colors.white,
+                                  isDark ? Colors.black : Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
@@ -269,7 +269,8 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
   // ── Folder action dispatcher ───────────────────────────────────────────────
 
   void _onFolderAction(BuildContext context, FolderNode node, Offset? pos) {
-    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     if (isAndroid) {
       _showAndroidFolderBottomSheet(context, node);
     } else {
@@ -351,6 +352,68 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
       _showFolderInfoDialog(node);
     } else if (selected == 'delete') {
       _showDeleteFolderDialog(node);
+    }
+  }
+
+  // ── Desktop image context menu (Select Images, New Folder) ─────────────────
+
+  Future<void> _showImageContextMenu(
+      BuildContext context, String imgPath, Offset position) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sc = context.snapgroveColors;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      elevation: 8,
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: sc.border),
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'select_images',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.checklist,
+                  size: 18, color: isDark ? Colors.white70 : Colors.black87),
+              const SizedBox(width: 10),
+              const Text('Select Images',
+                  style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem<String>(
+          value: 'new_folder',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.create_new_folder_outlined,
+                  size: 18, color: isDark ? Colors.white70 : Colors.black87),
+              const SizedBox(width: 10),
+              const Text('New Folder',
+                  style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (selected == 'select_images') {
+      setState(() {
+        _isSelectionMode = true;
+        _selectedImagePaths.add(imgPath);
+      });
+    } else if (selected == 'new_folder') {
+      _showCreateFolderDialog();
     }
   }
 
@@ -1153,8 +1216,8 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                             horizontal: 16, vertical: 4),
                         sliver: SliverGrid(
                           gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
                             childAspectRatio: 0.85,
@@ -1171,7 +1234,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
-        bottomNavigationBar: _isSelectionMode
+        bottomNavigationBar: (_isSelectionMode && !isDesktop)
             ? Container(
                 padding: EdgeInsets.fromLTRB(
                     16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
@@ -1181,8 +1244,11 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                 ),
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? Colors.white : Colors.black,
-                    foregroundColor: isDark ? Colors.black : Colors.white,
+                    backgroundColor: const Color(0xFFE11D48),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        const Color(0xFFE11D48).withValues(alpha: 0.5),
+                    disabledForegroundColor: Colors.white70,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -1193,7 +1259,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                       : null,
                   icon: const Icon(Icons.drive_file_move_outlined, size: 20),
                   label: Text(
-                    'Move (${_selectedImagePaths.length}) to Folder...',
+                    'Move (${_selectedImagePaths.length}) to Folder',
                     style: const TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontWeight: FontWeight.w700,
@@ -1223,50 +1289,112 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
     // 1. Selection mode
     if (_isSelectionMode) {
       if (isDesktop) {
-        // Larger display: direct inline buttons without more_vert
+        // Larger display: Grouped button [Select all | Unselect all | Cancel] + Solid rose Move button
         return [
-          TextButton(
-            onPressed: () {
-              setState(() => _selectedImagePaths.addAll(_currentImages));
-            },
-            child: Text(
-              'Select all',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: sc.accent,
+          Container(
+            decoration: BoxDecoration(
+              color: sc.surfaceMuted,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: sc.border),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(7)),
+                    onTap: () {
+                      setState(
+                          () => _selectedImagePaths.addAll(_currentImages));
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 11, vertical: 7),
+                      child: Text(
+                        'Select all',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: sc.accent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(
+                      width: 1, thickness: 1, color: sc.border),
+                  InkWell(
+                    onTap: () {
+                      setState(() => _selectedImagePaths.clear());
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 11, vertical: 7),
+                      child: Text(
+                        'Unselect all',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: sc.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(
+                      width: 1, thickness: 1, color: sc.border),
+                  InkWell(
+                    borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(7)),
+                    onTap: () {
+                      setState(() {
+                        _isSelectionMode = false;
+                        _selectedImagePaths.clear();
+                      });
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 11, vertical: 7),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          TextButton(
-            onPressed: () {
-              setState(() => _selectedImagePaths.clear());
-            },
-            child: Text(
-              'Unselect all',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: sc.muted,
-              ),
+          const SizedBox(width: 10),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor:
+                  const Color(0xFFE11D48).withValues(alpha: 0.5),
+              disabledForegroundColor: Colors.white70,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _isSelectionMode = false;
-                _selectedImagePaths.clear();
-              });
-            },
-            child: Text(
-              'Cancel',
-              style: TextStyle(
+            onPressed: _selectedImagePaths.isNotEmpty
+                ? _moveSelectedImages
+                : null,
+            icon: const Icon(Icons.drive_file_move_outlined, size: 16),
+            label: Text(
+              'Move (${_selectedImagePaths.length}) to Folder',
+              style: const TextStyle(
                 fontFamily: 'JetBrains Mono',
+                fontWeight: FontWeight.w700,
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: sc.muted,
               ),
             ),
           ),
@@ -1286,7 +1414,8 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             onSelected: (value) {
               switch (value) {
                 case 'select_all':
-                  setState(() => _selectedImagePaths.addAll(_currentImages));
+                  setState(
+                      () => _selectedImagePaths.addAll(_currentImages));
                   break;
                 case 'unselect_all':
                   setState(() => _selectedImagePaths.clear());
@@ -1304,15 +1433,15 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                 value: 'select_all',
                 height: 40,
                 child: Text('Select all',
-                    style:
-                        TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
+                    style: TextStyle(
+                        fontFamily: 'JetBrains Mono', fontSize: 13)),
               ),
               const PopupMenuItem<String>(
                 value: 'unselect_all',
                 height: 40,
                 child: Text('Unselect all',
-                    style:
-                        TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
+                    style: TextStyle(
+                        fontFamily: 'JetBrains Mono', fontSize: 13)),
               ),
               const PopupMenuDivider(height: 1),
               const PopupMenuItem<String>(
@@ -1480,7 +1609,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
     );
   }
 
-  // ── Folder list (compact mobile view) ──────────────────────────────────────
+  // ── Folder list (compact mobile view with focus support) ───────────────────
 
   Widget _buildFolderList(
     BuildContext context,
@@ -1494,73 +1623,14 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         (context, index) {
           final child = folders[index];
           return LayoutBuilder(builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            return GestureDetector(
-              onLongPress: isAndroid
-                  ? () => _onFolderAction(context, child, null)
-                  : null,
-              onSecondaryTapUp: !isAndroid
-                  ? (details) =>
-                      _onFolderAction(context, child, details.globalPosition)
-                  : null,
-              child: Container(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: sc.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: sc.border),
-                ),
-                child: ListTile(
-                  leading: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: sc.accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      child.hasChildren
-                          ? Icons.folder_rounded
-                          : Icons.folder_outlined,
-                      color: sc.accent,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    child.name,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: w >= 340
-                      ? Text.rich(
-                          TextSpan(children: [
-                            TextSpan(
-                              text: '${child.totalImageCount}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700),
-                            ),
-                            const TextSpan(text: ' items  •  '),
-                            TextSpan(
-                              text: '${child.children.length}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700),
-                            ),
-                            const TextSpan(text: ' folders'),
-                          ]),
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 11,
-                            color: sc.muted,
-                          ),
-                        )
-                      : null,
-                  onTap: () => _navigateToChild(child),
-                ),
-              ),
+            return _FocusableFolderListItem(
+              childNode: child,
+              sc: sc,
+              isDark: isDark,
+              isAndroid: isAndroid,
+              maxWidth: constraints.maxWidth,
+              onTap: () => _navigateToChild(child),
+              onAction: (pos) => _onFolderAction(context, child, pos),
             );
           });
         },
@@ -1616,11 +1686,13 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
     );
   }
 
-  // ── Image tile ─────────────────────────────────────────────────────────────
+  // ── Image tile (with PC context menu) ──────────────────────────────────────
 
   Widget _buildImageTile(BuildContext context, dynamic sc, int index) {
     final imgPath = _currentImages[index];
     final isSelected = _selectedImagePaths.contains(imgPath);
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
     return InkWell(
       onTap: () {
@@ -1653,6 +1725,10 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           _selectedImagePaths.add(imgPath);
         });
       },
+      onSecondaryTapUp: !isAndroid
+          ? (details) =>
+              _showImageContextMenu(context, imgPath, details.globalPosition)
+          : null,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Stack(
@@ -1689,6 +1765,147 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Focusable folder list item (for both Mobile & PC)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FocusableFolderListItem extends StatefulWidget {
+  final FolderNode childNode;
+  final dynamic sc;
+  final bool isDark;
+  final bool isAndroid;
+  final double maxWidth;
+  final VoidCallback onTap;
+  final void Function(Offset?) onAction;
+
+  const _FocusableFolderListItem({
+    required this.childNode,
+    required this.sc,
+    required this.isDark,
+    required this.isAndroid,
+    required this.maxWidth,
+    required this.onTap,
+    required this.onAction,
+  });
+
+  @override
+  State<_FocusableFolderListItem> createState() =>
+      _FocusableFolderListItemState();
+}
+
+class _FocusableFolderListItemState extends State<_FocusableFolderListItem> {
+  bool _isFocused = false;
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = widget.sc;
+    final child = widget.childNode;
+    final w = widget.maxWidth;
+    // Show item & folder count in list view, hide on compact screen (< 340)
+    final showCountSubtitle = w >= 340;
+
+    return FocusableActionDetector(
+      onShowFocusHighlight: (val) => setState(() => _isFocused = val),
+      onShowHoverHighlight: (val) => setState(() => _isHovered = val),
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+      },
+      child: GestureDetector(
+        onLongPress:
+            widget.isAndroid ? () => widget.onAction(null) : null,
+        onSecondaryTapUp: !widget.isAndroid
+            ? (details) => widget.onAction(details.globalPosition)
+            : null,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(10),
+          focusColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: _isFocused
+                  ? sc.accent.withValues(alpha: 0.1)
+                  : (_isHovered
+                      ? sc.surfaceElevated
+                      : sc.surfaceElevated),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _isFocused
+                    ? sc.accent
+                    : (_isHovered
+                        ? sc.accent.withValues(alpha: 0.4)
+                        : sc.border),
+                width: _isFocused ? 1.5 : 1.0,
+              ),
+              boxShadow: _isFocused
+                  ? [
+                      BoxShadow(
+                        color: sc.accent.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: sc.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  child.hasChildren
+                      ? Icons.folder_rounded
+                      : Icons.folder_outlined,
+                  color: sc.accent,
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                child.name,
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: showCountSubtitle
+                  ? Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: '${child.totalImageCount}',
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const TextSpan(text: ' items  •  '),
+                        TextSpan(
+                          text: '${child.children.length}',
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const TextSpan(text: ' folders'),
+                      ]),
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 11,
+                        color: sc.muted,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
         ),
       ),
     );
@@ -1861,7 +2078,7 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Desktop-style Folder Grid Card (no outer square box, prominent icon glyph)
+//  Desktop-style Folder Grid Card (with tooltip & focus support)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FolderGridCard extends StatefulWidget {
@@ -1887,16 +2104,23 @@ class _FolderGridCard extends StatefulWidget {
 
 class _FolderGridCardState extends State<_FolderGridCard> {
   bool _hovered = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
     final sc = widget.sc;
     final node = widget.node;
     final isHover = _hovered && !widget.isAndroid;
+    final isHighlighted = isHover || _isFocused;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+    Widget cardContent = FocusableActionDetector(
+      onShowFocusHighlight: (val) => setState(() => _isFocused = val),
+      onShowHoverHighlight: (val) => setState(() => _hovered = val),
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+      },
       child: GestureDetector(
         onLongPress: widget.isAndroid ? () => widget.onAction(null) : null,
         onSecondaryTapUp: !widget.isAndroid
@@ -1905,6 +2129,7 @@ class _FolderGridCardState extends State<_FolderGridCard> {
         child: InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(12),
+          focusColor: Colors.transparent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1915,17 +2140,17 @@ class _FolderGridCardState extends State<_FolderGridCard> {
                 width: 66,
                 height: 66,
                 decoration: BoxDecoration(
-                  color: isHover
+                  color: isHighlighted
                       ? sc.accent.withValues(alpha: 0.24)
                       : sc.accent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isHover
-                        ? sc.accent.withValues(alpha: 0.45)
+                    color: isHighlighted
+                        ? sc.accent
                         : sc.accent.withValues(alpha: 0.18),
-                    width: 1.2,
+                    width: _isFocused ? 2.0 : 1.2,
                   ),
-                  boxShadow: isHover
+                  boxShadow: isHighlighted
                       ? [
                           BoxShadow(
                             color: sc.accent.withValues(alpha: 0.3),
@@ -1966,6 +2191,17 @@ class _FolderGridCardState extends State<_FolderGridCard> {
         ),
       ),
     );
+
+    // On PC in grid view: show X items • X folders in a tooltip on hover
+    if (!widget.isAndroid) {
+      return Tooltip(
+        message: '${node.totalImageCount} items • ${node.children.length} folders',
+        waitDuration: const Duration(milliseconds: 350),
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
   }
 }
 
