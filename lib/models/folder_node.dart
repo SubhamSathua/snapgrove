@@ -6,6 +6,14 @@ class FolderNode {
   final int directImageCount;
   final int totalImageCount;
 
+  /// Lazily populated — null until `FileService.getFolderSizeBytes` is called.
+  /// Not computed during the tree scan to avoid lag on large folders.
+  final int? totalSizeBytes;
+
+  /// Last-modified timestamp of the folder directory itself (null on platforms
+  /// where it is not cheaply available, e.g. SAF on Android).
+  final DateTime? modifiedDate;
+
   const FolderNode({
     required this.name,
     required this.path,
@@ -13,6 +21,8 @@ class FolderNode {
     this.children = const [],
     this.directImageCount = 0,
     this.totalImageCount = 0,
+    this.totalSizeBytes,
+    this.modifiedDate,
   });
 
   bool get hasChildren => children.isNotEmpty;
@@ -24,6 +34,8 @@ class FolderNode {
     List<FolderNode>? children,
     int? directImageCount,
     int? totalImageCount,
+    int? totalSizeBytes,
+    DateTime? modifiedDate,
   }) {
     return FolderNode(
       name: name ?? this.name,
@@ -32,6 +44,8 @@ class FolderNode {
       children: children ?? this.children,
       directImageCount: directImageCount ?? this.directImageCount,
       totalImageCount: totalImageCount ?? this.totalImageCount,
+      totalSizeBytes: totalSizeBytes ?? this.totalSizeBytes,
+      modifiedDate: modifiedDate ?? this.modifiedDate,
     );
   }
 

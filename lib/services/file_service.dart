@@ -26,6 +26,24 @@ abstract class FileService {
   Future<bool> createNestedFolder(String parentPath, String folderName);
   Future<bool> renameFolderNode(String currentPath, String newName);
   Future<bool> deleteFolderNode(String folderPath);
+
+  /// Returns the total size in bytes of all files inside [folderPath],
+  /// computed recursively.  Returns null on unsupported platforms.
+  Future<int?> getFolderSizeBytes(String folderPath);
+
+  /// Returns the last-modified DateTime of the directory at [folderPath].
+  /// Returns null when unavailable.
+  Future<DateTime?> getFolderModifiedDate(String folderPath);
+
+  /// Human-readable string for a byte count, e.g. "3.4 MB", "120 KB".
+  static String formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
 }
 
 class FileServiceImpl implements FileService {
@@ -182,6 +200,11 @@ class FileServiceImpl implements FileService {
             total += c.totalImageCount;
           }
 
+          DateTime? mdate;
+          try {
+            mdate = (await dir.stat()).modified;
+          } catch (_) {}
+
           return FolderNode(
             name: dirName,
             path: dir.path,
@@ -189,6 +212,7 @@ class FileServiceImpl implements FileService {
             children: subChildren,
             directImageCount: directCount,
             totalImageCount: total,
+            modifiedDate: mdate,
           );
         }
 
@@ -264,6 +288,48 @@ class FileServiceImpl implements FileService {
       debugPrint('Error deleting folder node: $e');
       return false;
     }
+  }
+
+  @override
+  Future<int?> getFolderSizeBytes(String folderPath) async {
+    try {
+      if (kIsWeb) return null;
+      if (Platform.isAndroid) {
+        // SAF doesn't expose recursive folder sizes cheaply; return null and
+        // let the UI show a "not available" placeholder.
+        return null;
+      } else {
+        final dir = Directory(folderPath);
+        if (!await dir.exists()) return null;
+        int total = 0;
+        await for (final entity in dir.list(recursive: true)) {
+          if (entity is File) {
+            try {
+              total += await entity.length();
+            } catch (_) {}
+          }
+        }
+        return total;
+      }
+    } catch (e) {
+      debugPrint('Error calculating folder size: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<DateTime?> getFolderModifiedDate(String folderPath) async {
+    try {
+      if (kIsWeb) return null;
+      if (Platform.isAndroid) return null; // SAF doesn't expose dir mtime
+      final dir = Directory(folderPath);
+      if (await dir.exists()) {
+        return (await dir.stat()).modified;
+      }
+    } catch (e) {
+      debugPrint('Error getting folder modified date: $e');
+    }
+    return null;
   }
 
   String _generateUniqueFileName(String targetDirPath, String fileName) {

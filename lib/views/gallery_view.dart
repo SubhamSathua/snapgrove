@@ -1536,7 +1536,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     ),
                     const SizedBox(width: 10),
                     Tooltip(
-                      message: 'Manage Tags / Folders',
+                      message: 'Manage Folders (tags)',
                       child: _IconSquare(
                         icon: Icons.folder_open_rounded,
                         onTap: () {

@@ -89,6 +89,12 @@ class MockFileService implements FileService {
 
   @override
   Future<bool> deleteFolderNode(String folderPath) async => true;
+
+  @override
+  Future<int?> getFolderSizeBytes(String folderPath) async => null;
+
+  @override
+  Future<DateTime?> getFolderModifiedDate(String folderPath) async => null;
 }
 
 class MockShareService implements ShareService {

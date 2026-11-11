@@ -244,6 +244,12 @@ class MockFileService implements FileService {
     }
     return false;
   }
+
+  @override
+  Future<int?> getFolderSizeBytes(String folderPath) async => null;
+
+  @override
+  Future<DateTime?> getFolderModifiedDate(String folderPath) async => null;
 }
 
 void main() {
