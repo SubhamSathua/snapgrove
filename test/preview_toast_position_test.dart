@@ -149,11 +149,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify bottom navigation bar buttons are present
-    expect(find.text('Bin'), findsOneWidget);
-    expect(find.text('Info'), findsOneWidget);
-    expect(find.text('Share'), findsOneWidget);
-    expect(find.text('Fullscreen'), findsOneWidget);
+    // Verify bottom navigation bar buttons are present (icons with tooltips, no labels)
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    expect(find.byIcon(Icons.share_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.fullscreen), findsOneWidget);
 
     // Show undo toast
     notificationService.showSnackBar(
@@ -168,7 +168,7 @@ void main() {
     expect(snackBarFinder, findsOneWidget);
 
     final snackBarRect = tester.getRect(snackBarFinder);
-    final binRect = tester.getRect(find.text('Bin'));
+    final binRect = tester.getRect(find.byIcon(Icons.delete_outline));
 
     // SnackBar's bottom must be strictly above the bottom action bar's top
     expect(

@@ -2056,8 +2056,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   Widget _buildMovingProgressFloatingCard(SnapgroveColors sc, bool isDark) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: 24,
+      bottom: 24 + bottomInset,
       left: 16,
       right: 16,
       child: Center(

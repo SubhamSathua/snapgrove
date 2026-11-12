@@ -598,9 +598,10 @@ class _BinViewState extends State<BinView> {
     final current = _viewModel.restoreCurrent;
     final total = _viewModel.restoreTotal;
     final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : null;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      bottom: 16,
+      bottom: 16 + bottomInset,
       left: 16,
       right: 16,
       child: Center(

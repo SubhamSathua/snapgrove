@@ -57,6 +57,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   bool _showZoomCapsule = false;
   bool _isDragging = false;
   bool _isInteracting = false;
+  final Set<int> _activePointers = <int>{};
 
   // Horizontal scroll controller for tags
   final ScrollController _tagsScrollController = ScrollController();
@@ -168,7 +169,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     if (mounted) {
       setState(() {
         _currentZoom = scale;
-        if (_currentZoom <= 1.01) {
+        if (_currentZoom <= 1.01 && _activePointers.length < 2) {
           _isInteracting = false;
         }
         _showZoomCapsule = true;
@@ -1287,71 +1288,100 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 onTap: () {
                   if (_isFullScreen) _toggleFullScreen();
                 },
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _files.length,
-                  physics: (_currentZoom > 1.01 || _isInteracting)
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                  onPageChanged: (idx) {
-                    setState(() {
-                      _currentIndex = idx;
-                      _transformController.value = Matrix4.identity();
-                      _currentZoom = 1.0;
-                      _isInteracting = false;
-                    });
-                    _preloadAdjacent(idx);
+                child: Listener(
+                  onPointerDown: (e) {
+                    _activePointers.add(e.pointer);
+                    if (_activePointers.length >= 2 && !_isInteracting) {
+                      setState(() {
+                        _isInteracting = true;
+                      });
+                    }
                   },
-                  itemBuilder: (context, index) {
-                    final path = _files[index];
-                    return Listener(
-                      onPointerSignal: (pointerSignal) {
-                        if (pointerSignal is PointerScrollEvent) {
-                          if (HardwareKeyboard.instance.isShiftPressed) {
-                            final delta = pointerSignal.scrollDelta.dy;
-                            double newZoom = _currentZoom - (delta / 500);
-                            newZoom = newZoom.clamp(1.0, 5.0);
-                            _setZoom(newZoom);
+                  onPointerUp: (e) {
+                    _activePointers.remove(e.pointer);
+                    if (_activePointers.length < 2 && _currentZoom <= 1.01 && _isInteracting) {
+                      setState(() {
+                        _isInteracting = false;
+                      });
+                    }
+                  },
+                  onPointerCancel: (e) {
+                    _activePointers.remove(e.pointer);
+                    if (_activePointers.length < 2 && _currentZoom <= 1.01 && _isInteracting) {
+                      setState(() {
+                        _isInteracting = false;
+                      });
+                    }
+                  },
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: _files.length,
+                    physics: (_currentZoom > 1.01 || _isInteracting)
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    onPageChanged: (idx) {
+                      setState(() {
+                        _currentIndex = idx;
+                        _activePointers.clear();
+                        _transformController.value = Matrix4.identity();
+                        _currentZoom = 1.0;
+                        _isInteracting = false;
+                      });
+                      _preloadAdjacent(idx);
+                    },
+                    itemBuilder: (context, index) {
+                      final path = _files[index];
+                      return Listener(
+                        onPointerSignal: (pointerSignal) {
+                          if (pointerSignal is PointerScrollEvent) {
+                            if (HardwareKeyboard.instance.isShiftPressed) {
+                              final delta = pointerSignal.scrollDelta.dy;
+                              double newZoom = _currentZoom - (delta / 500);
+                              newZoom = newZoom.clamp(1.0, 5.0);
+                              _setZoom(newZoom);
+                            }
                           }
-                        }
-                      },
-                      child: GestureDetector(
-                        onDoubleTapDown: _handleDoubleTap,
-                        child: MouseRegion(
-                          cursor: _isDesktopOrWeb
-                              ? (_isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab)
-                              : MouseCursor.defer,
-                          child: InteractiveViewer(
-                            transformationController: _transformController,
-                            minScale: 1.0,
-                            maxScale: 5.0,
-                            onInteractionStart: (details) {
-                              if (mounted) {
-                                setState(() {
-                                  _isDragging = true;
-                                  _isInteracting = true;
-                                });
-                              }
-                            },
-                            onInteractionEnd: (details) {
-                              if (mounted) {
-                                setState(() {
-                                  _isDragging = false;
-                                  if (_currentZoom <= 1.01) _isInteracting = false;
-                                });
-                              }
-                            },
-                            child: Hero(
-                              tag: index == _currentIndex ? path : 'preview_$path',
-                              child: Center(
-                                child: _buildImage(context, path),
+                        },
+                        child: GestureDetector(
+                          onDoubleTapDown: _handleDoubleTap,
+                          child: MouseRegion(
+                            cursor: _isDesktopOrWeb
+                                ? (_isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab)
+                                : MouseCursor.defer,
+                            child: InteractiveViewer(
+                              transformationController: _transformController,
+                              minScale: 1.0,
+                              maxScale: 5.0,
+                              onInteractionStart: (details) {
+                                if (mounted) {
+                                  setState(() {
+                                    _isDragging = true;
+                                    _isInteracting = true;
+                                  });
+                                }
+                              },
+                              onInteractionEnd: (details) {
+                                if (mounted) {
+                                  setState(() {
+                                    _isDragging = false;
+                                    if (_currentZoom <= 1.01 && _activePointers.length < 2) {
+                                      _isInteracting = false;
+                                    }
+                                  });
+                                }
+                              },
+                              child: Hero(
+                                tag: index == _currentIndex ? path : 'preview_$path',
+                                child: Center(
+                                  child: _buildImage(context, path),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -1632,8 +1662,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   }
 
   Widget _buildSlowOperationFloatingCard() {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: 80,
+      bottom: 80 + bottomInset,
       left: 16,
       right: 16,
       child: Center(
@@ -2449,27 +2480,11 @@ class _BottomBarActionState extends State<_BottomBarAction> {
               ? const Color(0xFFEF4444).withValues(alpha: 0.3)
               : const Color(0xFFf89838).withValues(alpha: 0.25),
           highlightColor: Colors.white.withValues(alpha: 0.08),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(widget.icon, size: 22, color: iconColor),
-                const SizedBox(height: 3),
-                Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: iconColor,
-                  ),
-                ),
-              ],
+          child: Tooltip(
+            message: widget.label,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Icon(widget.icon, size: 24, color: iconColor),
             ),
           ),
         ),

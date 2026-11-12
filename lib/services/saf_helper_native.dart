@@ -194,30 +194,77 @@ class SafHelper {
   static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
-      final targetDirUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, [folderName])).uri;
-      
-      // Query parent folder once for batch collision checking
-      Set<String> existingNames = {};
-      try {
-        final contents = await SafUtil().list(parentUri);
-        existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
-      } catch (_) {}
 
+      int restoredCount = 0;
       for (final fileUri in files) {
-        String effectiveFileUri = fileUri;
+        final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+
+        // If the file was moved to ROOT, it now resides in parentUri and needs to be moved back to its original subfolder.
+        // If the file was moved to a folder, it now resides in that folder and needs to be moved back to parentUri.
+        String sourceFolderUri;
+        String destFolderUri;
+
+        if (isMovingToRoot) {
+          sourceFolderUri = parentUri;
+          final originalFolder = _extractSubfolderFromUri(parentUri, fileUri);
+          if (originalFolder == null || originalFolder.isEmpty) continue;
+          destFolderUri = (await SafUtil().mkdirp(parentUri, originalFolder.split('/'))).uri;
+        } else {
+          sourceFolderUri = (await SafUtil().mkdirp(parentUri, folderName.split('/'))).uri;
+          destFolderUri = parentUri;
+        }
+
+        // Query source folder for the file
+        List<dynamic> sourceContents = [];
         try {
-          final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
-          final uniqueName = _generateUniqueName(existingNames, originalName);
-          existingNames.add(uniqueName.toLowerCase());
-          if (uniqueName != originalName) {
-            final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
+          sourceContents = await SafUtil().list(sourceFolderUri);
+        } catch (e) {
+          debugPrint('SAF Error: list sourceFolderUri failed during undo: $e');
+        }
+
+        // Query destination folder for collision checking
+        Set<String> destExistingNames = {};
+        try {
+          final destContents = await SafUtil().list(destFolderUri);
+          destExistingNames = destContents.map((f) => f.name.toLowerCase()).toSet();
+        } catch (_) {}
+
+        // Find the actual existing file in source folder
+        dynamic matchingDoc;
+        for (final doc in sourceContents) {
+          if (!doc.isDir && doc.name.toLowerCase() == originalName.toLowerCase()) {
+            matchingDoc = doc;
+            break;
+          }
+        }
+        if (matchingDoc == null) {
+          final dotIdx = originalName.lastIndexOf('.');
+          final baseName = dotIdx != -1 ? originalName.substring(0, dotIdx) : originalName;
+          final ext = dotIdx != -1 ? originalName.substring(dotIdx) : '';
+          for (final doc in sourceContents) {
+            if (!doc.isDir &&
+                doc.name.toLowerCase().startsWith(baseName.toLowerCase()) &&
+                doc.name.toLowerCase().endsWith(ext.toLowerCase())) {
+              matchingDoc = doc;
+              break;
+            }
+          }
+        }
+
+        final docUri = matchingDoc?.uri ?? fileUri;
+        String effectiveFileUri = docUri;
+        try {
+          final uniqueName = _generateUniqueName(destExistingNames, matchingDoc?.name ?? originalName);
+          destExistingNames.add(uniqueName.toLowerCase());
+          if (uniqueName != (matchingDoc?.name ?? originalName)) {
+            final renamedDoc = await SafUtil().rename(docUri, false, uniqueName);
             effectiveFileUri = renamedDoc.uri;
           }
         } catch (_) {}
 
         bool restored = false;
         try {
-          await SafUtil().moveTo(effectiveFileUri, false, targetDirUri, parentUri);
+          await SafUtil().moveTo(effectiveFileUri, false, sourceFolderUri, destFolderUri);
           restored = true;
         } catch (_) {
           restored = false;
@@ -225,18 +272,49 @@ class SafHelper {
 
         if (!restored) {
           try {
-            await SafUtil().copyTo(effectiveFileUri, false, parentUri);
+            await SafUtil().copyTo(effectiveFileUri, false, destFolderUri);
             await SafUtil().delete(effectiveFileUri, false);
+            restored = true;
           } catch (e) {
             debugPrint('SAF Error: undo move copy+delete failed for $effectiveFileUri: $e');
           }
         }
+
+        if (restored) restoredCount++;
       }
-      return true;
+      return restoredCount > 0 || files.isEmpty;
     } catch (e) {
       debugPrint('SAF Error: undoMoveFiles failed: $e');
       return false;
     }
+  }
+
+  static String? _extractSubfolderFromUri(String rootPath, String filePath) {
+    if (filePath.isEmpty) return null;
+    try {
+      final decodedFile = Uri.decodeFull(filePath).split('?').first;
+      final parts = decodedFile.split('/');
+      if (parts.length >= 2) {
+        final parentPart = parts[parts.length - 2].split(':').last.trim();
+        String rootName = '';
+        if (rootPath.isNotEmpty) {
+          final decodedRoot = Uri.decodeFull(rootPath).split('?').first;
+          final lastSlash = decodedRoot.lastIndexOf('/');
+          final lastColon = decodedRoot.lastIndexOf(':');
+          if (lastSlash != -1 || lastColon != -1) {
+            final splitPoint = lastColon > lastSlash ? lastColon : lastSlash;
+            rootName = decodedRoot.substring(splitPoint + 1).trim();
+          }
+        }
+        if (parentPart.isNotEmpty &&
+            parentPart != 'document' &&
+            parentPart != 'tree' &&
+            parentPart.toLowerCase() != rootName.toLowerCase()) {
+          return parentPart;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   static String _extractCleanFolderName(String uri) {

@@ -391,7 +391,7 @@ class FileServiceImpl implements FileService {
   Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
     try {
       if (kIsWeb) {
-        return false;
+        return await WebImageUtils.undoMoveFiles(folderName, files);
       } else if (Platform.isAndroid) {
         return await SafHelper.undoMoveFiles(path, folderName, files);
       } else {
