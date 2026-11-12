@@ -187,36 +187,15 @@ class AboutView extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Logo with glow ring
-          Container(
+          // App Logo (assets/logo/logo.png - already has corner radius)
+          Image.asset(
+            'assets/logo/logo.png',
             width: 72,
             height: 72,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF222222) : const Color(0xFFF4F4F6),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: sc.accent.withValues(alpha: 0.4),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: sc.accent.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Image.asset(
-                isDark ? 'assets/images/logo-white.png' : 'assets/images/logo-black.png',
-                width: 42,
-                height: 42,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.photo_library_outlined,
-                  size: 36,
-                  color: sc.accent,
-                ),
-              ),
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.photo_library_outlined,
+              size: 48,
+              color: sc.accent,
             ),
           ),
           const SizedBox(height: 16),

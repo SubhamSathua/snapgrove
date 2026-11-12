@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
 
@@ -15,19 +14,12 @@ class LicensesView extends StatefulWidget {
 class _LicensesViewState extends State<LicensesView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  final Set<String> _expandedPackages = {'flutter', 'saf_util'};
+  final Set<String> _expandedPackages = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   void _copyToClipboard(String text, String label) {
@@ -261,7 +253,6 @@ class _LicensesViewState extends State<LicensesView> {
     final author = pkg['author'] ?? '';
     final description = pkg['description'] ?? '';
     final text = pkg['text'] ?? '';
-    final url = pkg['url'] ?? '';
     final isExpanded = _expandedPackages.contains(name);
 
     return Container(
@@ -397,39 +388,19 @@ class _LicensesViewState extends State<LicensesView> {
                           color: sc.muted,
                         ),
                       ),
-                      Row(
-                        children: [
-                          if (url.isNotEmpty)
-                            InkWell(
-                              onTap: () => _launchUrl(url),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                child: Text(
-                                  'Package Link ↗',
-                                  style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 11,
-                                    color: sc.accent,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _copyToClipboard(text, '$name license'),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              child: Text(
-                                'Copy',
-                                style: TextStyle(
-                                  fontFamily: 'JetBrains Mono',
-                                  fontSize: 11,
-                                  color: sc.muted,
-                                ),
-                              ),
+                      InkWell(
+                        onTap: () => _copyToClipboard(text, '$name license'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Text(
+                            'Copy',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 11,
+                              color: sc.accent,
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

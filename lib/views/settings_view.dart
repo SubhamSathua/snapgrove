@@ -687,12 +687,6 @@ class _SettingsViewState extends State<SettingsView> {
     required bool isEnabled,
   }) {
     final threshold = _settingsService.lowBatteryThreshold;
-    final String thresholdSubtitle = threshold == 0
-        ? 'Off (0%) — Blur always stays enabled'
-        : (threshold >= 100
-            ? 'On (100%) — Blur is always disabled'
-            : 'Off (0%) ----- When below ${threshold.toInt()}% ----- On (100%)');
-
     final effectiveColor = isEnabled ? (isDark ? Colors.white : Colors.black) : sc.muted.withValues(alpha: 0.5);
 
     return Opacity(
@@ -711,28 +705,14 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Low Battery Threshold',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: effectiveColor,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        thresholdSubtitle,
-                        style: TextStyle(
-                          fontFamily: 'Lora',
-                          fontSize: 12,
-                          color: sc.muted,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Low Battery Threshold',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: effectiveColor,
+                    ),
                   ),
                 ),
                 Container(
@@ -767,7 +747,6 @@ class _SettingsViewState extends State<SettingsView> {
                 value: threshold.clamp(0.0, 100.0),
                 min: 0,
                 max: 100,
-                divisions: 20, // 5% increments
                 label: threshold == 0 ? 'Off' : '${threshold.toInt()}%',
                 onChanged: isEnabled
                     ? (val) {

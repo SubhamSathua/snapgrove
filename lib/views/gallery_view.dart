@@ -7,7 +7,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as p;
 import '../core/locator.dart';
+import '../models/folder_node.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
@@ -56,6 +58,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   // Selection Mode
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = <int>{};
+
+  // Floating progress card state during file moving in selection mode
+  bool _isMovingFiles = false;
+  String? _movingFilesStatus;
 
   @override
   void initState() {
@@ -1353,43 +1359,50 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             
             return Scaffold(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              body: useSidePane
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: _buildGalleryScrollView(
-                            context: context,
-                            width: width - 280,
-                            effectiveColumns: effectiveColumns,
-                            isLoading: isLoading,
-                            isDark: isDark,
-                            sc: sc,
-                            useTopPane: false,
-                          ),
+              body: Stack(
+                children: [
+                  useSidePane
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: _buildGalleryScrollView(
+                                context: context,
+                                width: width - 280,
+                                effectiveColumns: effectiveColumns,
+                                isLoading: isLoading,
+                                isDark: isDark,
+                                sc: sc,
+                                useTopPane: false,
+                              ),
+                            ),
+                            _RightSideSelectionPane(
+                              selectedCount: _selectedIndices.length,
+                              subfolders: _viewModel.subfolders,
+                              isTagsLoading: _viewModel.isTagsLoading,
+                              onCreateFolder: _showCreateFolderDialog,
+                              onMoveToFolder: _moveSelectedToFolder,
+                              onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
+                              isFolderEnabled: _isFolderActionEnabled,
+                              getFolderTooltip: _getFolderActionTooltip,
+                              topAmbientColor: _ambientTopColor,
+                              midAmbientColor: _ambientMidColor,
+                              bottomAmbientColor: _ambientBottomColor,
+                            ),
+                          ],
+                        )
+                      : _buildGalleryScrollView(
+                          context: context,
+                          width: width,
+                          effectiveColumns: effectiveColumns,
+                          isLoading: isLoading,
+                          isDark: isDark,
+                          sc: sc,
+                          useTopPane: useTopPane,
                         ),
-                        _RightSideSelectionPane(
-                          selectedCount: _selectedIndices.length,
-                          subfolders: _viewModel.subfolders,
-                          isTagsLoading: _viewModel.isTagsLoading,
-                          onCreateFolder: _showCreateFolderDialog,
-                          onMoveToFolder: _moveSelectedToFolder,
-                          isFolderEnabled: _isFolderActionEnabled,
-                          getFolderTooltip: _getFolderActionTooltip,
-                          topAmbientColor: _ambientTopColor,
-                          midAmbientColor: _ambientMidColor,
-                          bottomAmbientColor: _ambientBottomColor,
-                        ),
-                      ],
-                    )
-                  : _buildGalleryScrollView(
-                      context: context,
-                      width: width,
-                      effectiveColumns: effectiveColumns,
-                      isLoading: isLoading,
-                      isDark: isDark,
-                      sc: sc,
-                      useTopPane: useTopPane,
-                    ),
+                  if (_isMovingFiles)
+                    _buildMovingProgressFloatingCard(sc, isDark),
+                ],
+              ),
             );
           },
         ),
@@ -1701,6 +1714,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               isTagsLoading: _viewModel.isTagsLoading,
               onCreateFolder: _showCreateFolderDialog,
               onMoveToFolder: _moveSelectedToFolder,
+              onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
               isFolderEnabled: _isFolderActionEnabled,
               getFolderTooltip: _getFolderActionTooltip,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -1980,32 +1994,268 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     }
 
     final count = filesToMove.length;
-    final success = await _viewModel.moveFilesToFolder(filesToMove, folderName);
-    if (success && mounted) {
-      _exitSelectionMode();
-      locator<NotificationService>().showSnackBar(
-        'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
-        actionLabel: 'Undo',
-        onAction: () async {
-          final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
-          if (undoSuccess) {
-            locator<NotificationService>().showSnackBar(
-              'Restored $count ${count == 1 ? "file" : "files"}',
+    setState(() {
+      _isMovingFiles = true;
+      _movingFilesStatus = 'Moving $count ${count == 1 ? "file" : "files"} to $folderName...';
+    });
+
+    try {
+      final success = await _viewModel.moveFilesToFolder(filesToMove, folderName);
+      if (success && mounted) {
+        _exitSelectionMode();
+        locator<NotificationService>().showSnackBar(
+          'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
+          actionLabel: 'Undo',
+          onAction: () async {
+            final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
+            if (undoSuccess) {
+              locator<NotificationService>().showSnackBar(
+                'Restored $count ${count == 1 ? "file" : "files"}',
+              );
+            } else {
+              locator<NotificationService>().showSnackBar(
+                'Failed to undo move',
+                isError: true,
+              );
+            }
+          },
+          duration: const Duration(seconds: 6),
+        );
+      } else if (mounted) {
+        locator<NotificationService>().showSnackBar(
+          'Failed to move files',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMovingFiles = false;
+          _movingFilesStatus = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildMovingProgressFloatingCard(SnapgroveColors sc, bool isDark) {
+    return Positioned(
+      bottom: 24,
+      left: 16,
+      right: 16,
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: sc.accent.withValues(alpha: 0.4),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(sc.accent),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _movingFilesStatus ?? 'Moving files...',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    backgroundColor: sc.accent.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(sc.accent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRenameFolderMenu(BuildContext context, String folder, Offset? position) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sc = context.snapgroveColors;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final pos = position ?? const Offset(200, 300);
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        pos & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      elevation: 8,
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: sc.border),
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'rename',
+          height: 38,
+          child: Row(
+            children: [
+              Icon(Icons.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
+              const SizedBox(width: 8),
+              const Text('Rename', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (selected == 'rename' && mounted) {
+      _showRenameTagDialog(folder);
+    }
+  }
+
+  Future<void> _showRenameTagDialog(String oldName) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final controller = TextEditingController(text: oldName);
+
+    final newName = await showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, a1, a2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  width: 320,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
+                        .withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Rename Folder',
+                          style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        style: const TextStyle(
+                            fontFamily: 'JetBrains Mono', fontSize: 13),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel',
+                                style: TextStyle(fontFamily: 'JetBrains Mono')),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  isDark ? Colors.white : Colors.black,
+                              foregroundColor:
+                                  isDark ? Colors.black : Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(ctx).pop(controller.text.trim()),
+                            child: const Text('Save',
+                                style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (newName != null && newName.isNotEmpty && newName != oldName && mounted) {
+      final root = _viewModel.path;
+      final tree = _viewModel.folderTree ?? await locator<FileService>().getFolderTree(root);
+      FolderNode? targetNode;
+      if (tree != null) {
+        targetNode = tree.findByRelPath(oldName);
+        targetNode ??= tree.children.cast<FolderNode?>().firstWhere(
+              (c) => c?.name.toLowerCase() == oldName.toLowerCase(),
+              orElse: () => null,
             );
-          } else {
-            locator<NotificationService>().showSnackBar(
-              'Failed to undo move',
-              isError: true,
-            );
-          }
-        },
-        duration: const Duration(seconds: 6),
-      );
-    } else if (mounted) {
-      locator<NotificationService>().showSnackBar(
-        'Failed to move files',
-        isError: true,
-      );
+      }
+      final folderPath = targetNode?.path ?? p.join(root, oldName);
+      final ok = await locator<FileService>().renameFolderNode(folderPath, newName);
+      if (ok && mounted) {
+        locator<NotificationService>().showSnackBar('Renamed to "$newName"');
+        await _viewModel.refreshTagsSmoothly();
+      } else if (mounted) {
+        locator<NotificationService>().showSnackBar('Failed to rename folder', isError: true);
+      }
     }
   }
 
@@ -2685,6 +2935,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final bool isTagsLoading;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
+  final void Function(String folder, Offset? position)? onRenameFolder;
   final bool Function(String folder) isFolderEnabled;
   final String? Function(String folder) getFolderTooltip;
   final Color backgroundColor;
@@ -2702,6 +2953,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     this.isTagsLoading = false,
     required this.onCreateFolder,
     required this.onMoveToFolder,
+    this.onRenameFolder,
     required this.isFolderEnabled,
     required this.getFolderTooltip,
     required this.backgroundColor,
@@ -2787,6 +3039,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
                 subfolders: subfolders,
                 isTagsLoading: isTagsLoading,
                 onMoveToFolder: onMoveToFolder,
+                onRenameFolder: onRenameFolder,
                 isFolderEnabled: isFolderEnabled,
                 getFolderTooltip: getFolderTooltip,
               ),
@@ -2805,6 +3058,7 @@ class _HorizontalChipsBar extends StatefulWidget {
   final List<String> subfolders;
   final bool isTagsLoading;
   final void Function(String) onMoveToFolder;
+  final void Function(String folder, Offset? position)? onRenameFolder;
   final bool Function(String folder) isFolderEnabled;
   final String? Function(String folder) getFolderTooltip;
 
@@ -2812,6 +3066,7 @@ class _HorizontalChipsBar extends StatefulWidget {
     required this.subfolders,
     this.isTagsLoading = false,
     required this.onMoveToFolder,
+    this.onRenameFolder,
     required this.isFolderEnabled,
     required this.getFolderTooltip,
   });
@@ -2932,6 +3187,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 isEnabled: isEnabled,
                 tooltip: widget.getFolderTooltip(folder),
                 onTap: isEnabled ? () => widget.onMoveToFolder(folder) : null,
+                onRename: (pos) => widget.onRenameFolder?.call(folder, pos),
               );
             },
           ),
@@ -3067,6 +3323,7 @@ class _RightSideSelectionPane extends StatelessWidget {
   final bool isTagsLoading;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
+  final void Function(String folder, Offset? position)? onRenameFolder;
   final bool Function(String folder) isFolderEnabled;
   final String? Function(String folder) getFolderTooltip;
   final Color topAmbientColor;
@@ -3079,6 +3336,7 @@ class _RightSideSelectionPane extends StatelessWidget {
     this.isTagsLoading = false,
     required this.onCreateFolder,
     required this.onMoveToFolder,
+    this.onRenameFolder,
     required this.isFolderEnabled,
     required this.getFolderTooltip,
     this.topAmbientColor = const Color(0xFFf89838),
@@ -3239,6 +3497,7 @@ class _RightSideSelectionPane extends StatelessWidget {
                                 isEnabled: isEnabled,
                                 tooltip: getFolderTooltip(folder),
                                 onTap: isEnabled ? () => onMoveToFolder(folder) : null,
+                                onRename: (pos) => onRenameFolder?.call(folder, pos),
                               );
                             },
                           ),
@@ -3503,6 +3762,7 @@ class _ActionChip extends StatefulWidget {
   final bool isRoot;
   final bool isEnabled;
   final String? tooltip;
+  final void Function(Offset?)? onRename;
 
   const _ActionChip({
     required this.label,
@@ -3510,6 +3770,7 @@ class _ActionChip extends StatefulWidget {
     this.isRoot = false,
     this.isEnabled = true,
     this.tooltip,
+    this.onRename,
   });
 
   @override
@@ -3593,35 +3854,43 @@ class _ActionChipState extends State<_ActionChip> {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: isEnabled ? widget.onTap : null,
+            onLongPress: (!widget.isRoot && widget.onRename != null)
+                ? () => widget.onRename!(null)
+                : null,
             splashColor: const Color(0xFFf89838).withValues(alpha: 0.35),
             highlightColor: const Color(0xFFf89838).withValues(alpha: 0.18),
             hoverColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
-                    size: 14,
-                    color: contentColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: contentColor,
+            child: GestureDetector(
+              onSecondaryTapUp: (!widget.isRoot && widget.onRename != null)
+                  ? (details) => widget.onRename!(details.globalPosition)
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
+                      size: 14,
+                      color: contentColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: contentColor,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
