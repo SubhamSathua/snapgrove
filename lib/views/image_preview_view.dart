@@ -1075,6 +1075,8 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBody: true,
+      bottomNavigationBar: (!_isFullScreen && !isWide) ? _buildBottomActionBar() : null,
       body: Focus(
         autofocus: true,
         onKeyEvent: (FocusNode node, KeyEvent event) {
@@ -1423,59 +1425,55 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 ),
               ),
 
-            // Bottom Action Bar (Mobile and Small Screen)
-            if (!_isFullScreen && !isWide)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF181818).withValues(alpha: 0.95),
-                    border: const Border(top: BorderSide(color: Color(0x22FFFFFF))),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _BottomBarAction(
-                            icon: Icons.delete_outline,
-                            label: 'Bin',
-                            isDestructive: true,
-                            onTap: _confirmDelete,
-                          ),
-                          _BottomBarAction(
-                            icon: Icons.info_outline,
-                            label: 'Info',
-                            onTap: _showInfoDialog,
-                          ),
-                          _BottomBarAction(
-                            icon: Icons.share_outlined,
-                            label: 'Share',
-                            onTap: _shareCurrentImage,
-                          ),
-                          _BottomBarAction(
-                            icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                            label: 'Fullscreen',
-                            onTap: _toggleFullScreen,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF181818).withValues(alpha: 0.95),
+        border: const Border(top: BorderSide(color: Color(0x22FFFFFF))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _BottomBarAction(
+                icon: Icons.delete_outline,
+                label: 'Bin',
+                isDestructive: true,
+                onTap: _confirmDelete,
+              ),
+              _BottomBarAction(
+                icon: Icons.info_outline,
+                label: 'Info',
+                onTap: _showInfoDialog,
+              ),
+              _BottomBarAction(
+                icon: Icons.share_outlined,
+                label: 'Share',
+                onTap: _shareCurrentImage,
+              ),
+              _BottomBarAction(
+                icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                label: 'Fullscreen',
+                onTap: _toggleFullScreen,
+              ),
+            ],
+          ),
         ),
       ),
     );

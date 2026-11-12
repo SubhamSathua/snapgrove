@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import '../services/storage_service.dart';
+import '../services/settings_service.dart';
 import '../services/file_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
@@ -15,6 +16,11 @@ Future<void> setupLocator() async {
   final storage = StorageService();
   await storage.init();
   locator.registerSingleton<StorageService>(storage);
+
+  final settingsService = SettingsService(storage);
+  await settingsService.init();
+  locator.registerSingleton<SettingsService>(settingsService);
+
   locator.registerLazySingleton<FileService>(() => FileServiceImpl());
   locator.registerSingleton<NotificationService>(NotificationService());
   locator.registerLazySingleton<ShareService>(() => getShareService());
@@ -24,6 +30,7 @@ Future<void> setupLocator() async {
   locator.registerLazySingleton<AppViewModel>(() => AppViewModel(
         locator<StorageService>(),
         locator<NotificationService>(),
+        locator<SettingsService>(),
       ));
   locator.registerFactoryParam<GalleryViewModel, String, void>(
     (path, _) => GalleryViewModel(path: path, fileService: locator<FileService>()),

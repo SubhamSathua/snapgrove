@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../services/file_service.dart';
 import '../services/storage_service.dart';
+import '../services/settings_service.dart';
 
 enum SortField {
   dateModified,
@@ -40,6 +41,10 @@ class GalleryViewModel extends ChangeNotifier {
   List<String> _subfolders = [];
   FolderNode? _folderTree;
 
+  // Folder / Tag sorting state
+  String _folderSortOrder = 'name_asc';
+  bool _isTagsLoading = false;
+
   GalleryViewModel({
     required this.path,
     required this._fileService,
@@ -60,6 +65,8 @@ class GalleryViewModel extends ChangeNotifier {
   // Subfolders getter
   List<String> get subfolders => _subfolders;
   FolderNode? get folderTree => _folderTree;
+  String get folderSortOrder => _folderSortOrder;
+  bool get isTagsLoading => _isTagsLoading;
 
   static String? extractSubfolderTag(String rootPath, String filePath) {
     if (filePath.isEmpty) return null;
@@ -121,6 +128,11 @@ class GalleryViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Preserve selection by file paths across reload if selection mode is active
+    final selectedPaths = _isSelectionMode
+        ? _selectedIndices.where((i) => i < _files.length).map((i) => _files[i]).toSet()
+        : <String>{};
+
     try {
       final storage = locator<StorageService>();
       final savedField = await storage.read('settings', 'sort_field');
@@ -131,6 +143,15 @@ class GalleryViewModel extends ChangeNotifier {
       if (savedOrder is String) {
         _sortOrder = SortOrder.values.firstWhere((e) => e.name == savedOrder, orElse: () => SortOrder.descending);
       }
+
+      if (locator.isRegistered<SettingsService>()) {
+        _folderSortOrder = locator<SettingsService>().folderSortOrder;
+      } else {
+        final savedFolderSort = await storage.read('settings', 'folder_sort_order');
+        if (savedFolderSort is String && savedFolderSort.isNotEmpty) {
+          _folderSortOrder = savedFolderSort;
+        }
+      }
     } catch (_) {}
 
     try {
@@ -139,6 +160,15 @@ class GalleryViewModel extends ChangeNotifier {
       await _loadSubfolders();
     } catch (e) {
       debugPrint('Error loading files: $e');
+    }
+
+    if (_isSelectionMode && selectedPaths.isNotEmpty) {
+      _selectedIndices.clear();
+      for (int i = 0; i < _files.length; i++) {
+        if (selectedPaths.contains(_files[i])) {
+          _selectedIndices.add(i);
+        }
+      }
     }
 
     _isLoading = false;
@@ -291,9 +321,100 @@ class GalleryViewModel extends ChangeNotifier {
     try {
       _subfolders = await _fileService.listSubfolders(path);
       _folderTree = await _fileService.getFolderTree(path);
+      _applyFolderSort();
     } catch (e) {
       debugPrint('Error loading subfolders: $e');
       _subfolders = [];
+    }
+  }
+
+  void _applyFolderSort() {
+    if (_subfolders.isEmpty) return;
+
+    final nodeMap = <String, FolderNode>{};
+    if (_folderTree != null) {
+      for (final child in _folderTree!.children) {
+        nodeMap[child.name.toLowerCase()] = child;
+      }
+    }
+
+    _subfolders.sort((a, b) {
+      final nodeA = nodeMap[a.toLowerCase()];
+      final nodeB = nodeMap[b.toLowerCase()];
+
+      switch (_folderSortOrder) {
+        case 'name_desc':
+          return b.toLowerCase().compareTo(a.toLowerCase());
+        case 'items_desc':
+          final countA = nodeA?.totalImageCount ?? 0;
+          final countB = nodeB?.totalImageCount ?? 0;
+          final cmp = countB.compareTo(countA);
+          return cmp != 0 ? cmp : a.toLowerCase().compareTo(b.toLowerCase());
+        case 'items_asc':
+          final countA = nodeA?.totalImageCount ?? 0;
+          final countB = nodeB?.totalImageCount ?? 0;
+          final cmp = countA.compareTo(countB);
+          return cmp != 0 ? cmp : a.toLowerCase().compareTo(b.toLowerCase());
+        case 'date_desc':
+          final dateA = nodeA?.modifiedDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final dateB = nodeB?.modifiedDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final cmp = dateB.compareTo(dateA);
+          return cmp != 0 ? cmp : a.toLowerCase().compareTo(b.toLowerCase());
+        case 'date_asc':
+          final dateA = nodeA?.modifiedDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final dateB = nodeB?.modifiedDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final cmp = dateA.compareTo(dateB);
+          return cmp != 0 ? cmp : a.toLowerCase().compareTo(b.toLowerCase());
+        case 'name_asc':
+        default:
+          return a.toLowerCase().compareTo(b.toLowerCase());
+      }
+    });
+
+    if (_folderTree != null && locator.isRegistered<SettingsService>()) {
+      locator<SettingsService>().sortFolderNodes(_folderTree!.children);
+    }
+  }
+
+  /// Smoothly refreshes the tags/subfolders sorting with an animated skeleton loader.
+  /// Selection state (_selectedIndices, _isSelectionMode, and _files) is kept 100% intact.
+  Future<void> refreshTagsSmoothly({String? newSortOrder}) async {
+    if (newSortOrder != null && newSortOrder.isNotEmpty) {
+      _folderSortOrder = newSortOrder;
+    } else {
+      try {
+        if (locator.isRegistered<SettingsService>()) {
+          _folderSortOrder = locator<SettingsService>().folderSortOrder;
+        } else {
+          final storage = locator<StorageService>();
+          final saved = await storage.read('settings', 'folder_sort_order');
+          if (saved is String && saved.isNotEmpty) {
+            _folderSortOrder = saved;
+          }
+        }
+      } catch (_) {}
+    }
+
+    _isTagsLoading = true;
+    notifyListeners();
+
+    // Subtle delay to allow the skeleton chip animation to render smoothly without UI freeze
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    try {
+      _folderTree = await _fileService.getFolderTree(path);
+      final fresh = await _fileService.listSubfolders(path);
+      if (fresh.isNotEmpty) {
+        _subfolders = fresh;
+      }
+      _applyFolderSort();
+    } catch (e) {
+      debugPrint('Error during smooth tags refresh: $e');
+      _applyFolderSort();
+    } finally {
+      // Selection state remains untouched
+      _isTagsLoading = false;
+      notifyListeners();
     }
   }
 
@@ -301,6 +422,7 @@ class GalleryViewModel extends ChangeNotifier {
     try {
       _folderTree = await _fileService.getFolderTree(path);
       _subfolders = await _fileService.listSubfolders(path);
+      _applyFolderSort();
       notifyListeners();
     } catch (_) {}
   }
@@ -356,19 +478,22 @@ class GalleryViewModel extends ChangeNotifier {
     }
 
     // Optimistically update subfolders list in memory
-    _subfolders = [..._subfolders, trimmed]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    _subfolders = [..._subfolders, trimmed];
+    _applyFolderSort();
     notifyListeners();
 
     try {
       final success = await _fileService.createSubfolder(path, trimmed);
       if (!success) {
         _subfolders = _subfolders.where((s) => s != trimmed).toList();
+        _applyFolderSort();
         notifyListeners();
       }
       return success;
     } catch (e) {
       debugPrint('Error creating subfolder: $e');
       _subfolders = _subfolders.where((s) => s != trimmed).toList();
+      _applyFolderSort();
       notifyListeners();
       return false;
     }

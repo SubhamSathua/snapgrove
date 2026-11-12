@@ -7,6 +7,7 @@ import 'package:snapgrove/viewmodels/app_view_model.dart';
 import 'package:snapgrove/viewmodels/gallery_view_model.dart';
 import 'package:snapgrove/services/bin_service.dart';
 import 'package:snapgrove/services/storage_service.dart';
+import 'package:snapgrove/services/settings_service.dart';
 import 'package:snapgrove/services/file_service.dart';
 import 'package:snapgrove/services/notification_service.dart';
 import 'package:snapgrove/services/share/share_service.dart';
@@ -109,6 +110,7 @@ class MockShareService implements ShareService {
 void main() {
   setUpAll(() {
     locator.registerSingleton<StorageService>(MockStorageService());
+    locator.registerSingleton<SettingsService>(SettingsService(locator<StorageService>()));
     locator.registerSingleton<FileService>(MockFileService());
     locator.registerSingleton<NotificationService>(NotificationService());
     locator.registerSingleton<ShareService>(MockShareService());

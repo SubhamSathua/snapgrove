@@ -9,6 +9,7 @@ class NotificationService {
     String? actionLabel,
     VoidCallback? onAction,
     Duration duration = const Duration(seconds: 4),
+    double? bottomOffset,
   }) {
     final state = messengerKey.currentState;
     if (state == null) return;
@@ -21,7 +22,9 @@ class NotificationService {
         duration: duration,
         elevation: 6,
         backgroundColor: isError ? const Color(0xFFC62828) : const Color(0xFF1E1E1E),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: bottomOffset != null
+            ? EdgeInsets.fromLTRB(16, 0, 16, bottomOffset)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),

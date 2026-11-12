@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
+import '../services/settings_service.dart';
 import '../services/notification_service.dart';
 import '../services/thumbnail_manager.dart';
 import '../theme/app_theme.dart';
@@ -993,7 +994,10 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
 
     final currentNode = _currentNode;
     final isRoot = _currentRelPath.isEmpty;
-    final childFolders = currentNode?.children ?? [];
+    final childFolders = List<FolderNode>.from(currentNode?.children ?? []);
+    if (locator.isRegistered<SettingsService>()) {
+      locator<SettingsService>().sortFolderNodes(childFolders);
+    }
 
     return PopScope(
       canPop: !_isSelectionMode && _navigationStack.length <= 1,

@@ -6,9 +6,12 @@ import 'package:animations/animations.dart';
 import 'package:local_auth/local_auth.dart';
 import '../viewmodels/app_view_model.dart';
 import '../services/picker_service.dart';
+import '../services/settings_service.dart';
+import '../core/locator.dart';
 import '../theme/app_theme.dart';
 import 'gallery_view.dart';
 import 'bin_view.dart';
+import 'settings_view.dart';
 import 'theme_dialog.dart';
 import 'privacy_policy_view.dart';
 import 'licenses_view.dart';
@@ -107,7 +110,8 @@ class _LandingPageState extends State<LandingPage> {
     await _removeMenu();
     if (!mounted) return;
 
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+    final binAuthEnabled = locator<SettingsService>().binAuthEnabled;
+    if (binAuthEnabled && !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
       try {
         final auth = LocalAuthentication();
         final canAuth = await auth.canCheckBiometrics || await auth.isDeviceSupported();
@@ -202,6 +206,11 @@ class _LandingPageState extends State<LandingPage> {
                                 label: 'Bin',
                                 onTap: _openBinWithAuth,
                               ),
+                            _MenuButton(
+                              icon: Icons.settings_outlined,
+                              label: 'Settings',
+                              onTap: () => _navigateTo(const SettingsView()),
+                            ),
                             _MenuButton(
                               svgPath: 'assets/icons/palette.svg',
                               label: 'Theme',
@@ -870,15 +879,17 @@ class _DialogButton extends StatelessWidget {
 }
 
 class _MenuButton extends StatelessWidget {
-  final String svgPath;
+  final String? svgPath;
+  final IconData? icon;
   final String label;
   final VoidCallback onTap;
 
   const _MenuButton({
-    required this.svgPath,
+    this.svgPath,
+    this.icon,
     required this.label,
     required this.onTap,
-  });
+  }) : assert(svgPath != null || icon != null);
 
   @override
   Widget build(BuildContext context) {
@@ -896,15 +907,22 @@ class _MenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              SvgPicture.asset(
-                svgPath,
-                width: 18,
-                height: 18,
-                colorFilter: ColorFilter.mode(
-                  iconColor,
-                  BlendMode.srcIn,
+              if (svgPath != null)
+                SvgPicture.asset(
+                  svgPath!,
+                  width: 18,
+                  height: 18,
+                  colorFilter: ColorFilter.mode(
+                    iconColor,
+                    BlendMode.srcIn,
+                  ),
+                )
+              else if (icon != null)
+                Icon(
+                  icon,
+                  size: 18,
+                  color: iconColor,
                 ),
-              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

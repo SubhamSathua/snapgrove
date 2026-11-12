@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
@@ -12,6 +13,7 @@ import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
 import '../services/file_service.dart';
 import '../services/storage_service.dart';
+import '../services/settings_service.dart';
 import '../services/web_image_utils.dart';
 import '../services/thumbnail_manager.dart';
 import '../services/notification_service.dart';
@@ -19,6 +21,7 @@ import 'image_preview_view.dart';
 import 'manage_folders_view.dart';
 import 'widgets/folder_tree_picker_modal.dart';
 import 'theme_dialog.dart';
+import 'settings_view.dart';
 
 class OrganizerGallery extends StatefulWidget {
   final String path;
@@ -644,6 +647,22 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 _showThemeDialog();
                               },
                             ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                              child: Divider(
+                                color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+                                height: 1,
+                              ),
+                            ),
+                            // Option 4: Settings
+                            _DropdownMenuOptionTile(
+                              icon: Icons.settings_outlined,
+                              label: 'Settings',
+                              onTap: () {
+                                Navigator.of(ctx).pop();
+                                _openSettings();
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -824,6 +843,30 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         );
       },
     );
+  }
+
+  Future<void> _openSettings() async {
+    final oldSort = _viewModel.folderSortOrder;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SettingsView(),
+      ),
+    );
+    if (!mounted) return;
+
+    String newSort = oldSort;
+    try {
+      if (locator.isRegistered<SettingsService>()) {
+        newSort = locator<SettingsService>().folderSortOrder;
+      } else {
+        final saved = await locator<StorageService>().read('settings', 'folder_sort_order');
+        if (saved is String && saved.isNotEmpty) newSort = saved;
+      }
+    } catch (_) {}
+
+    if (newSort != oldSort) {
+      await _viewModel.refreshTagsSmoothly(newSortOrder: newSort);
+    }
   }
 
   String _getDisplayFolderName(String path, String fallbackTitle) {
@@ -1327,6 +1370,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         _RightSideSelectionPane(
                           selectedCount: _selectedIndices.length,
                           subfolders: _viewModel.subfolders,
+                          isTagsLoading: _viewModel.isTagsLoading,
                           onCreateFolder: _showCreateFolderDialog,
                           onMoveToFolder: _moveSelectedToFolder,
                           isFolderEnabled: _isFolderActionEnabled,
@@ -1406,6 +1450,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         isEnabled: _selectedIndices.isNotEmpty,
                         onTap: _showDeleteConfirmationDialog,
                       ),
+                      const SizedBox(width: 8),
+                      _SelectionActionButton(
+                        icon: Icons.settings_outlined,
+                        label: 'Settings',
+                        isEnabled: true,
+                        onTap: _openSettings,
+                      ),
                     ] else ...[
                       IconButton(
                         tooltip: 'Delete selected',
@@ -1442,6 +1493,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             _unselectAll();
                           } else if (val == 'delete') {
                             _showDeleteConfirmationDialog();
+                          } else if (val == 'settings') {
+                            _openSettings();
                           }
                         },
                         itemBuilder: (context) {
@@ -1514,6 +1567,28 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 ),
                               ),
                             ],
+                            const PopupMenuDivider(height: 1),
+                            PopupMenuItem(
+                              value: 'settings',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.settings_outlined,
+                                    size: 18,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Settings',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 13,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ];
                         },
                       ),
@@ -1540,6 +1615,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       child: _IconSquare(
                         icon: Icons.folder_open_rounded,
                         onTap: () {
+                          final selectedPaths = _isSelectionMode
+                              ? _selectedIndices
+                                  .where((i) => i < _viewModel.files.length)
+                                  .map((i) => _viewModel.files[i])
+                                  .toSet()
+                              : <String>{};
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => ManageFoldersView(
@@ -1547,7 +1628,20 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 rootTitle: widget.title,
                               ),
                             ),
-                          ).then((_) => _viewModel.loadFiles());
+                          ).then((_) async {
+                            if (!mounted) return;
+                            await _viewModel.loadFiles();
+                            if (mounted && _isSelectionMode && selectedPaths.isNotEmpty) {
+                              setState(() {
+                                _selectedIndices.clear();
+                                for (int i = 0; i < _viewModel.files.length; i++) {
+                                  if (selectedPaths.contains(_viewModel.files[i])) {
+                                    _selectedIndices.add(i);
+                                  }
+                                }
+                              });
+                            }
+                          });
                         },
                       ),
                     ),
@@ -1604,6 +1698,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             delegate: _TopSelectionPaneDelegate(
               selectedCount: _selectedIndices.length,
               subfolders: _viewModel.subfolders,
+              isTagsLoading: _viewModel.isTagsLoading,
               onCreateFolder: _showCreateFolderDialog,
               onMoveToFolder: _moveSelectedToFolder,
               isFolderEnabled: _isFolderActionEnabled,
@@ -2587,6 +2682,7 @@ class _GalleryThumbnailState extends State<_GalleryThumbnail> {
 class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final int selectedCount;
   final List<String> subfolders;
+  final bool isTagsLoading;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
   final bool Function(String folder) isFolderEnabled;
@@ -2603,6 +2699,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   _TopSelectionPaneDelegate({
     required this.selectedCount,
     required this.subfolders,
+    this.isTagsLoading = false,
     required this.onCreateFolder,
     required this.onMoveToFolder,
     required this.isFolderEnabled,
@@ -2688,6 +2785,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
               const SizedBox(height: 8),
               _HorizontalChipsBar(
                 subfolders: subfolders,
+                isTagsLoading: isTagsLoading,
                 onMoveToFolder: onMoveToFolder,
                 isFolderEnabled: isFolderEnabled,
                 getFolderTooltip: getFolderTooltip,
@@ -2705,12 +2803,14 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 
 class _HorizontalChipsBar extends StatefulWidget {
   final List<String> subfolders;
+  final bool isTagsLoading;
   final void Function(String) onMoveToFolder;
   final bool Function(String folder) isFolderEnabled;
   final String? Function(String folder) getFolderTooltip;
 
   const _HorizontalChipsBar({
     required this.subfolders,
+    this.isTagsLoading = false,
     required this.onMoveToFolder,
     required this.isFolderEnabled,
     required this.getFolderTooltip,
@@ -2775,19 +2875,39 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final sc = context.snapgroveColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+  Widget _buildSkeletonChips(BuildContext context, SnapgroveColors sc, bool isDark) {
+    return ListView.separated(
+      key: const ValueKey('tags_skeleton_chips'),
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      itemCount: 6,
+      separatorBuilder: (_, _) => const SizedBox(width: 8),
+      itemBuilder: (_, index) {
+        final widths = [72.0, 88.0, 78.0, 96.0, 68.0, 84.0];
+        final w = widths[index % widths.length];
+        return _SkeletonChip(width: w, isRoot: index == 0);
+      },
+    );
+  }
 
-    return SizedBox(
-      height: 34,
-      child: Stack(
-        children: [
-          ListView.separated(
+  Widget _buildRealChips(BuildContext context, SnapgroveColors sc, bool isDark, Color bgColor) {
+    return Stack(
+      key: ValueKey('tags_real_${widget.subfolders.join("_")}'),
+      children: [
+        Listener(
+          onPointerSignal: (pointerSignal) {
+            if (pointerSignal is PointerScrollEvent && _scrollController.hasClients) {
+              final delta = pointerSignal.scrollDelta.dy != 0
+                  ? pointerSignal.scrollDelta.dy
+                  : pointerSignal.scrollDelta.dx;
+              _scroll(delta);
+            }
+          },
+          child: ListView.separated(
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             padding: EdgeInsets.only(
               left: _canScrollLeft ? 32 : 2,
               right: _canScrollRight ? 32 : 2,
@@ -2815,48 +2935,48 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
               );
             },
           ),
-          if (_canScrollLeft)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      bgColor.withValues(alpha: 0.70),
-                      bgColor.withValues(alpha: 0.65),
-                      bgColor.withValues(alpha: 0.0),
-                    ],
-                  ),
+        ),
+        if (_canScrollLeft)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    bgColor.withValues(alpha: 0.70),
+                    bgColor.withValues(alpha: 0.65),
+                    bgColor.withValues(alpha: 0.0),
+                  ],
                 ),
-                padding: const EdgeInsets.only(right: 6),
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Material(
-                      color: sc.surfaceElevated.withValues(alpha: 0.85),
-                      shape: CircleBorder(
-                        side: BorderSide(
-                          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-                        ),
+              ),
+              padding: const EdgeInsets.only(right: 6),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Material(
+                    color: sc.surfaceElevated.withValues(alpha: 0.85),
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      elevation: 2,
-                      shadowColor: Colors.black.withValues(alpha: 0.12),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => _scroll(-140),
-                        hoverColor: sc.menuHover,
-                        splashColor: sc.rippleColor,
-                        highlightColor: sc.rippleColor.withValues(alpha: 0.15),
-                        child: Center(
-                          child: Icon(
-                            Icons.chevron_left,
-                            size: 16,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 2,
+                    shadowColor: Colors.black.withValues(alpha: 0.12),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _scroll(-140),
+                      hoverColor: sc.menuHover,
+                      splashColor: sc.rippleColor,
+                      highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+                      child: Center(
+                        child: Icon(
+                          Icons.chevron_left,
+                          size: 16,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
                     ),
@@ -2864,48 +2984,48 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 ),
               ),
             ),
-          if (_canScrollRight)
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      bgColor.withValues(alpha: 0.0),
-                      bgColor.withValues(alpha: 0.65),
-                      bgColor.withValues(alpha: 0.70),
-                    ],
-                  ),
+          ),
+        if (_canScrollRight)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    bgColor.withValues(alpha: 0.0),
+                    bgColor.withValues(alpha: 0.65),
+                    bgColor.withValues(alpha: 0.70),
+                  ],
                 ),
-                padding: const EdgeInsets.only(left: 6),
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Material(
-                      color: sc.surfaceElevated.withValues(alpha: 0.85),
-                      shape: CircleBorder(
-                        side: BorderSide(
-                          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-                        ),
+              ),
+              padding: const EdgeInsets.only(left: 6),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Material(
+                    color: sc.surfaceElevated.withValues(alpha: 0.85),
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      elevation: 2,
-                      shadowColor: Colors.black.withValues(alpha: 0.12),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => _scroll(140),
-                        hoverColor: sc.menuHover,
-                        splashColor: sc.rippleColor,
-                        highlightColor: sc.rippleColor.withValues(alpha: 0.15),
-                        child: Center(
-                          child: Icon(
-                            Icons.chevron_right,
-                            size: 16,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 2,
+                    shadowColor: Colors.black.withValues(alpha: 0.12),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _scroll(140),
+                      hoverColor: sc.menuHover,
+                      splashColor: sc.rippleColor,
+                      highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+                      child: Center(
+                        child: Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
                     ),
@@ -2913,7 +3033,29 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                 ),
               ),
             ),
-        ],
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
+    return SizedBox(
+      height: 34,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: widget.isTagsLoading
+            ? _buildSkeletonChips(context, sc, isDark)
+            : _buildRealChips(context, sc, isDark, bgColor),
       ),
     );
   }
@@ -2922,6 +3064,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
 class _RightSideSelectionPane extends StatelessWidget {
   final int selectedCount;
   final List<String> subfolders;
+  final bool isTagsLoading;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
   final bool Function(String folder) isFolderEnabled;
@@ -2933,6 +3076,7 @@ class _RightSideSelectionPane extends StatelessWidget {
   const _RightSideSelectionPane({
     required this.selectedCount,
     required this.subfolders,
+    this.isTagsLoading = false,
     required this.onCreateFolder,
     required this.onMoveToFolder,
     required this.isFolderEnabled,
@@ -3039,38 +3183,66 @@ class _RightSideSelectionPane extends StatelessWidget {
               const SizedBox(height: 2),
               // Subfolders / Tags (2 per row with vertical scroll if overflow, including ROOT)
               Expanded(
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 2.6,
-                    ),
-                    itemCount: subfolders.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        final isEnabled = isFolderEnabled('ROOT');
-                        return _ActionChip(
-                          label: 'ROOT',
-                          isRoot: true,
-                          isEnabled: isEnabled,
-                          tooltip: getFolderTooltip('ROOT'),
-                          onTap: isEnabled ? () => onMoveToFolder('ROOT') : null,
-                        );
-                      }
-                      final folder = subfolders[index - 1];
-                      final isEnabled = isFolderEnabled(folder);
-                      return _ActionChip(
-                        label: folder,
-                        isEnabled: isEnabled,
-                        tooltip: getFolderTooltip(folder),
-                        onTap: isEnabled ? () => onMoveToFolder(folder) : null,
-                      );
-                    },
-                  ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  child: isTagsLoading
+                      ? GridView.builder(
+                          key: const ValueKey('grid_skeleton_chips'),
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 2.6,
+                          ),
+                          itemCount: 6,
+                          itemBuilder: (context, index) {
+                            return _SkeletonChip(
+                              width: double.infinity,
+                              isRoot: index == 0,
+                            );
+                          },
+                        )
+                      : Scrollbar(
+                          key: ValueKey('grid_real_${subfolders.join("_")}'),
+                          thumbVisibility: true,
+                          child: GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                              childAspectRatio: 2.6,
+                            ),
+                            itemCount: subfolders.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                final isEnabled = isFolderEnabled('ROOT');
+                                return _ActionChip(
+                                  label: 'ROOT',
+                                  isRoot: true,
+                                  isEnabled: isEnabled,
+                                  tooltip: getFolderTooltip('ROOT'),
+                                  onTap: isEnabled ? () => onMoveToFolder('ROOT') : null,
+                                );
+                              }
+                              final folder = subfolders[index - 1];
+                              final isEnabled = isFolderEnabled(folder);
+                              return _ActionChip(
+                                label: folder,
+                                isEnabled: isEnabled,
+                                tooltip: getFolderTooltip(folder),
+                                onTap: isEnabled ? () => onMoveToFolder(folder) : null,
+                              );
+                            },
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -3238,6 +3410,89 @@ class _SelectionActionButtonState extends State<_SelectionActionButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SkeletonChip extends StatefulWidget {
+  final double width;
+  final bool isRoot;
+
+  const _SkeletonChip({
+    required this.width,
+    this.isRoot = false,
+  });
+
+  @override
+  State<_SkeletonChip> createState() => _SkeletonChipState();
+}
+
+class _SkeletonChipState extends State<_SkeletonChip> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final Color baseColor;
+    final Color highlightColor;
+    final Color borderColor;
+
+    if (widget.isRoot) {
+      baseColor = const Color(0xFFf89838).withValues(alpha: isDark ? 0.12 : 0.08);
+      highlightColor = const Color(0xFFf89838).withValues(alpha: isDark ? 0.28 : 0.20);
+      borderColor = const Color(0xFFf89838).withValues(alpha: 0.35);
+    } else {
+      baseColor = isDark ? const Color(0xFF222222) : const Color(0xFFE8E8E8);
+      highlightColor = isDark ? const Color(0xFF333333) : const Color(0xFFF5F5F5);
+      borderColor = isDark ? const Color(0x18FFFFFF) : const Color(0x12000000);
+    }
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: widget.width,
+          height: 32,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              stops: [
+                (_animation.value - 0.3).clamp(0.0, 1.0),
+                _animation.value.clamp(0.0, 1.0),
+                (_animation.value + 0.3).clamp(0.0, 1.0),
+              ],
+              colors: [
+                baseColor,
+                highlightColor,
+                baseColor,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

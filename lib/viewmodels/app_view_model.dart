@@ -4,18 +4,36 @@ import 'package:flutter/material.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
 import '../services/storage_service.dart';
+import '../services/settings_service.dart';
 import '../services/notification_service.dart';
 
 class AppViewModel extends ChangeNotifier {
   final StorageService _storage;
   final NotificationService _notification;
+  final SettingsService? _settingsService;
   
   ThemeMode _themeMode = ThemeMode.system;
   String? _screenshotDir;
   String? _permanentScreenshotDir;
   bool _isLoading = true;
 
-  AppViewModel(this._storage, this._notification);
+  AppViewModel(this._storage, this._notification, [this._settingsService]) {
+    _settingsService?.addListener(_onSettingsChanged);
+  }
+
+  void _onSettingsChanged() {
+    final settings = _settingsService;
+    if (settings != null && _themeMode != settings.themeMode) {
+      _themeMode = settings.themeMode;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _settingsService?.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
 
   ThemeMode get themeMode => _themeMode;
   String? get screenshotDir => _screenshotDir;
@@ -42,6 +60,7 @@ class AppViewModel extends ChangeNotifier {
   void setThemeMode(ThemeMode mode) {
     _themeMode = mode;
     _storage.saveThemeMode(mode);
+    _settingsService?.setThemeMode(mode);
     notifyListeners();
   }
 
