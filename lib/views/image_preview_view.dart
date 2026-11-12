@@ -56,6 +56,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   Timer? _zoomCapsuleTimer;
   bool _showZoomCapsule = false;
   bool _isDragging = false;
+  bool _isInteracting = false;
 
   // Horizontal scroll controller for tags
   final ScrollController _tagsScrollController = ScrollController();
@@ -167,19 +168,19 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     if (mounted) {
       setState(() {
         _currentZoom = scale;
+        if (_currentZoom <= 1.01) {
+          _isInteracting = false;
+        }
         _showZoomCapsule = true;
       });
       _zoomCapsuleTimer?.cancel();
-
-      if (_currentZoom <= 1.01) {
-        _zoomCapsuleTimer = Timer(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() {
-              _showZoomCapsule = false;
-            });
-          }
-        });
-      }
+      _zoomCapsuleTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showZoomCapsule = false;
+          });
+        }
+      });
     }
   }
 
@@ -1289,10 +1290,15 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _files.length,
+                  physics: (_currentZoom > 1.01 || _isInteracting)
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   onPageChanged: (idx) {
                     setState(() {
                       _currentIndex = idx;
                       _transformController.value = Matrix4.identity();
+                      _currentZoom = 1.0;
+                      _isInteracting = false;
                     });
                     _preloadAdjacent(idx);
                   },
@@ -1319,11 +1325,21 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                             transformationController: _transformController,
                             minScale: 1.0,
                             maxScale: 5.0,
-                            onInteractionStart: (_) {
-                              if (mounted) setState(() => _isDragging = true);
+                            onInteractionStart: (details) {
+                              if (mounted) {
+                                setState(() {
+                                  _isDragging = true;
+                                  _isInteracting = true;
+                                });
+                              }
                             },
-                            onInteractionEnd: (_) {
-                              if (mounted) setState(() => _isDragging = false);
+                            onInteractionEnd: (details) {
+                              if (mounted) {
+                                setState(() {
+                                  _isDragging = false;
+                                  if (_currentZoom <= 1.01) _isInteracting = false;
+                                });
+                              }
                             },
                             child: Hero(
                               tag: index == _currentIndex ? path : 'preview_$path',
@@ -1381,7 +1397,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: isWide ? 32.0 : 80.0),
+                  padding: EdgeInsets.only(bottom: isWide ? 32.0 : (MediaQuery.of(context).padding.bottom + 90.0)),
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
                     opacity: _showZoomCapsule ? 1.0 : 0.0,
@@ -1706,28 +1722,35 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _BottomBarAction(
-                icon: Icons.delete_outline,
-                label: 'Bin',
-                isDestructive: true,
-                onTap: _confirmDelete,
+              Expanded(
+                child: _BottomBarAction(
+                  icon: Icons.delete_outline,
+                  label: 'Bin',
+                  isDestructive: true,
+                  onTap: _confirmDelete,
+                ),
               ),
-              _BottomBarAction(
-                icon: Icons.info_outline,
-                label: 'Info',
-                onTap: _showInfoDialog,
+              Expanded(
+                child: _BottomBarAction(
+                  icon: Icons.info_outline,
+                  label: 'Info',
+                  onTap: _showInfoDialog,
+                ),
               ),
-              _BottomBarAction(
-                icon: Icons.share_outlined,
-                label: 'Share',
-                onTap: _shareCurrentImage,
+              Expanded(
+                child: _BottomBarAction(
+                  icon: Icons.share_outlined,
+                  label: 'Share',
+                  onTap: _shareCurrentImage,
+                ),
               ),
-              _BottomBarAction(
-                icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                label: 'Fullscreen',
-                onTap: _toggleFullScreen,
+              Expanded(
+                child: _BottomBarAction(
+                  icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                  label: 'Fullscreen',
+                  onTap: _toggleFullScreen,
+                ),
               ),
             ],
           ),
@@ -2427,14 +2450,18 @@ class _BottomBarActionState extends State<_BottomBarAction> {
               : const Color(0xFFf89838).withValues(alpha: 0.25),
           highlightColor: Colors.white.withValues(alpha: 0.08),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(widget.icon, size: 22, color: iconColor),
                 const SizedBox(height: 3),
                 Text(
                   widget.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'JetBrains Mono',
                     fontSize: 11,

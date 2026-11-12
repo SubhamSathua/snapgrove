@@ -7,6 +7,7 @@ import '../services/bin_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/app_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
 
 class BinPreviewView extends StatefulWidget {
@@ -157,7 +158,14 @@ class _BinPreviewViewState extends State<BinPreviewView> {
   Future<void> _restoreCurrentImage() async {
     if (_files.isEmpty) return;
     final file = _files[_currentIndex];
-    final success = await widget.viewModel.restoreSingleFile(file.path, targetDirectory: widget.targetDirectory);
+    String? target = widget.targetDirectory;
+    if (target == null || target.isEmpty) {
+      if (locator.isRegistered<AppViewModel>()) {
+        final appVm = locator<AppViewModel>();
+        target = appVm.screenshotDir ?? appVm.permanentScreenshotDir;
+      }
+    }
+    final success = await widget.viewModel.restoreSingleFile(file.path, targetDirectory: target);
     if (success && mounted) {
       setState(() {
         _files.removeAt(_currentIndex);

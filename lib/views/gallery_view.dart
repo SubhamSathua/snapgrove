@@ -329,6 +329,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
 
   void _enterSelectionMode({int? initialIndex}) {
+    if (_isSelectionMode) {
+      if (initialIndex != null) {
+        _toggleSelection(initialIndex);
+      }
+      return;
+    }
     setState(() {
       _isSelectionMode = true;
       _selectedIndices.clear();
@@ -1796,7 +1802,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         ),
                       );
                     },
-                    onLongPress: () => _enterSelectionMode(initialIndex: index),
+                    onLongPress: () {
+                      if (_isSelectionMode) {
+                        _toggleSelection(index);
+                      } else {
+                        _enterSelectionMode(initialIndex: index);
+                      }
+                    },
                     onRightClick: (position) => _showContextMenu(context, position, index),
                   );
                 },
@@ -1934,7 +1946,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   bool _isFolderActionEnabled(String folderName) {
-    final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
+    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
+    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return false;
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
     if (isMovingToRoot) {
@@ -1948,6 +1961,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   String? _getFolderActionTooltip(String folderName) {
+    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
+    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
+    if (selectedFiles.isEmpty) return null;
     final enabled = _isFolderActionEnabled(folderName);
     if (enabled) return null;
     if (folderName == 'ROOT' || folderName.isEmpty) {
@@ -1958,7 +1974,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   // Move selected files to the specified folder
   Future<void> _moveSelectedToFolder(String folderName) async {
-    final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
+    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
+    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return;
 
     // Check if the target folder has children
@@ -1993,6 +2010,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       return;
     }
 
+    _exitSelectionMode();
+
     final count = filesToMove.length;
     setState(() {
       _isMovingFiles = true;
@@ -2002,7 +2021,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     try {
       final success = await _viewModel.moveFilesToFolder(filesToMove, folderName);
       if (success && mounted) {
-        _exitSelectionMode();
         locator<NotificationService>().showSnackBar(
           'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
           actionLabel: 'Undo',
@@ -2260,7 +2278,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   Future<void> _showDeleteConfirmationDialog() async {
-    final selectedFiles = _selectedIndices.map((i) => _viewModel.files[i]).toList();
+    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
+    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
     if (selectedFiles.isEmpty) return;
 
     final sc = context.snapgroveColors;
@@ -2422,9 +2441,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     );
 
     if (choice == 'bin' && mounted) {
+      _exitSelectionMode();
       final success = await _viewModel.moveToBin(selectedFiles);
       if (success) {
-        _exitSelectionMode();
         locator<NotificationService>().showSnackBar(
           'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
         );
@@ -2432,9 +2451,9 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         locator<NotificationService>().showSnackBar('Failed to move files to $destinationName', isError: true);
       }
     } else if (choice == 'permanent' && mounted) {
+      _exitSelectionMode();
       final success = await _viewModel.deleteFilesPermanently(selectedFiles);
       if (success) {
-        _exitSelectionMode();
         locator<NotificationService>().showSnackBar(
           'Permanently deleted $count ${count == 1 ? "file" : "files"}',
         );
@@ -3198,6 +3217,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
             top: 0,
             bottom: 0,
             child: Container(
+              width: 36,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -3247,6 +3267,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
             top: 0,
             bottom: 0,
             child: Container(
+              width: 36,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [

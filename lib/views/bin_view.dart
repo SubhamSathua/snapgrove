@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/app_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
 import 'bin_preview_view.dart';
 
@@ -237,7 +238,14 @@ class _BinViewState extends State<BinView> {
   }
 
   Future<void> _restoreSelected() async {
-    await _viewModel.restoreSelectedFiles(targetDirectory: widget.targetDirectory);
+    String? target = widget.targetDirectory;
+    if (target == null || target.isEmpty) {
+      if (locator.isRegistered<AppViewModel>()) {
+        final appVm = locator<AppViewModel>();
+        target = appVm.screenshotDir ?? appVm.permanentScreenshotDir;
+      }
+    }
+    await _viewModel.restoreSelectedFiles(targetDirectory: target);
   }
 
   @override
@@ -263,13 +271,15 @@ class _BinViewState extends State<BinView> {
                   height: 22,
                   colorFilter: ColorFilter.mode(isDark ? Colors.white : Colors.black, BlendMode.srcIn),
                 ),
-                onPressed: () {
-                  if (_viewModel.isSelectionMode) {
-                    _viewModel.clearSelection();
-                  } else {
-                    Navigator.of(context).pop();
-                  }
-                },
+                onPressed: _viewModel.isRestoring
+                    ? null
+                    : () {
+                        if (_viewModel.isSelectionMode) {
+                          _viewModel.clearSelection();
+                        } else {
+                          Navigator.of(context).pop();
+                        }
+                      },
               ),
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,10 +312,10 @@ class _BinViewState extends State<BinView> {
                     IconButton(
                       tooltip: 'Select',
                       icon: const Icon(Icons.checklist, size: 22),
-                      onPressed: () => _viewModel.selectAll(),
+                      onPressed: _viewModel.isRestoring ? null : () => _viewModel.selectAll(),
                     ),
                     TextButton.icon(
-                      onPressed: _confirmEmptyFullBin,
+                      onPressed: _viewModel.isRestoring ? null : _confirmEmptyFullBin,
                       icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFEF4444), size: 18),
                       label: const Text(
                         'Empty Bin',
@@ -320,20 +330,22 @@ class _BinViewState extends State<BinView> {
                   ],
                 ] else ...[
                   TextButton(
-                    onPressed: () {
-                      if (_viewModel.isAllSelected) {
-                        _viewModel.clearSelection();
-                      } else {
-                        _viewModel.selectAll();
-                      }
-                    },
+                    onPressed: _viewModel.isRestoring
+                        ? null
+                        : () {
+                            if (_viewModel.isAllSelected) {
+                              _viewModel.clearSelection();
+                            } else {
+                              _viewModel.selectAll();
+                            }
+                          },
                     child: Text(
                       _viewModel.isAllSelected ? 'Deselect All' : 'Select All',
                       style: TextStyle(
                         fontFamily: 'JetBrains Mono',
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: sc.accent,
+                        color: _viewModel.isRestoring ? sc.muted : sc.accent,
                       ),
                     ),
                   ),
@@ -342,11 +354,21 @@ class _BinViewState extends State<BinView> {
               ],
             ),
           ),
-          body: _viewModel.isLoading
-              ? const Center(
+          body: Stack(
+            children: [
+              if (_viewModel.isLoading && !_viewModel.isRestoring)
+                const Center(
                   child: CircularProgressIndicator(color: Color(0xFFff2a7b), strokeWidth: 2),
                 )
-              : _buildBody(sc, isDark),
+              else
+                IgnorePointer(
+                  ignoring: _viewModel.isRestoring,
+                  child: _buildBody(sc, isDark),
+                ),
+              if (_viewModel.isRestoring)
+                _buildRestoringProgressCard(sc, isDark),
+            ],
+          ),
           bottomNavigationBar: _viewModel.isSelectionMode
               ? _buildSelectionBottomBar(sc, isDark)
               : null,
@@ -572,6 +594,95 @@ class _BinViewState extends State<BinView> {
     );
   }
 
+  Widget _buildRestoringProgressCard(SnapgroveColors sc, bool isDark) {
+    final current = _viewModel.restoreCurrent;
+    final total = _viewModel.restoreTotal;
+    final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : null;
+
+    return Positioned(
+      bottom: 16,
+      left: 16,
+      right: 16,
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: sc.accent.withValues(alpha: 0.5),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(sc.accent),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        total > 0
+                            ? 'Restoring $current of $total files...'
+                            : 'Restoring files...',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (total > 0)
+                      Text(
+                        '${((progress ?? 0) * 100).toInt()}%',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: sc.accent,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 4,
+                    backgroundColor: sc.accent.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(sc.accent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSelectionBottomBar(SnapgroveColors sc, bool isDark) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
@@ -598,10 +709,21 @@ class _BinViewState extends State<BinView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
-              onPressed: _viewModel.selectedCount > 0 ? _restoreSelected : null,
-              icon: const Icon(Icons.restore_rounded, size: 19),
+              onPressed: (_viewModel.selectedCount > 0 && !_viewModel.isRestoring) ? _restoreSelected : null,
+              icon: _viewModel.isRestoring
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(isDark ? Colors.black : Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.restore_rounded, size: 19),
               label: Text(
-                'Restore (${_viewModel.selectedCount})',
+                _viewModel.isRestoring
+                    ? 'Restoring...'
+                    : 'Restore (${_viewModel.selectedCount})',
                 style: const TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontWeight: FontWeight.w700,
@@ -620,7 +742,7 @@ class _BinViewState extends State<BinView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
-              onPressed: _viewModel.selectedCount > 0 ? _confirmDeleteSelected : null,
+              onPressed: (_viewModel.selectedCount > 0 && !_viewModel.isRestoring) ? _confirmDeleteSelected : null,
               icon: const Icon(Icons.delete_forever, size: 19, color: Color(0xFFEF4444)),
               label: Text(
                 'Delete (${_viewModel.selectedCount})',

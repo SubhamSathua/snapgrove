@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
+import '../core/locator.dart';
+import '../viewmodels/app_view_model.dart';
 
 class BinFolderInfo {
   final String name;
@@ -538,66 +540,104 @@ class BinService {
       final folderName = metadata?.folderName ?? p.basename(p.dirname(binFilePath));
       final originParentBreadcrumb = metadata?.parentBreadcrumb;
 
+      if (targetDirectory == null || targetDirectory.isEmpty) {
+        if (locator.isRegistered<AppViewModel>()) {
+          final appVm = locator<AppViewModel>();
+          targetDirectory = appVm.screenshotDir ?? appVm.permanentScreenshotDir;
+        }
+      }
+
       if (targetDirectory != null && targetDirectory.isNotEmpty) {
         if (targetDirectory.startsWith('content://')) {
           // Write back using SAF Stream
-          String effectiveDestUri = targetDirectory;
+          final mime = _getMimeType(originalName);
+          final newFile = await SafStream().writeFileBytes(
+            targetDirectory,
+            originalName,
+            mime,
+            decryptedBytes,
+            overwrite: false,
+          );
+
           if (folderName.isNotEmpty &&
               folderName != 'Screenshots' &&
               folderName != 'ROOT' &&
               folderName != originParentBreadcrumb) {
             try {
-              final subDoc = await SafUtil().mkdirp(targetDirectory, [folderName]);
-              effectiveDestUri = subDoc.uri;
+              final subDoc = await SafUtil().mkdirp(targetDirectory, folderName.split('/'));
+              final newFileUri = newFile.uri.toString();
+              try {
+                await SafUtil().moveTo(newFileUri, false, targetDirectory, subDoc.uri);
+              } catch (_) {
+                try {
+                  await SafUtil().copyTo(newFileUri, false, subDoc.uri);
+                  await SafUtil().delete(newFileUri, false);
+                } catch (_) {}
+              }
             } catch (_) {}
           }
-          final mime = _getMimeType(originalName);
-          await SafStream().writeFileBytes(effectiveDestUri, originalName, mime, decryptedBytes, overwrite: false);
+
           await file.delete();
           return true;
         } else {
-          final baseDir = Directory(targetDirectory);
-          Directory destDir = baseDir;
-          if (folderName.isNotEmpty &&
-              folderName != 'Screenshots' &&
-              folderName != 'ROOT' &&
-              folderName != originParentBreadcrumb) {
-            destDir = Directory(p.join(baseDir.path, folderName));
+          try {
+            final baseDir = Directory(targetDirectory);
+            Directory destDir = baseDir;
+            if (folderName.isNotEmpty &&
+                folderName != 'Screenshots' &&
+                folderName != 'ROOT' &&
+                folderName != originParentBreadcrumb) {
+              destDir = Directory(p.join(baseDir.path, folderName));
+            }
+            if (!await destDir.exists()) {
+              await destDir.create(recursive: true);
+            }
+            final destFile = File(p.join(destDir.path, originalName));
+            await destFile.writeAsBytes(decryptedBytes, flush: true);
+            await file.delete();
+            return true;
+          } on FileSystemException catch (e) {
+            debugPrint('BinService: File restore failed with FileSystemException: $e');
+            return false;
+          } catch (e) {
+            debugPrint('BinService: File restore failed: $e');
+            return false;
           }
-          if (!await destDir.exists()) {
-            await destDir.create(recursive: true);
-          }
-          final destFile = File(p.join(destDir.path, originalName));
-          await destFile.writeAsBytes(decryptedBytes, flush: true);
-          await file.delete();
-          return true;
         }
       } else {
         // Default restore location on Android: Pictures/Restored or origin path
         if (Platform.isAndroid) {
-          Directory? destDir;
           try {
-            final extDirs = await getExternalStorageDirectories(type: StorageDirectory.pictures);
-            if (extDirs != null && extDirs.isNotEmpty) {
-              final path = extDirs.first.path;
-              final parts = path.split('/Android/');
-              if (parts.length > 1) {
-                final rootStorage = parts.first;
-                destDir = Directory('$rootStorage/Pictures/Restored');
+            Directory? destDir;
+            try {
+              final extDirs = await getExternalStorageDirectories(type: StorageDirectory.pictures);
+              if (extDirs != null && extDirs.isNotEmpty) {
+                final path = extDirs.first.path;
+                final parts = path.split('/Android/');
+                if (parts.length > 1) {
+                  final rootStorage = parts.first;
+                  destDir = Directory('$rootStorage/Pictures/Restored');
+                }
               }
+            } catch (_) {}
+            destDir ??= Directory('/storage/emulated/0/Pictures/Restored');
+            if (folderName.isNotEmpty && folderName != 'Screenshots' && folderName != 'ROOT') {
+              destDir = Directory(p.join(destDir.path, folderName));
             }
-          } catch (_) {}
-          destDir ??= Directory('/storage/emulated/0/Pictures/Restored');
-          if (folderName.isNotEmpty && folderName != 'Screenshots' && folderName != 'ROOT') {
-            destDir = Directory(p.join(destDir.path, folderName));
+            if (!await destDir.exists()) {
+              await destDir.create(recursive: true);
+            }
+            final destFile = File(p.join(destDir.path, originalName));
+            await destFile.writeAsBytes(decryptedBytes, flush: true);
+            await file.delete();
+            return true;
+          } on FileSystemException catch (e) {
+            debugPrint('BinService: Android fallback direct File write failed with FileSystemException: $e');
+            return false;
+          } catch (e) {
+            debugPrint('BinService: Android fallback direct File write failed: $e');
+            return false;
           }
-          if (!await destDir.exists()) {
-            await destDir.create(recursive: true);
-          }
-          final destFile = File(p.join(destDir.path, originalName));
-          await destFile.writeAsBytes(decryptedBytes, flush: true);
-          await file.delete();
-          return true;
         } else {
           final picDir = await getApplicationDocumentsDirectory();
           Directory destDir = picDir;
@@ -619,11 +659,16 @@ class BinService {
     }
   }
 
-  Future<int> restoreMultipleFiles(List<String> binFilePaths, {String? targetDirectory}) async {
+  Future<int> restoreMultipleFiles(
+    List<String> binFilePaths, {
+    String? targetDirectory,
+    void Function(int completed, int total)? onProgress,
+  }) async {
     int restored = 0;
-    for (final path in binFilePaths) {
-      final success = await restoreFile(path, targetDirectory: targetDirectory);
+    for (int i = 0; i < binFilePaths.length; i++) {
+      final success = await restoreFile(binFilePaths[i], targetDirectory: targetDirectory);
       if (success) restored++;
+      onProgress?.call(i + 1, binFilePaths.length);
     }
     return restored;
   }

@@ -23,6 +23,13 @@ class BinViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _isRestoring = false;
+  bool get isRestoring => _isRestoring;
+  int _restoreCurrent = 0;
+  int get restoreCurrent => _restoreCurrent;
+  int _restoreTotal = 0;
+  int get restoreTotal => _restoreTotal;
+
   List<BinFileInfo> _allFiles = [];
   List<BinFileInfo> get allFiles => _allFiles;
 
@@ -196,20 +203,36 @@ class BinViewModel extends ChangeNotifier {
     return count > 0;
   }
 
-  Future<bool> restoreSelectedFiles({String? targetDirectory}) async {
+  Future<bool> restoreSelectedFiles({
+    String? targetDirectory,
+    void Function(int current, int total)? onProgress,
+  }) async {
     if (_selectedFilePaths.isEmpty) return false;
     final toRestore = List<String>.from(_selectedFilePaths);
 
-    _isLoading = true;
+    _isRestoring = true;
+    _restoreCurrent = 0;
+    _restoreTotal = toRestore.length;
     notifyListeners();
 
-    final count = await _binService.restoreMultipleFiles(toRestore, targetDirectory: targetDirectory);
+    final count = await _binService.restoreMultipleFiles(
+      toRestore,
+      targetDirectory: targetDirectory,
+      onProgress: (current, total) {
+        _restoreCurrent = current;
+        _restoreTotal = total;
+        notifyListeners();
+        onProgress?.call(current, total);
+      },
+    );
     _selectedFilePaths.clear();
     _notificationService.showSnackBar('Restored $count item${count == 1 ? '' : 's'}');
 
     await loadBin();
 
-    _isLoading = false;
+    _isRestoring = false;
+    _restoreCurrent = 0;
+    _restoreTotal = 0;
     notifyListeners();
     return count > 0;
   }

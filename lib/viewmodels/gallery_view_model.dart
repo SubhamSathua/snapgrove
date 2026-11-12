@@ -427,12 +427,19 @@ class GalleryViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void enterSelectionMode() {
-    if (!_isSelectionMode) {
-      _isSelectionMode = true;
-      _selectedIndices.clear();
-      notifyListeners();
+  void enterSelectionMode({int? initialIndex}) {
+    if (_isSelectionMode) {
+      if (initialIndex != null) {
+        toggleSelection(initialIndex);
+      }
+      return;
     }
+    _isSelectionMode = true;
+    _selectedIndices.clear();
+    if (initialIndex != null) {
+      _selectedIndices.add(initialIndex);
+    }
+    notifyListeners();
   }
 
   void exitSelectionMode() {
@@ -467,7 +474,10 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   List<String> getSelectedFiles() {
-    return _selectedIndices.map((i) => _files[i]).toList();
+    return _selectedIndices
+        .where((i) => i >= 0 && i < _files.length)
+        .map((i) => _files[i])
+        .toList();
   }
 
   Future<bool> createSubfolder(String name) async {
