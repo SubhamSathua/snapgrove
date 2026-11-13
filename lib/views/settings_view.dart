@@ -1,23 +1,29 @@
-import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/locator.dart';
 import '../services/picker_service.dart';
 import '../services/settings_service.dart';
+import '../theme/app_blur.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/app_view_model.dart';
 import 'theme_dialog.dart';
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key});
+  final bool highlightBinAuth;
+
+  const SettingsView({super.key, this.highlightBinAuth = false});
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
 }
 
-class _SettingsViewState extends State<SettingsView> {
+class _SettingsViewState extends State<SettingsView> with SingleTickerProviderStateMixin {
   final _settingsService = locator<SettingsService>();
   final _appViewModel = locator<AppViewModel>();
   final TextEditingController _searchController = TextEditingController();
+  final GlobalKey _binAuthKey = GlobalKey();
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
   String _searchQuery = '';
 
   @override
@@ -25,14 +31,85 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     _settingsService.addListener(_onSettingsChanged);
     _appViewModel.addListener(_onSettingsChanged);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeOut,
+    );
+
+    if (widget.highlightBinAuth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToAndPulseBinAuth();
+      });
+    }
   }
 
   @override
   void dispose() {
     _settingsService.removeListener(_onSettingsChanged);
     _appViewModel.removeListener(_onSettingsChanged);
+    _pulseController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _scrollToAndPulseBinAuth() {
+    if (!mounted) return;
+    final ctx = _binAuthKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        alignment: 0.5,
+      );
+    }
+    _pulseController.forward(from: 0.0);
+  }
+
+  Future<bool> _showCreateBinPasswordDialog(BuildContext context) async {
+    return await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'CreateBinPassword',
+      barrierColor: Colors.black.withValues(
+        alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.25,
+      ),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (ctx, anim1, anim2) => _CreateBinPasswordDialog(
+        settings: _settingsService,
+      ),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: 0.9 + 0.1 * curve,
+          child: Opacity(opacity: anim1.value, child: child),
+        );
+      },
+    ) ?? false;
+  }
+
+  Future<void> _handleBinAuthToggle(bool val, bool isPc) async {
+    if (isPc) {
+      if (val) {
+        if (!_settingsService.isBinPasswordSet) {
+          final success = await _showCreateBinPasswordDialog(context);
+          if (!success) {
+            // Cancelled or backed out without saving -> toggle remains OFF
+            return;
+          }
+        } else {
+          await _settingsService.setBinAuthEnabled(true);
+        }
+      } else {
+        await _settingsService.setBinAuthEnabled(false);
+      }
+    } else {
+      await _settingsService.setBinAuthEnabled(val);
+    }
   }
 
   void _onSettingsChanged() {
@@ -127,29 +204,28 @@ class _SettingsViewState extends State<SettingsView> {
         return Center(
           child: Material(
             color: Colors.transparent,
-            child: ClipRRect(
+            child: AppBlur(
               borderRadius: BorderRadius.circular(14),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  width: 360,
-                  constraints: const BoxConstraints(maxHeight: 520),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 30,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
+              sigmaX: 20,
+              sigmaY: 20,
+              solidColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              blurOpacity: 0.85,
+              width: 360,
+              constraints: const BoxConstraints(maxHeight: 520),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
                   ),
-                  child: Column(
+                ],
+              ),
+              child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -248,10 +324,8 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = Curves.easeOutBack.transform(anim1.value);
         return Transform.scale(
@@ -276,6 +350,7 @@ class _SettingsViewState extends State<SettingsView> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sc = context.snapgroveColors;
+    final isPc = !kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS);
 
     // Filter checks
     final showTheme = _matchesQuery(['theme', 'dark mode', 'light mode', 'appearance', 'color']);
@@ -321,6 +396,13 @@ class _SettingsViewState extends State<SettingsView> {
                           color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
+                      if (isPc && !_settingsService.isBinPasswordSet) ...[
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Bin Password Not Set (Click to configure)',
+                          child: _BlinkingYellowDot(onTap: _scrollToAndPulseBinAuth),
+                        ),
+                      ],
                       const Spacer(),
                       // Close button (X) matching settings.png
                       _TopBarCircleButton(
@@ -530,17 +612,87 @@ class _SettingsViewState extends State<SettingsView> {
                           sc: sc,
                           children: [
                             if (showBinAuth)
-                              _SettingsTile(
-                                icon: Icons.security_rounded,
-                                title: 'Bin Authentication',
-                                subtitle: 'Require biometrics or device credentials to open Bin',
-                                trailing: _buildSwitch(
-                                  value: _settingsService.binAuthEnabled,
-                                  sc: sc,
-                                  isDark: isDark,
-                                  onChanged: (val) => _settingsService.setBinAuthEnabled(val),
+                              KeyedSubtree(
+                                key: _binAuthKey,
+                                child: AnimatedBuilder(
+                                  animation: _pulseAnimation,
+                                  builder: (context, child) {
+                                    final pulseVal = 1.0 - _pulseAnimation.value;
+                                    final isPulsing = _pulseController.isAnimating || pulseVal > 0.01;
+                                    final Color? pulseBg = isPulsing
+                                        ? const Color(0xFFF59E0B).withValues(alpha: 0.16 * pulseVal)
+                                        : null;
+
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: pulseBg,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: isPulsing
+                                            ? Border.all(
+                                                color: const Color(0xFFF59E0B).withValues(alpha: 0.65 * pulseVal),
+                                                width: 1.5,
+                                              )
+                                            : null,
+                                      ),
+                                      child: child,
+                                    );
+                                  },
+                                  child: _SettingsTile(
+                                    icon: Icons.security_rounded,
+                                    title: 'Bin Authentication',
+                                    titleSuffix: (isPc && !_settingsService.isBinPasswordSet)
+                                        ? _BlinkingYellowDot(onTap: _scrollToAndPulseBinAuth)
+                                        : null,
+                                    subtitle: isPc
+                                        ? (_settingsService.isBinPasswordSet
+                                            ? (_settingsService.binAuthEnabled
+                                                ? 'Password required to open Bin'
+                                                : 'Password configured (Protection disabled)')
+                                            : 'Require password to open Bin (No password set)')
+                                        : 'Require biometrics or device credentials to open Bin',
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isPc && _settingsService.isBinPasswordSet)
+                                          TextButton(
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            onPressed: () => _showCreateBinPasswordDialog(context),
+                                            child: Text(
+                                              'Change',
+                                              style: TextStyle(
+                                                fontFamily: 'JetBrains Mono',
+                                                fontSize: 11,
+                                                color: sc.accent,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        _buildSwitch(
+                                          value: isPc
+                                              ? (_settingsService.isBinPasswordSet && _settingsService.binAuthEnabled)
+                                              : _settingsService.binAuthEnabled,
+                                          sc: sc,
+                                          isDark: isDark,
+                                          onChanged: (val) => _handleBinAuthToggle(val, isPc),
+                                        ),
+                                      ],
+                                    ),
+                                    onTap: () {
+                                      if (isPc && !_settingsService.isBinPasswordSet) {
+                                        _showCreateBinPasswordDialog(context);
+                                      } else {
+                                        final current = isPc
+                                            ? (_settingsService.isBinPasswordSet && _settingsService.binAuthEnabled)
+                                            : _settingsService.binAuthEnabled;
+                                        _handleBinAuthToggle(!current, isPc);
+                                      }
+                                    },
+                                  ),
                                 ),
-                                onTap: () => _settingsService.setBinAuthEnabled(!_settingsService.binAuthEnabled),
                               ),
                           ],
                         ),
@@ -770,12 +922,12 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                   ),
                   Text(
-                    '35% (Default)',
+                    '${threshold.toInt()}%',
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 10,
-                      fontWeight: threshold == 35 ? FontWeight.w700 : FontWeight.normal,
-                      color: threshold == 35 ? sc.accent : sc.muted.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w700,
+                      color: sc.accent,
                     ),
                   ),
                   Text(
@@ -822,6 +974,7 @@ class _SettingsViewState extends State<SettingsView> {
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final Widget? titleSuffix;
   final String subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -829,6 +982,7 @@ class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
     required this.title,
+    this.titleSuffix,
     required this.subtitle,
     this.trailing,
     this.onTap,
@@ -857,14 +1011,23 @@ class _SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      if (titleSuffix != null) ...[
+                        const SizedBox(width: 8),
+                        titleSuffix!,
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -925,6 +1088,382 @@ class _TopBarCircleButton extends StatelessWidget {
               icon,
               size: 20,
               color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Blinking Yellow Notification Dot ─────────────────────────────────────────
+
+class _BlinkingYellowDot extends StatefulWidget {
+  final VoidCallback? onTap;
+
+  const _BlinkingYellowDot({this.onTap});
+
+  @override
+  State<_BlinkingYellowDot> createState() => _BlinkingYellowDotState();
+}
+
+class _BlinkingYellowDotState extends State<_BlinkingYellowDot> with SingleTickerProviderStateMixin {
+  static const double _dotSize = 8.0;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.25, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          final val = _animation.value;
+          return Container(
+            width: _dotSize + 8,
+            height: _dotSize + 8,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.2 * val),
+            ),
+            child: Container(
+              width: _dotSize,
+              height: _dotSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF59E0B).withValues(alpha: val),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.6 * val),
+                    blurRadius: 4 * val,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Create PC Bin Password Dialog ────────────────────────────────────────────
+
+class _CreateBinPasswordDialog extends StatefulWidget {
+  final SettingsService settings;
+
+  const _CreateBinPasswordDialog({required this.settings});
+
+  @override
+  State<_CreateBinPasswordDialog> createState() => _CreateBinPasswordDialogState();
+}
+
+class _CreateBinPasswordDialogState extends State<_CreateBinPasswordDialog> {
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _hintController = TextEditingController();
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.settings.binPasswordHint != null) {
+      _hintController.text = widget.settings.binPasswordHint!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _hintController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final newPass = _newPasswordController.text;
+    final confirmPass = _confirmPasswordController.text;
+
+    if (newPass.isEmpty) {
+      setState(() => _errorMessage = 'Password cannot be empty.');
+      return;
+    }
+
+    if (newPass != confirmPass) {
+      setState(() => _errorMessage = 'Passwords do not match.');
+      return;
+    }
+
+    await widget.settings.setBinPassword(
+      newPass,
+      hint: _hintController.text.trim(),
+    );
+    await widget.settings.setBinAuthEnabled(true);
+
+    if (mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: AppBlur(
+          borderRadius: BorderRadius.circular(14),
+          sigmaX: 20,
+          sigmaY: 20,
+          solidColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          blurOpacity: 0.85,
+          width: screenWidth * 0.92 > 380 ? 380 : screenWidth * 0.92,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.shield_outlined, size: 20, color: sc.accent),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Create Bin Password',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Set a password to protect deleted screenshots in Bin.',
+                style: TextStyle(
+                  fontFamily: 'Lora',
+                  fontSize: 13,
+                  color: sc.muted,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // New Password
+              _buildInputField(
+                controller: _newPasswordController,
+                hintText: 'New Password',
+                obscureText: _obscureNew,
+                isDark: isDark,
+                sc: sc,
+                onToggleObscure: () => setState(() => _obscureNew = !_obscureNew),
+                autofocus: true,
+              ),
+              const SizedBox(height: 10),
+              // Confirm Password
+              _buildInputField(
+                controller: _confirmPasswordController,
+                hintText: 'Confirm Password',
+                obscureText: _obscureConfirm,
+                isDark: isDark,
+                sc: sc,
+                onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 10),
+              // Optional Hint
+              _buildInputField(
+                controller: _hintController,
+                hintText: 'Password Hint (Optional)',
+                obscureText: false,
+                isDark: isDark,
+                sc: sc,
+                onSubmitted: (_) => _submit(),
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11,
+                    color: Color(0xFFE53935),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DialogActionBtn(
+                      label: 'Cancel',
+                      isPrimary: false,
+                      onTap: () => Navigator.of(context).pop(false),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DialogActionBtn(
+                      label: 'Save',
+                      isPrimary: true,
+                      onTap: _submit,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hintText,
+    required bool obscureText,
+    required bool isDark,
+    required SnapgroveColors sc,
+    VoidCallback? onToggleObscure,
+    bool autofocus = false,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141414) : const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              autofocus: autofocus,
+              obscureText: obscureText,
+              onChanged: (_) {
+                if (_errorMessage != null) setState(() => _errorMessage = null);
+              },
+              onSubmitted: onSubmitted,
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 13,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 12,
+                  color: sc.muted.withValues(alpha: 0.5),
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+          if (onToggleObscure != null)
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                size: 17,
+                color: sc.muted,
+              ),
+              onPressed: onToggleObscure,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogActionBtn extends StatelessWidget {
+  final String label;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _DialogActionBtn({
+    required this.label,
+    required this.isPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = context.snapgroveColors;
+    final Color bgColor = isPrimary ? const Color(0xFFff2a7b) : Colors.transparent;
+    final Color fgColor = isPrimary ? const Color(0xFF000000) : sc.muted;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 38),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          hoverColor: isPrimary ? Colors.black.withValues(alpha: 0.1) : sc.menuHover,
+          splashColor: isPrimary ? Colors.white.withValues(alpha: 0.2) : sc.rippleColor,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: fgColor,
+                  letterSpacing: 0.3,
+                ),
+              ),
             ),
           ),
         ),

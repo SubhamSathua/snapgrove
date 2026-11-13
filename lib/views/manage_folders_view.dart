@@ -10,6 +10,7 @@ import '../services/settings_service.dart';
 import '../services/notification_service.dart';
 import '../services/thumbnail_manager.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_blur.dart';
 import 'widgets/folder_tree_picker_modal.dart';
 import 'image_preview_view.dart';
 
@@ -162,13 +163,12 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                        .withValues(alpha: 0.88),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.88)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark
@@ -433,13 +433,12 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
             child: Container(
               padding: EdgeInsets.fromLTRB(
                   20, 16, 20, 20 + MediaQuery.of(ctx).padding.bottom),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                    .withValues(alpha: 0.92),
+                color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.92)),
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(18)),
                 border: Border.all(
@@ -550,13 +549,12 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                        .withValues(alpha: 0.88),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.88)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark
@@ -838,13 +836,12 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                        .withValues(alpha: 0.88),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.88)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark
@@ -1956,13 +1953,12 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: AppBlur.filter(sigmaX: 16, sigmaY: 16)!,
         child: Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: (isDark ? const Color(0xFF141414) : Colors.white)
-                .withValues(alpha: 0.85),
+            color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF141414) : Colors.white).withValues(alpha: 0.85)),
             border: Border(
               bottom: BorderSide(
                 color: overlapsContent ? sc.border : Colors.transparent,

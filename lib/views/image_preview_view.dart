@@ -12,9 +12,12 @@ import '../core/locator.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
 import '../services/notification_service.dart';
+import '../services/settings_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_blur.dart';
 import '../viewmodels/gallery_view_model.dart';
+import 'settings_view.dart';
 
 class ImagePreviewView extends StatefulWidget {
   final List<String> files;
@@ -426,13 +429,12 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                        .withValues(alpha: 0.92),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.92)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -589,14 +591,31 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       actionLabel: 'Undo',
       onAction: () async {
         if (widget.directoryPath != null) {
-          final undoSuccess = await locator<FileService>().undoMoveFiles(widget.directoryPath!, folderName, [currentPath]);
-          if (undoSuccess) {
+          if (mounted) {
+            setState(() {
+              _showSlowOperationCard = true;
+              _slowOperationStatus = 'Restoring "$fileName"...';
+            });
+          }
+          try {
+            final undoSuccess = await locator<FileService>().undoMoveFiles(widget.directoryPath!, folderName, [currentPath]);
+            if (undoSuccess) {
+              if (mounted) {
+                setState(() {
+                  _files.insert(currentIndex.clamp(0, _files.length), currentPath);
+                });
+              }
+              locator<NotificationService>().showSnackBar('Restored "$fileName"');
+            } else {
+              locator<NotificationService>().showSnackBar('Failed to undo move', isError: true);
+            }
+          } finally {
             if (mounted) {
               setState(() {
-                _files.insert(currentIndex.clamp(0, _files.length), currentPath);
+                _showSlowOperationCard = false;
+                _slowOperationStatus = null;
               });
             }
-            locator<NotificationService>().showSnackBar('Restored "$fileName"');
           }
         }
       },
@@ -657,12 +676,12 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 330,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -801,7 +820,25 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         success = await locator<FileService>().moveToBin(widget.directoryPath ?? '', [currentPath]);
       }
       if (success) {
-        locator<NotificationService>().showSnackBar('Moved to $destinationName');
+        final settings = locator<SettingsService>();
+        final isPc = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+        if (isPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
+          settings.markBinFirstMoveDone();
+          locator<NotificationService>().showSnackBar(
+            'Moved to $destinationName',
+            actionLabel: 'Set Bin Password',
+            onAction: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SettingsView(highlightBinAuth: true),
+                ),
+              );
+            },
+            duration: const Duration(seconds: 6),
+          );
+        } else {
+          locator<NotificationService>().showSnackBar('Moved to $destinationName');
+        }
       } else {
         locator<NotificationService>().showSnackBar('Failed to move image to $destinationName', isError: true);
       }

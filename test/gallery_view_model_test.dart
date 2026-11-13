@@ -678,5 +678,23 @@ void main() {
       expect(viewModel.files.contains(f1.path), false);
       expect(viewModel.files.contains(f2.path), false);
     });
+
+    test('undoMoveFiles restores moved files back to root directory', () async {
+      final f1 = File('${tempDir.path}\\undo_test.png');
+      await f1.create();
+      await viewModel.createSubfolder('UndoTarget');
+      await viewModel.loadFiles();
+      expect(viewModel.files.contains(f1.path), true);
+
+      // Move to subfolder
+      final moveSuccess = await viewModel.moveFilesToFolder([f1.path], 'UndoTarget');
+      expect(moveSuccess, true);
+      expect(viewModel.files.contains(f1.path), false);
+
+      // Undo move
+      final undoSuccess = await viewModel.undoMoveFiles([f1.path], 'UndoTarget');
+      expect(undoSuccess, true);
+      expect(viewModel.files.contains(f1.path), true);
+    });
   });
 }

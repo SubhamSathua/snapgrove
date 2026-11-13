@@ -7,6 +7,7 @@ import '../services/bin_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_blur.dart';
 import '../viewmodels/app_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
 
@@ -487,10 +488,10 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    filter: AppBlur.filter(sigmaX: 10, sigmaY: 10)!,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      color: Colors.black54,
+                      color: AppBlur.getBackgroundColor(Colors.black54),
                       child: Text(
                         '${(_currentZoom * 100).toInt()}%',
                         style: const TextStyle(
@@ -646,12 +647,12 @@ class _BlurCircleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipOval(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: AppBlur.filter(sigmaX: 10, sigmaY: 10)!,
         child: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: AppBlur.getBackgroundColor(Colors.black.withValues(alpha: 0.5)),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white24),
           ),

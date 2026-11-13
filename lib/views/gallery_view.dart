@@ -13,6 +13,7 @@ import '../models/folder_node.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_blur.dart';
 import '../services/file_service.dart';
 import '../services/storage_service.dart';
 import '../services/settings_service.dart';
@@ -528,12 +529,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: BackdropFilter(
-                      filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                       child: Container(
                         width: 280,
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                         decoration: BoxDecoration(
-                          color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                          color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -723,12 +724,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                   child: Container(
                     width: 340,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                      color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
                       boxShadow: [
@@ -946,12 +947,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                   child: Container(
                     width: 310,
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                      color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
                       boxShadow: [
@@ -1094,12 +1095,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -1217,12 +1218,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -1841,12 +1842,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -2025,16 +2026,31 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
           actionLabel: 'Undo',
           onAction: () async {
-            final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
-            if (undoSuccess) {
-              locator<NotificationService>().showSnackBar(
-                'Restored $count ${count == 1 ? "file" : "files"}',
-              );
-            } else {
-              locator<NotificationService>().showSnackBar(
-                'Failed to undo move',
-                isError: true,
-              );
+            if (mounted) {
+              setState(() {
+                _isMovingFiles = true;
+                _movingFilesStatus = 'Restoring $count ${count == 1 ? "file" : "files"}...';
+              });
+            }
+            try {
+              final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
+              if (undoSuccess) {
+                locator<NotificationService>().showSnackBar(
+                  'Restored $count ${count == 1 ? "file" : "files"}',
+                );
+              } else {
+                locator<NotificationService>().showSnackBar(
+                  'Failed to undo move',
+                  isError: true,
+                );
+              }
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isMovingFiles = false;
+                  _movingFilesStatus = null;
+                });
+              }
             }
           },
           duration: const Duration(seconds: 6),
@@ -2183,13 +2199,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 320,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                        .withValues(alpha: 0.92),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.92)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -2315,12 +2330,12 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
                 child: Container(
                   width: 330,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
+                    color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
@@ -2445,9 +2460,27 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       _exitSelectionMode();
       final success = await _viewModel.moveToBin(selectedFiles);
       if (success) {
-        locator<NotificationService>().showSnackBar(
-          'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
-        );
+        final settings = locator<SettingsService>();
+        final isPc = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+        if (isPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
+          settings.markBinFirstMoveDone();
+          locator<NotificationService>().showSnackBar(
+            'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
+            actionLabel: 'Set Bin Password',
+            onAction: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SettingsView(highlightBinAuth: true),
+                ),
+              );
+            },
+            duration: const Duration(seconds: 6),
+          );
+        } else {
+          locator<NotificationService>().showSnackBar(
+            'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
+          );
+        }
       } else {
         locator<NotificationService>().showSnackBar('Failed to move files to $destinationName', isError: true);
       }
@@ -3000,12 +3033,12 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
 
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: AppBlur.filter(sigmaX: 24, sigmaY: 24)!,
         child: Container(
           height: _height,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: backgroundColor.withValues(alpha: 0.70),
+            color: AppBlur.getBackgroundColor(backgroundColor.withValues(alpha: 0.70)),
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
@@ -3373,13 +3406,13 @@ class _RightSideSelectionPane extends StatelessWidget {
 
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: AppBlur.filter(sigmaX: 24, sigmaY: 24)!,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutCubic,
           width: 280,
           decoration: BoxDecoration(
-            color: (isDark ? sc.surfaceElevated : Colors.white).withValues(alpha: 0.70),
+            color: AppBlur.getBackgroundColor((isDark ? sc.surfaceElevated : Colors.white).withValues(alpha: 0.70)),
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,

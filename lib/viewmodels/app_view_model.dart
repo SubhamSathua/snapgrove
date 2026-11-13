@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/locator.dart';
+import '../services/battery_service.dart';
 import '../services/bin_service.dart';
 import '../services/storage_service.dart';
 import '../services/settings_service.dart';
@@ -50,6 +51,24 @@ class AppViewModel extends ChangeNotifier {
     }
     _isLoading = false;
     notifyListeners();
+
+    // Check battery level on startup to adjust blur if needed
+    if (!kIsWeb) {
+      try {
+        final batteryService = locator<BatteryService>();
+        final info = await batteryService.getBatteryInfo();
+        if (info != null && info.level != null) {
+          final level = info.level!.toDouble();
+          _settingsService?.updateBatteryLevel(level);
+          final settings = _settingsService;
+          if (settings != null &&
+              settings.disableBlurLowBattery &&
+              level <= settings.lowBatteryThreshold) {
+            settings.setRuntimeBlurDisabled(true);
+          }
+        }
+      } catch (_) {}
+    }
 
     // Lightweight non-blocking background 24h periodic bin cleanup check
     if (!kIsWeb) {

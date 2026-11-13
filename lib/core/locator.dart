@@ -5,6 +5,7 @@ import '../services/file_service.dart';
 import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
 import '../services/bin_service.dart';
+import '../services/battery_service.dart';
 import '../viewmodels/app_view_model.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
@@ -25,6 +26,7 @@ Future<void> setupLocator() async {
   locator.registerSingleton<NotificationService>(NotificationService());
   locator.registerLazySingleton<ShareService>(() => getShareService());
   locator.registerLazySingleton<BinService>(() => BinService());
+  locator.registerLazySingleton<BatteryService>(() => BatteryService());
 
   // ViewModels
   locator.registerLazySingleton<AppViewModel>(() => AppViewModel(

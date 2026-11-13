@@ -1,7 +1,9 @@
 package com.prism.snapgrove
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.BatteryManager
 import android.provider.DocumentsContract
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,10 +13,33 @@ import kotlinx.coroutines.*
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.snapgrove.organizer/saf_utils"
+    private val BATTERY_CHANNEL = "com.snapgrove.organizer/battery"
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BATTERY_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "getBatteryLevel") {
+                try {
+                    val batteryManager = getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+                    if (batteryManager != null) {
+                        val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                        if (batteryLevel in 0..100) {
+                            result.success(batteryLevel)
+                        } else {
+                            result.success(null)
+                        }
+                    } else {
+                        result.success(null)
+                    }
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getThumbnail") {
                 val uriStr = call.argument<String>("uri")

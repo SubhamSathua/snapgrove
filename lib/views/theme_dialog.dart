@@ -1,7 +1,7 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
+import '../theme/app_blur.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/app_view_model.dart';
 
@@ -43,26 +43,25 @@ class ThemeDialog extends StatelessWidget {
                     final isDark = Theme.of(context).brightness == Brightness.dark;
                     final selected = appVM.themeMode;
 
-                    return ClipRRect(
+                    return AppBlur(
                       borderRadius: BorderRadius.circular(14),
-                      child: BackdropFilter(
-                        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 40,
-                                offset: const Offset(0, 20),
-                              ),
-                            ],
+                      sigmaX: 20,
+                      sigmaY: 20,
+                      solidColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      blurOpacity: 0.80,
+                      width: screenWidth * 0.92 > 360 ? 360 : screenWidth * 0.92,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
                           ),
-                          child: Column(
+                        ],
+                      ),
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -133,12 +132,10 @@ class ThemeDialog extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+                    );
+                  },
+                ),
+              ),
             ),
           ],
         ),
