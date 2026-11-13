@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 import 'privacy_policy_view.dart';
 import 'licenses_view.dart';
 import 'source_code_view.dart';
@@ -27,65 +28,63 @@ class AboutView extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF9F9FB),
       body: SafeArea(
-        child: SelectionArea(
-          child: Column(
-            children: [
-              // Top Bar
-              _buildTopBar(context, sc, isDark),
+        child: Column(
+          children: [
+            // Top Bar
+            _buildTopBar(context, sc, isDark),
 
-              // Content Area
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: contentMax),
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        // Hero Branding Card
-                        _buildHeroBranding(context, sc, isDark),
-                        const SizedBox(height: 20),
+            // Content Area
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: contentMax),
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Hero Branding Card
+                      _buildHeroBranding(context, sc, isDark),
+                      const SizedBox(height: 20),
 
-                        // Highlights Title
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, bottom: 10),
-                          child: Text(
-                            'Core Highlights',
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.1,
-                            ),
+                      // Highlights Title
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 10),
+                        child: Text(
+                          'Core Highlights',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.1,
                           ),
                         ),
+                      ),
 
-                        // Key Feature Cards Grid / Column
-                        ...AppConstants.keyFeatures.map((feat) {
-                          return _buildFeatureCard(
-                            sc: sc,
-                            isDark: isDark,
-                            title: feat['title']!,
-                            description: feat['description']!,
-                            iconPath: feat['icon']!,
-                          );
-                        }),
-                        const SizedBox(height: 12),
+                      // Key Feature Cards Grid / Column
+                      ...AppConstants.keyFeatures.map((feat) {
+                        return _buildFeatureCard(
+                          sc: sc,
+                          isDark: isDark,
+                          title: feat['title']!,
+                          description: feat['description']!,
+                          iconPath: feat['icon']!,
+                        );
+                      }),
+                      const SizedBox(height: 12),
 
-                        // Quick Navigation Section
-                        _buildQuickLinksCard(context, sc, isDark),
-                        const SizedBox(height: 16),
+                      // Quick Navigation Section
+                      _buildQuickLinksCard(context, sc, isDark),
+                      const SizedBox(height: 16),
 
-                        // Creator & Credits Card
-                        _buildAuthorCard(sc, isDark),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
+                      // Creator & Credits Card
+                      _buildAuthorCard(sc, isDark),
+                      const SizedBox(height: 32),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -193,7 +192,7 @@ class AboutView extends StatelessWidget {
             width: 72,
             height: 72,
             errorBuilder: (context, error, stackTrace) => Icon(
-              Icons.photo_library_outlined,
+              SnapSymbols.photo_library_outlined,
               size: 48,
               color: sc.accent,
             ),
@@ -412,7 +411,7 @@ class AboutView extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              SnapSymbols.chevron_right_rounded,
               size: 20,
               color: sc.muted,
             ),
