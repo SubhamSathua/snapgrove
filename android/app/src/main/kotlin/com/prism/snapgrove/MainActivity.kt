@@ -5,13 +5,13 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.BatteryManager
 import android.provider.DocumentsContract
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.*
 
-class MainActivity: FlutterActivity() {
+class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.snapgrove.organizer/saf_utils"
     private val BATTERY_CHANNEL = "com.snapgrove.organizer/battery"
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())

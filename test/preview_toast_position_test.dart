@@ -11,6 +11,7 @@ import 'package:snapgrove/services/storage_service.dart';
 import 'package:snapgrove/viewmodels/app_view_model.dart';
 import 'package:snapgrove/viewmodels/gallery_view_model.dart';
 import 'package:snapgrove/views/image_preview_view.dart';
+import 'package:snapgrove/theme/snap_symbols.dart';
 
 final Uint8List _transparentPng = Uint8List.fromList([
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
@@ -150,10 +151,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify bottom navigation bar buttons are present (icons with tooltips, no labels)
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-    expect(find.byIcon(Icons.info_outline), findsOneWidget);
-    expect(find.byIcon(Icons.share_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+    expect(find.byIcon(SnapSymbols.delete_outline), findsOneWidget);
+    expect(find.byIcon(SnapSymbols.info_outline), findsOneWidget);
+    expect(find.byIcon(SnapSymbols.share_outlined), findsOneWidget);
+    expect(find.byIcon(SnapSymbols.fullscreen), findsOneWidget);
 
     // Show undo toast
     notificationService.showSnackBar(
@@ -168,7 +169,7 @@ void main() {
     expect(snackBarFinder, findsOneWidget);
 
     final snackBarRect = tester.getRect(snackBarFinder);
-    final binRect = tester.getRect(find.byIcon(Icons.delete_outline));
+    final binRect = tester.getRect(find.byIcon(SnapSymbols.delete_outline));
 
     // SnackBar's bottom must be strictly above the bottom action bar's top
     expect(
@@ -176,5 +177,32 @@ void main() {
       isTrue,
       reason: 'SnackBar bottom (${snackBarRect.bottom}) should be <= bottom bar item top (${binRect.top})',
     );
+  });
+
+  testWidgets('ImagePreviewView PageView uses PageScrollPhysics with BouncingScrollPhysics when unzoomed', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        scaffoldMessengerKey: notificationService.messengerKey,
+        home: const ImagePreviewView(
+          files: ['content://media/external/images/media/101', 'content://media/external/images/media/102'],
+          initialIndex: 0,
+          directoryPath: '/storage/emulated/0/Pictures/Screenshots',
+          subfolders: ['FolderA', 'FolderB'],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pageView = tester.widget<PageView>(find.byType(PageView));
+    expect(pageView.physics, isA<PageScrollPhysics>());
+    final pagePhysics = pageView.physics as PageScrollPhysics;
+    expect(pagePhysics.parent, isA<BouncingScrollPhysics>());
   });
 }
