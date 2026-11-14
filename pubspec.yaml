@@ -100,6 +100,7 @@ flutter:
     - assets/icons/license.svg
     - assets/icons/trash.svg
     - assets/logo/logo.png
+    - assets/licenses/
 
   fonts:
     - family: Lora

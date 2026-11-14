@@ -6,16 +6,25 @@ import 'viewmodels/app_view_model.dart';
 import 'views/app_view.dart';
 
 void main() async {
-  LicenseRegistry.addLicense(() async* {
-    yield const LicenseEntryWithLineBreaks(
-      ['Material Symbols Rounded'],
-      'Copyright Google LLC.\n'
-      'Licensed under the Apache License, Version 2.0.\n'
-      'https://github.com/google/material-design-icons/blob/master/LICENSE',
-    );
-  });
-
   WidgetsFlutterBinding.ensureInitialized();
+
+  LicenseRegistry.addLicense(() async* {
+    try {
+      final materialSymbols = await rootBundle
+          .loadString('assets/licenses/LICENSE-MaterialSymbols.txt');
+      yield LicenseEntryWithLineBreaks(
+          ['Material Symbols Rounded'], materialSymbols);
+    } catch (_) {}
+    try {
+      final lora = await rootBundle.loadString('assets/licenses/OFL-Lora.txt');
+      yield LicenseEntryWithLineBreaks(['Lora'], lora);
+    } catch (_) {}
+    try {
+      final jetbrains =
+          await rootBundle.loadString('assets/licenses/OFL-JetBrains.txt');
+      yield LicenseEntryWithLineBreaks(['JetBrains Mono'], jetbrains);
+    } catch (_) {}
+  });
 
   if (kIsWeb) {
     BrowserContextMenu.disableContextMenu();
