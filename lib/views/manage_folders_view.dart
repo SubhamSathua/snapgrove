@@ -11,6 +11,7 @@ import '../services/notification_service.dart';
 import '../services/thumbnail_manager.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_blur.dart';
+import '../theme/snap_symbols.dart';
 import 'widgets/folder_tree_picker_modal.dart';
 import 'image_preview_view.dart';
 
@@ -284,7 +285,6 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
   Future<void> _showDesktopContextMenu(
       BuildContext context, FolderNode node, Offset position) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sc = context.snapgroveColors;
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -295,10 +295,14 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         Offset.zero & overlay.size,
       ),
       elevation: 8,
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: AppBlur.getBackgroundColor(
+        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: sc.border),
+        side: BorderSide(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
       ),
       items: [
         PopupMenuItem<String>(
@@ -306,7 +310,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.drive_file_rename_outline_rounded,
+              Icon(SnapSymbols.drive_file_rename_outline_rounded,
                   size: 18, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 10),
               const Text('Rename Folder',
@@ -319,7 +323,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.info_outline_rounded,
+              Icon(SnapSymbols.info_outline_rounded,
                   size: 18, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 10),
               const Text('Folder Properties',
@@ -333,7 +337,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: const Row(
             children: [
-              Icon(Icons.delete_outline_rounded,
+              Icon(SnapSymbols.delete_outline_rounded,
                   size: 18, color: Color(0xFFEF4444)),
               SizedBox(width: 10),
               Text('Delete Folder',
@@ -361,7 +365,6 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
   Future<void> _showImageContextMenu(
       BuildContext context, String imgPath, Offset position) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sc = context.snapgroveColors;
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -372,10 +375,14 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         Offset.zero & overlay.size,
       ),
       elevation: 8,
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: AppBlur.getBackgroundColor(
+        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: sc.border),
+        side: BorderSide(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
       ),
       items: [
         PopupMenuItem<String>(
@@ -383,7 +390,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.checklist,
+              Icon(SnapSymbols.checklist,
                   size: 18, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 10),
               const Text('Select Images',
@@ -397,7 +404,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.create_new_folder_outlined,
+              Icon(SnapSymbols.create_new_folder_outlined,
                   size: 18, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 10),
               const Text('New Folder',
@@ -464,7 +471,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.folder_rounded, size: 18, color: sc.accent),
+                      Icon(SnapSymbols.folder_rounded, size: 18, color: sc.accent),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -486,7 +493,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _BottomSheetActionItem(
-                        icon: Icons.drive_file_rename_outline_rounded,
+                        icon: SnapSymbols.drive_file_rename_outline_rounded,
                         tooltip: 'Rename',
                         label: 'Rename',
                         color: isDark ? Colors.white : Colors.black87,
@@ -497,7 +504,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                         },
                       ),
                       _BottomSheetActionItem(
-                        icon: Icons.info_outline_rounded,
+                        icon: SnapSymbols.info_outline_rounded,
                         tooltip: 'Folder Properties',
                         label: 'Properties',
                         color: isDark ? Colors.white : Colors.black87,
@@ -508,7 +515,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                         },
                       ),
                       _BottomSheetActionItem(
-                        icon: Icons.delete_outline_rounded,
+                        icon: SnapSymbols.delete_outline_rounded,
                         tooltip: 'Delete Folder',
                         label: 'Delete',
                         color: const Color(0xFFEF4444),
@@ -721,7 +728,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                                   .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.folder_rounded,
+                            child: const Icon(SnapSymbols.folder_rounded,
                                 color: Color(0xFFF59E0B), size: 22),
                           ),
                           const SizedBox(width: 10),
@@ -859,7 +866,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.delete_forever_rounded,
+                      const Icon(SnapSymbols.delete_forever_rounded,
                           color: Color(0xFFEF4444), size: 36),
                       const SizedBox(height: 10),
                       Text(
@@ -1066,7 +1073,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                               },
                               child: Row(
                                 children: [
-                                  Icon(Icons.home_outlined,
+                                  Icon(SnapSymbols.home_outlined,
                                       size: 16, color: sc.accent),
                                   const SizedBox(width: 4),
                                   Text(
@@ -1087,7 +1094,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                             ),
                             if (!isRoot) ...[
                               const SizedBox(width: 6),
-                              Icon(Icons.chevron_right,
+                              Icon(SnapSymbols.chevron_right,
                                   size: 16, color: sc.muted),
                               const SizedBox(width: 6),
                               Text(
@@ -1258,7 +1265,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                   onPressed: _selectedImagePaths.isNotEmpty
                       ? _moveSelectedImages
                       : null,
-                  icon: const Icon(Icons.drive_file_move_outlined, size: 20),
+                  icon: const Icon(SnapSymbols.drive_file_move_outlined, size: 20),
                   label: Text(
                     'Move (${_selectedImagePaths.length}) to Folder',
                     style: const TextStyle(
@@ -1389,7 +1396,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             onPressed: _selectedImagePaths.isNotEmpty
                 ? _moveSelectedImages
                 : null,
-            icon: const Icon(Icons.drive_file_move_outlined, size: 16),
+            icon: const Icon(SnapSymbols.drive_file_move_outlined, size: 16),
             label: Text(
               'Move (${_selectedImagePaths.length}) to Folder',
               style: const TextStyle(
@@ -1405,7 +1412,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         // Mobile in selection mode: keep more_vert with items
         return [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 22),
+            icon: const Icon(SnapSymbols.more_vert, size: 22),
             tooltip: 'Selection options',
             color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             shape: RoundedRectangleBorder(
@@ -1466,7 +1473,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
       return [
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(Icons.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         const SizedBox(width: 6),
@@ -1479,12 +1486,12 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
         if (_currentImages.isNotEmpty)
           IconButton(
             tooltip: 'Select Images',
-            icon: const Icon(Icons.checklist, size: 22),
+            icon: const Icon(SnapSymbols.checklist, size: 22),
             onPressed: () => setState(() => _isSelectionMode = true),
           ),
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(Icons.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         const SizedBox(width: 8),
@@ -1493,11 +1500,11 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
       return [
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(Icons.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 22),
+          icon: const Icon(SnapSymbols.more_vert, size: 22),
           tooltip: 'More',
           color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           shape: RoundedRectangleBorder(
@@ -1516,7 +1523,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                 height: 42,
                 child: Row(
                   children: [
-                    Icon(Icons.checklist, size: 18),
+                    Icon(SnapSymbols.checklist, size: 18),
                     SizedBox(width: 10),
                     Text('Select Images',
                         style: TextStyle(
@@ -1557,7 +1564,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.folder_special_rounded,
+          child: const Icon(SnapSymbols.folder_special_rounded,
               color: Color(0xFFF59E0B), size: 22),
         ),
         title: Text(
@@ -1760,7 +1767,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                         Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: isSelected
-                      ? const Icon(Icons.check,
+                      ? const Icon(SnapSymbols.check,
                           size: 14, color: Colors.white)
                       : null,
                 ),
@@ -1868,8 +1875,8 @@ class _FocusableFolderListItemState extends State<_FocusableFolderListItem> {
                 ),
                 child: Icon(
                   child.hasChildren
-                      ? Icons.folder_rounded
-                      : Icons.folder_outlined,
+                      ? SnapSymbols.folder_rounded
+                      : SnapSymbols.folder_outlined,
                   color: sc.accent,
                   size: 20,
                 ),
@@ -2002,7 +2009,7 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.folder_special_rounded,
+                            Icon(SnapSymbols.folder_special_rounded,
                                 size: 11, color: Color(0xFFF59E0B)),
                             SizedBox(width: 3),
                             Text(
@@ -2038,8 +2045,8 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Icon(
                         isGridView
-                            ? Icons.view_list_rounded
-                            : Icons.grid_view_rounded,
+                            ? SnapSymbols.view_list_rounded
+                            : SnapSymbols.grid_view_rounded,
                         size: 15,
                         color: sc.muted,
                       ),
@@ -2163,8 +2170,8 @@ class _FolderGridCardState extends State<_FolderGridCard> {
                 child: Center(
                   child: Icon(
                     node.hasChildren
-                        ? Icons.folder_rounded
-                        : Icons.folder_outlined,
+                        ? SnapSymbols.folder_rounded
+                        : SnapSymbols.folder_outlined,
                     color: sc.accent,
                     size: 34,
                   ),

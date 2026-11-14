@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/folder_node.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/snap_symbols.dart';
 
 class FolderTreePickerModal extends StatefulWidget {
   final FolderNode? rootNode;
@@ -121,7 +122,7 @@ class _FolderTreePickerModalState extends State<FolderTreePickerModal> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
-                      child: Icon(Icons.drive_file_move_outlined, color: sc.accent, size: 20),
+                      child: Icon(SnapSymbols.drive_file_move_outlined, color: sc.accent, size: 20),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -322,7 +323,7 @@ class _FolderTreePickerModalState extends State<FolderTreePickerModal> {
                 child: Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: Icon(
-                    isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                    isExpanded ? SnapSymbols.keyboard_arrow_down : SnapSymbols.keyboard_arrow_right,
                     size: 20,
                     color: sc.muted,
                   ),
@@ -333,7 +334,7 @@ class _FolderTreePickerModalState extends State<FolderTreePickerModal> {
 
             // Icon
             Icon(
-              isRoot ? Icons.home_outlined : (hasChildren ? Icons.folder : Icons.folder_outlined),
+              isRoot ? SnapSymbols.home_outlined : (hasChildren ? SnapSymbols.folder : SnapSymbols.folder_outlined),
               size: 20,
               color: isDisabled
                   ? sc.muted.withValues(alpha: 0.4)
@@ -381,7 +382,7 @@ class _FolderTreePickerModalState extends State<FolderTreePickerModal> {
               ),
               child: isSelected
                   ? const Center(
-                      child: Icon(Icons.check, size: 12, color: Colors.white),
+                      child: Icon(SnapSymbols.check, size: 12, color: Colors.white),
                     )
                   : null,
             ),

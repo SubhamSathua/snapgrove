@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
 import 'bin_preview_view.dart';
@@ -71,7 +72,7 @@ class _BinViewState extends State<BinView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 22),
+                          child: Icon(SnapSymbols.delete_forever, color: Color(0xFFEF4444), size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -175,7 +176,7 @@ class _BinViewState extends State<BinView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
+                          child: Icon(SnapSymbols.delete_outline, color: Color(0xFFEF4444), size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -311,12 +312,12 @@ class _BinViewState extends State<BinView> {
                   if (_viewModel.allFiles.isNotEmpty) ...[
                     IconButton(
                       tooltip: 'Select',
-                      icon: const Icon(Icons.checklist, size: 22),
+                      icon: const Icon(SnapSymbols.checklist, size: 22),
                       onPressed: _viewModel.isRestoring ? null : () => _viewModel.selectAll(),
                     ),
                     TextButton.icon(
                       onPressed: _viewModel.isRestoring ? null : _confirmEmptyFullBin,
-                      icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFEF4444), size: 18),
+                      icon: const Icon(SnapSymbols.delete_sweep_outlined, color: Color(0xFFEF4444), size: 18),
                       label: const Text(
                         'Empty Bin',
                         style: TextStyle(
@@ -393,7 +394,7 @@ class _BinViewState extends State<BinView> {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Icon(Icons.delete_outline, size: 38, color: sc.muted),
+                  child: Icon(SnapSymbols.delete_outline, size: 38, color: sc.muted),
                 ),
               ),
               const SizedBox(height: 18),
@@ -436,7 +437,7 @@ class _BinViewState extends State<BinView> {
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, size: 16, color: sc.muted),
+              Icon(SnapSymbols.info_outline, size: 16, color: sc.muted),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -720,7 +721,7 @@ class _BinViewState extends State<BinView> {
                         valueColor: AlwaysStoppedAnimation<Color>(isDark ? Colors.black : Colors.white),
                       ),
                     )
-                  : const Icon(Icons.restore_rounded, size: 19),
+                  : const Icon(SnapSymbols.restore_rounded, size: 19),
               label: Text(
                 _viewModel.isRestoring
                     ? 'Restoring...'
@@ -744,7 +745,7 @@ class _BinViewState extends State<BinView> {
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
               onPressed: (_viewModel.selectedCount > 0 && !_viewModel.isRestoring) ? _confirmDeleteSelected : null,
-              icon: const Icon(Icons.delete_forever, size: 19, color: Color(0xFFEF4444)),
+              icon: const Icon(SnapSymbols.delete_forever, size: 19, color: Color(0xFFEF4444)),
               label: Text(
                 'Delete (${_viewModel.selectedCount})',
                 style: const TextStyle(
@@ -825,11 +826,11 @@ class _BinThumbnailTileState extends State<_BinThumbnailTile> {
                         fit: BoxFit.cover,
                         cacheWidth: 300,
                         errorBuilder: (context, error, stackTrace) => Center(
-                          child: Icon(Icons.broken_image_outlined, color: sc.muted, size: 28),
+                          child: Icon(SnapSymbols.broken_image_outlined, color: sc.muted, size: 28),
                         ),
                       )
                     : Center(
-                        child: Icon(Icons.broken_image_outlined, color: sc.muted, size: 28),
+                        child: Icon(SnapSymbols.broken_image_outlined, color: sc.muted, size: 28),
                       )),
           ),
 
@@ -916,7 +917,7 @@ class _BinThumbnailTileState extends State<_BinThumbnailTile> {
                   ),
                 ),
                 child: widget.isSelected
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? const Icon(SnapSymbols.check, size: 14, color: Colors.white)
                     : null,
               ),
             ),

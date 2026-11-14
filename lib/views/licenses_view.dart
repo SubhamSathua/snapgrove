@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 
 class LicensesView extends StatefulWidget {
   const LicensesView({super.key});
@@ -223,13 +224,13 @@ class _LicensesViewState extends State<LicensesView> {
                   color: sc.muted.withValues(alpha: 0.8),
                 ),
                 prefixIcon: Icon(
-                  Icons.search_rounded,
+                  SnapSymbols.search_rounded,
                   size: 18,
                   color: isDark ? Colors.white54 : Colors.black45,
                 ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close, size: 16),
+                        icon: const Icon(SnapSymbols.close, size: 16),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchQuery = '');
@@ -290,12 +291,16 @@ class _LicensesViewState extends State<LicensesView> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700,
+                            Flexible(
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -358,7 +363,7 @@ class _LicensesViewState extends State<LicensesView> {
                     ),
                   ),
                   Icon(
-                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    isExpanded ? SnapSymbols.keyboard_arrow_up_rounded : SnapSymbols.keyboard_arrow_down_rounded,
                     color: sc.muted,
                   ),
                 ],
@@ -442,7 +447,7 @@ class _LicensesViewState extends State<LicensesView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.search_off_rounded,
+              SnapSymbols.search_off_rounded,
               size: 40,
               color: sc.muted.withValues(alpha: 0.5),
             ),

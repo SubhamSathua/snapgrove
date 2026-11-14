@@ -339,5 +339,39 @@ Copyright 2020 The Flutter Community Authors. All rights reserved.''',
 
 Copyright (c) 2016 Alexandre Roux Tekartik''',
     },
+    {
+      'name': 'Material Symbols Rounded',
+      'version': 'Variable Font',
+      'license': 'Apache-2.0',
+      'author': 'Google LLC',
+      'description': 'Modern, consolidated icon symbol font from Google.',
+      'url': 'https://github.com/google/material-design-icons',
+      'text': '''Copyright Google LLC.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0''',
+    },
+    {
+      'name': 'Lora Font',
+      'version': 'Variable Font',
+      'license': 'OFL-1.1',
+      'author': 'Cyreal',
+      'description': 'Contemporary serif typeface designed for text and digital typography.',
+      'url': 'https://github.com/cyrealtype/Lora-Cyrillic',
+      'text': '''Copyright 2011 The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic), with Reserved Font Name "Lora".
+Licensed under the SIL Open Font License, Version 1.1.''',
+    },
+    {
+      'name': 'JetBrains Mono Font',
+      'version': 'Variable Font',
+      'license': 'OFL-1.1',
+      'author': 'JetBrains',
+      'description': 'Free and open-source monospaced typeface crafted specifically for developers.',
+      'url': 'https://github.com/JetBrains/JetBrainsMono',
+      'text': '''Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono).
+Licensed under the SIL Open Font License, Version 1.1.''',
+    },
   ];
 }

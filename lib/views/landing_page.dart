@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import '../services/settings_service.dart';
 import '../core/locator.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_blur.dart';
+import '../theme/snap_symbols.dart';
 import 'gallery_view.dart';
 import 'bin_view.dart';
 import 'settings_view.dart';
@@ -108,9 +110,24 @@ class _LandingPageState extends State<LandingPage> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
+  Future<void> _openWindowsRecycleBin() async {
+    await _removeMenu();
+    try {
+      await Process.run('explorer.exe', ['shell:RecycleBinFolder']);
+    } catch (e) {
+      debugPrint('Error opening Windows Recycle Bin: $e');
+    }
+  }
+
   Future<void> _openBinWithAuth() async {
     await _removeMenu();
     if (!mounted) return;
+
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    if (isWindows) {
+      await _openWindowsRecycleBin();
+      return;
+    }
 
     final settings = locator<SettingsService>();
     final binAuthEnabled = settings.binAuthEnabled;
@@ -143,18 +160,16 @@ class _LandingPageState extends State<LandingPage> {
             }
           } on PlatformException catch (e) {
             debugPrint('LocalAuth PlatformException: ${e.code} ${e.message}');
-            if (e.code == 'NotEnrolled' ||
-                e.code == 'PasscodeNotSet' ||
-                e.code == 'notEnrolled' ||
-                e.code == 'passcodeNotSet') {
-              if (!mounted) return;
-              final proceed = await _showNoScreenLockDialog();
-              if (!proceed) return;
-            } else {
-              return;
-            }
+            if (!mounted) return;
+            final proceed = await _showNoScreenLockDialog();
+            if (!proceed) return;
           }
         }
+      } on PlatformException catch (e) {
+        debugPrint('LocalAuth PlatformException: ${e.code} ${e.message}');
+        if (!mounted) return;
+        final proceed = await _showNoScreenLockDialog();
+        if (!proceed) return;
       } catch (e) {
         debugPrint('Biometrics auth error: $e');
         return;
@@ -281,13 +296,20 @@ class _LandingPageState extends State<LandingPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (!kIsWeb)
-                              _MenuButton(
-                                svgPath: 'assets/icons/trash.svg',
-                                label: 'Bin',
-                                onTap: _openBinWithAuth,
-                              ),
+                              if (defaultTargetPlatform == TargetPlatform.windows)
+                                _MenuButton(
+                                  svgPath: 'assets/icons/trash.svg',
+                                  label: 'Windows Recycle Bin',
+                                  onTap: _openWindowsRecycleBin,
+                                )
+                              else
+                                _MenuButton(
+                                  svgPath: 'assets/icons/trash.svg',
+                                  label: 'Bin',
+                                  onTap: _openBinWithAuth,
+                                ),
                             _MenuButton(
-                              icon: Icons.settings_outlined,
+                              icon: SnapSymbols.settings_outlined,
                               label: 'Settings',
                               onTap: () => _navigateTo(const SettingsView()),
                             ),
@@ -298,6 +320,14 @@ class _LandingPageState extends State<LandingPage> {
                                 await _removeMenu();
                                 _showThemeDialog();
                               },
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              child: Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                              ),
                             ),
                             _MenuButton(
                               svgPath: 'assets/icons/shield.svg',
@@ -1079,7 +1109,7 @@ class _NoScreenLockDialog extends StatelessWidget {
                     ),
                     child: const Center(
                       child: Icon(
-                        Icons.lock_open_rounded,
+                        SnapSymbols.lock_open_rounded,
                         color: Color(0xFFF59E0B),
                         size: 26,
                       ),
@@ -1217,7 +1247,7 @@ class _PcBinPasswordPromptDialogState extends State<_PcBinPasswordPromptDialog> 
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lock_rounded, size: 20, color: sc.accent),
+                      Icon(SnapSymbols.lock_rounded, size: 20, color: sc.accent),
                       const SizedBox(width: 10),
                       Text(
                         'Bin Authentication',
@@ -1284,7 +1314,7 @@ class _PcBinPasswordPromptDialogState extends State<_PcBinPasswordPromptDialog> 
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           icon: Icon(
-                            _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            _obscureText ? SnapSymbols.visibility_off_outlined : SnapSymbols.visibility_outlined,
                             size: 18,
                             color: sc.muted,
                           ),
@@ -1312,7 +1342,7 @@ class _PcBinPasswordPromptDialogState extends State<_PcBinPasswordPromptDialog> 
                       child: Row(
                         children: [
                           Icon(
-                            Icons.help_outline_rounded,
+                            SnapSymbols.help_outline_rounded,
                             size: 14,
                             color: sc.muted.withValues(alpha: 0.8),
                           ),

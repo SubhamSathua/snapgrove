@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../theme/app_blur.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 
 class ThemeDialog extends StatelessWidget {
@@ -87,7 +88,7 @@ class ThemeDialog extends StatelessWidget {
                                   mouseCursor: SystemMouseCursors.click,
                                   child: Center(
                                     child: Icon(
-                                      Icons.close,
+                                      SnapSymbols.close,
                                       size: 18,
                                       color: isDark ? Colors.white : Colors.black,
                                     ),

@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 
 class SourceCodeView extends StatelessWidget {
   const SourceCodeView({super.key});
@@ -173,7 +174,7 @@ class SourceCodeView extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => _launchUrl(context, AppConstants.repoUrl),
-            icon: const Icon(Icons.open_in_new_rounded, size: 14),
+            icon: const Icon(SnapSymbols.open_in_new_rounded, size: 14),
             label: const Text(
               'Open with',
               style: TextStyle(
@@ -370,7 +371,7 @@ class SourceCodeView extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
-                      Icons.copy_rounded,
+                      SnapSymbols.copy_rounded,
                       size: 16,
                       color: sc.muted,
                     ),

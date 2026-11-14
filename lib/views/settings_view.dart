@@ -5,6 +5,7 @@ import '../services/picker_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_blur.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 import 'theme_dialog.dart';
 
@@ -40,7 +41,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       curve: Curves.easeOut,
     );
 
-    if (widget.highlightBinAuth) {
+    if (widget.highlightBinAuth && (!kIsWeb && defaultTargetPlatform != TargetPlatform.windows)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToAndPulseBinAuth();
       });
@@ -160,37 +161,37 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         'key': 'name_asc',
         'title': 'Name (A to Z)',
         'subtitle': 'Alphabetical order',
-        'icon': Icons.sort_by_alpha_rounded,
+        'icon': SnapSymbols.sort_by_alpha_rounded,
       },
       {
         'key': 'name_desc',
         'title': 'Name (Z to A)',
         'subtitle': 'Reverse alphabetical order',
-        'icon': Icons.sort_by_alpha_rounded,
+        'icon': SnapSymbols.sort_by_alpha_rounded,
       },
       {
         'key': 'items_desc',
         'title': 'Items (Most first)',
         'subtitle': 'Folders with most images at the top',
-        'icon': Icons.photo_library_outlined,
+        'icon': SnapSymbols.photo_library_outlined,
       },
       {
         'key': 'items_asc',
         'title': 'Items (Fewest first)',
         'subtitle': 'Folders with fewest images at the top',
-        'icon': Icons.photo_library_outlined,
+        'icon': SnapSymbols.photo_library_outlined,
       },
       {
         'key': 'date_desc',
         'title': 'Date (Newest first)',
         'subtitle': 'Recently modified folders first',
-        'icon': Icons.calendar_today_outlined,
+        'icon': SnapSymbols.calendar_today_outlined,
       },
       {
         'key': 'date_asc',
         'title': 'Date (Oldest first)',
         'subtitle': 'Oldest modified folders first',
-        'icon': Icons.history_rounded,
+        'icon': SnapSymbols.history_rounded,
       },
     ];
 
@@ -244,7 +245,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: Icon(Icons.close_rounded, size: 20, color: sc.muted),
+                            icon: Icon(SnapSymbols.close_rounded, size: 20, color: sc.muted),
                             onPressed: () => Navigator.of(ctx).pop(),
                           ),
                         ],
@@ -309,7 +310,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                     ),
                                     if (isSelected)
                                       Icon(
-                                        Icons.check_rounded,
+                                        SnapSymbols.check_rounded,
                                         size: 18,
                                         color: sc.accent,
                                       ),
@@ -351,6 +352,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sc = context.snapgroveColors;
     final isPc = !kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS);
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
     // Filter checks
     final showTheme = _matchesQuery(['theme', 'dark mode', 'light mode', 'appearance', 'color']);
@@ -358,7 +360,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     final showBatterySaver = _matchesQuery(['battery', 'blur', 'battery saver', 'low battery', 'performance', 'power']);
     final showBatterySlider = showBatterySaver;
     final showFolderSort = _matchesQuery(['folder', 'sort', 'folder sort order', 'tags', 'alphabetical', 'items', 'date']);
-    final showBinAuth = _matchesQuery(['bin', 'security', 'auth', 'biometric', 'fingerprint', 'password', 'trash', 'lock']);
+    final showBinAuth = !isWindows && _matchesQuery(['bin', 'security', 'auth', 'biometric', 'fingerprint', 'password', 'trash', 'lock']);
     final showStorage = _matchesQuery(['storage', 'folder', 'screenshot', 'permanent', 'path', 'browse']);
 
     final hasAppearance = showTheme || showBlur;
@@ -382,7 +384,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                     children: [
                       // Back button
                       _TopBarCircleButton(
-                        icon: Icons.arrow_back_rounded,
+                        icon: SnapSymbols.arrow_back_rounded,
                         tooltip: 'Back',
                         onTap: () => Navigator.of(context).pop(),
                       ),
@@ -396,7 +398,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                      if (isPc && !_settingsService.isBinPasswordSet) ...[
+                      if (isPc && !isWindows && !_settingsService.isBinPasswordSet) ...[
                         const SizedBox(width: 8),
                         Tooltip(
                           message: 'Bin Password Not Set (Click to configure)',
@@ -406,7 +408,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                       const Spacer(),
                       // Close button (X) matching settings.png
                       _TopBarCircleButton(
-                        icon: Icons.close_rounded,
+                        icon: SnapSymbols.close_rounded,
                         tooltip: 'Close',
                         onTap: () => Navigator.of(context).pop(),
                       ),
@@ -430,7 +432,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                     child: Row(
                       children: [
                         Icon(
-                          Icons.search_rounded,
+                          SnapSymbols.search_rounded,
                           size: 20,
                           color: sc.muted.withValues(alpha: 0.6),
                         ),
@@ -466,7 +468,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: Icon(
-                                Icons.clear_rounded,
+                                SnapSymbols.clear_rounded,
                                 size: 16,
                                 color: sc.muted.withValues(alpha: 0.7),
                               ),
@@ -492,7 +494,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           children: [
                             if (showTheme)
                               _SettingsTile(
-                                icon: Icons.palette_outlined,
+                                icon: SnapSymbols.palette_outlined,
                                 title: 'Theme',
                                 subtitle: _getThemeLabel(_settingsService.themeMode),
                                 trailing: Row(
@@ -508,7 +510,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                     ),
                                     const SizedBox(width: 4),
                                     Icon(
-                                      Icons.chevron_right_rounded,
+                                      SnapSymbols.chevron_right_rounded,
                                       size: 19,
                                       color: sc.muted,
                                     ),
@@ -519,7 +521,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             if (showTheme && showBlur) _buildDivider(isDark),
                             if (showBlur)
                               _SettingsTile(
-                                icon: Icons.blur_on_rounded,
+                                icon: SnapSymbols.blur_on_rounded,
                                 title: 'Disable Blur',
                                 subtitle: 'Turn off glassmorphism background blurs app-wide',
                                 trailing: _buildSwitch(
@@ -543,7 +545,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           children: [
                             if (showBatterySaver)
                               _SettingsTile(
-                                icon: Icons.battery_saver_rounded,
+                                icon: SnapSymbols.battery_saver_rounded,
                                 title: 'Disable Blur on Low Battery',
                                 subtitle: 'Turn off heavy blur shaders when battery drops below threshold',
                                 trailing: _buildSwitch(
@@ -576,7 +578,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           children: [
                             if (showFolderSort)
                               _SettingsTile(
-                                icon: Icons.sort_rounded,
+                                icon: SnapSymbols.sort_rounded,
                                 title: 'Folder Sort Order',
                                 subtitle: SettingsService.getFolderSortLabel(_settingsService.folderSortOrder),
                                 trailing: Row(
@@ -592,7 +594,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                     ),
                                     const SizedBox(width: 4),
                                     Icon(
-                                      Icons.chevron_right_rounded,
+                                      SnapSymbols.chevron_right_rounded,
                                       size: 19,
                                       color: sc.muted,
                                     ),
@@ -638,7 +640,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                     );
                                   },
                                   child: _SettingsTile(
-                                    icon: Icons.security_rounded,
+                                    icon: SnapSymbols.security_rounded,
                                     title: 'Bin Authentication',
                                     titleSuffix: (isPc && !_settingsService.isBinPasswordSet)
                                         ? _BlinkingYellowDot(onTap: _scrollToAndPulseBinAuth)
@@ -706,11 +708,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           sc: sc,
                           children: [
                             _SettingsTile(
-                              icon: Icons.folder_special_rounded,
+                              icon: SnapSymbols.folder_special_rounded,
                               title: 'Screenshot Folder',
                               subtitle: _appViewModel.permanentScreenshotDir ?? 'Not configured (Tap to choose)',
                               trailing: Icon(
-                                Icons.drive_file_move_outline,
+                                SnapSymbols.drive_file_move_outline,
                                 size: 19,
                                 color: sc.muted,
                               ),
@@ -719,7 +721,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             if (_appViewModel.screenshotDir != null) ...[
                               _buildDivider(isDark),
                               _SettingsTile(
-                                icon: Icons.folder_open_rounded,
+                                icon: SnapSymbols.folder_open_rounded,
                                 title: 'Active Browse Folder',
                                 subtitle: _appViewModel.screenshotDir!,
                                 trailing: null,
@@ -824,7 +826,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         }),
         thumbIcon: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Icon(Icons.check, size: 12, color: Colors.black);
+            return const Icon(SnapSymbols.check, size: 12, color: Colors.black);
           }
           return null;
         }),
@@ -851,7 +853,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
             Row(
               children: [
                 Icon(
-                  Icons.battery_charging_full_rounded,
+                  SnapSymbols.battery_charging_full_rounded,
                   size: 20,
                   color: effectiveColor,
                 ),
@@ -1263,7 +1265,7 @@ class _CreateBinPasswordDialogState extends State<_CreateBinPasswordDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.shield_outlined, size: 20, color: sc.accent),
+                  Icon(SnapSymbols.shield_outlined, size: 20, color: sc.accent),
                   const SizedBox(width: 10),
                   Text(
                     'Create Bin Password',
@@ -1409,7 +1411,7 @@ class _CreateBinPasswordDialogState extends State<_CreateBinPasswordDialog> {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               icon: Icon(
-                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                obscureText ? SnapSymbols.visibility_off_outlined : SnapSymbols.visibility_outlined,
                 size: 17,
                 color: sc.muted,
               ),

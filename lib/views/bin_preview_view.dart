@@ -8,6 +8,7 @@ import '../services/notification_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_blur.dart';
+import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 import '../viewmodels/bin_view_model.dart';
 
@@ -223,7 +224,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 22),
+                          child: Icon(SnapSymbols.delete_forever, color: Color(0xFFEF4444), size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -356,7 +357,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.info_outline, color: Color(0xFFf89838), size: 20),
+                          child: Icon(SnapSymbols.info_outline, color: Color(0xFFf89838), size: 20),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -453,7 +454,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                         ? Image.memory(
                             _imageCache[file.path]!,
                             fit: BoxFit.contain,
-                            errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                            errorBuilder: (ctx, err, stack) => const Icon(SnapSymbols.broken_image, color: Colors.white54, size: 48),
                           )
                         : FutureBuilder<Uint8List?>(
                             future: locator<BinService>().readDecryptedFile(file.path),
@@ -464,7 +465,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                                   snapshot.data!,
                                   fit: BoxFit.contain,
                                   errorBuilder: (ctx, err, stack) =>
-                                      const Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                                      const Icon(SnapSymbols.broken_image, color: Colors.white54, size: 48),
                                 );
                               }
                               return const Center(
@@ -520,7 +521,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                     children: [
                       // Back Button
                       _BlurCircleButton(
-                        icon: Icons.arrow_back,
+                        icon: SnapSymbols.arrow_back,
                         onTap: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 12),
@@ -558,12 +559,12 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                       ),
                       // Action buttons
                       _BlurCircleButton(
-                        icon: Icons.info_outline,
+                        icon: SnapSymbols.info_outline,
                         onTap: _showInfoDialog,
                       ),
                       const SizedBox(width: 8),
                       _BlurCircleButton(
-                        icon: Icons.share_outlined,
+                        icon: SnapSymbols.share_outlined,
                         onTap: _shareCurrentImage,
                       ),
                     ],
@@ -587,7 +588,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _confirmDeleteCurrentImage,
-                          icon: const Icon(Icons.delete_forever, color: Colors.white, size: 20),
+                          icon: const Icon(SnapSymbols.delete_forever, color: Colors.white, size: 20),
                           label: const Text(
                             'Delete',
                             style: TextStyle(
@@ -609,7 +610,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _restoreCurrentImage,
-                          icon: const Icon(Icons.restore, color: Colors.black, size: 20),
+                          icon: const Icon(SnapSymbols.restore, color: Colors.black, size: 20),
                           label: const Text(
                             'Restore',
                             style: TextStyle(

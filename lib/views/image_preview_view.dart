@@ -16,6 +16,7 @@ import '../services/settings_service.dart';
 import '../services/share/share_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_blur.dart';
+import '../theme/snap_symbols.dart';
 import '../viewmodels/gallery_view_model.dart';
 import 'settings_view.dart';
 
@@ -174,6 +175,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         _currentZoom = scale;
         if (_currentZoom <= 1.01 && _activePointers.length < 2) {
           _isInteracting = false;
+          _transformController.value = Matrix4.identity();
         }
         _showZoomCapsule = true;
       });
@@ -376,7 +378,6 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   void _showRenameTagMenu(BuildContext context, String folder, Offset? position) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sc = context.snapgroveColors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final pos = position ?? const Offset(200, 300);
 
@@ -387,10 +388,14 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         Offset.zero & overlay.size,
       ),
       elevation: 8,
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: AppBlur.getBackgroundColor(
+        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: sc.border),
+        side: BorderSide(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
       ),
       items: [
         PopupMenuItem<String>(
@@ -398,7 +403,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
+              Icon(SnapSymbols.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 8),
               const Text('Rename', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
             ],
@@ -821,8 +826,8 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       }
       if (success) {
         final settings = locator<SettingsService>();
-        final isPc = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-        if (isPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
+        final isOtherPc = !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS);
+        if (isOtherPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
           settings.markBinFirstMoveDone();
           locator<NotificationService>().showSnackBar(
             'Moved to $destinationName',
@@ -1158,7 +1163,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
+                                Icon(SnapSymbols.info_outline, size: 20, color: isDark ? Colors.white : Colors.black),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Image Details',
@@ -1355,7 +1360,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                     itemCount: _files.length,
                     physics: (_currentZoom > 1.01 || _isInteracting)
                         ? const NeverScrollableScrollPhysics()
-                        : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        : const PageScrollPhysics(parent: BouncingScrollPhysics()),
                     onPageChanged: (idx) {
                       setState(() {
                         _currentIndex = idx;
@@ -1401,7 +1406,11 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                 if (mounted) {
                                   setState(() {
                                     _isDragging = false;
-                                    if (_currentZoom <= 1.01 && _activePointers.length < 2) {
+                                    if (_currentZoom <= 1.02) {
+                                      _transformController.value = Matrix4.identity();
+                                      _currentZoom = 1.0;
+                                      _isInteracting = false;
+                                    } else if (_activePointers.length < 2) {
                                       _isInteracting = false;
                                     }
                                   });
@@ -1440,7 +1449,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: _NavArrowButton(
-                    icon: Icons.chevron_left,
+                    icon: SnapSymbols.chevron_left,
                     tooltip: 'Previous Image',
                     onTap: _goPrev,
                   ),
@@ -1452,7 +1461,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: _NavArrowButton(
-                    icon: Icons.chevron_right,
+                    icon: SnapSymbols.chevron_right,
                     tooltip: 'Next Image',
                     onTap: _goNext,
                   ),
@@ -1492,7 +1501,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                             ),
                             if (_isDesktopOrWeb) ...[
                               const SizedBox(width: 16),
-                              const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
+                              const Icon(SnapSymbols.zoom_out, color: Colors.white70, size: 20),
                               Expanded(
                                 child: Slider(
                                   value: _currentZoom,
@@ -1503,7 +1512,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                   onChanged: (val) => _setZoom(val),
                                 ),
                               ),
-                              const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
+                              const Icon(SnapSymbols.zoom_in, color: Colors.white70, size: 20),
                             ],
                           ],
                         ),
@@ -1576,25 +1585,25 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                               // Actions on Desktop / Web
                               if (isWide) ...[
                                 _PreviewActionButton(
-                                  icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                                  icon: _isFullScreen ? SnapSymbols.fullscreen_exit : SnapSymbols.fullscreen,
                                   tooltip: 'Fullscreen',
                                   onTap: _toggleFullScreen,
                                 ),
                                 const SizedBox(width: 6),
                                 _PreviewActionButton(
-                                  icon: Icons.share_outlined,
+                                  icon: SnapSymbols.share_outlined,
                                   tooltip: 'Share',
                                   onTap: _shareCurrentImage,
                                 ),
                                 const SizedBox(width: 6),
                                 _PreviewActionButton(
-                                  icon: Icons.info_outline,
+                                  icon: SnapSymbols.info_outline,
                                   tooltip: 'Info',
                                   onTap: _showInfoDialog,
                                 ),
                                 const SizedBox(width: 6),
                                 _PreviewActionButton(
-                                  icon: Icons.delete_outline,
+                                  icon: SnapSymbols.delete_outline,
                                   tooltip: 'Delete',
                                   isDestructive: true,
                                   onTap: _confirmDelete,
@@ -1793,7 +1802,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
             children: [
               Expanded(
                 child: _BottomBarAction(
-                  icon: Icons.delete_outline,
+                  icon: SnapSymbols.delete_outline,
                   label: 'Bin',
                   isDestructive: true,
                   onTap: _confirmDelete,
@@ -1801,21 +1810,21 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
               ),
               Expanded(
                 child: _BottomBarAction(
-                  icon: Icons.info_outline,
+                  icon: SnapSymbols.info_outline,
                   label: 'Info',
                   onTap: _showInfoDialog,
                 ),
               ),
               Expanded(
                 child: _BottomBarAction(
-                  icon: Icons.share_outlined,
+                  icon: SnapSymbols.share_outlined,
                   label: 'Share',
                   onTap: _shareCurrentImage,
                 ),
               ),
               Expanded(
                 child: _BottomBarAction(
-                  icon: _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                  icon: _isFullScreen ? SnapSymbols.fullscreen_exit : SnapSymbols.fullscreen,
                   label: 'Fullscreen',
                   onTap: _toggleFullScreen,
                 ),
@@ -1938,7 +1947,7 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
     }
 
     if (_hasError) {
-      return const Icon(Icons.broken_image, size: 100, color: Colors.white);
+      return const Icon(SnapSymbols.broken_image, size: 100, color: Colors.white);
     }
 
     return const Center(
@@ -2195,7 +2204,7 @@ class _ExitFullScreenButtonState extends State<_ExitFullScreenButton> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.fullscreen_exit, size: 18, color: Colors.white),
+                    Icon(SnapSymbols.fullscreen_exit, size: 18, color: Colors.white),
                     SizedBox(width: 6),
                     Text(
                       'Exit',
@@ -2268,7 +2277,7 @@ class _ScrollIndicatorArrowState extends State<_ScrollIndicatorArrow> {
             splashColor: Colors.white.withValues(alpha: 0.2),
             child: Center(
               child: Icon(
-                isLeft ? Icons.chevron_left : Icons.chevron_right,
+                isLeft ? SnapSymbols.chevron_left : SnapSymbols.chevron_right,
                 size: 18,
                 color: Colors.white,
               ),
@@ -2329,7 +2338,7 @@ class _CreateFolderPillButtonState extends State<_CreateFolderPillButton> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.create_new_folder, size: 14, color: Colors.black),
+                  Icon(SnapSymbols.create_new_folder, size: 14, color: Colors.black),
                   SizedBox(width: 6),
                   Text(
                     'Create Folder',
@@ -2443,7 +2452,7 @@ class _CategoryPillChipState extends State<_CategoryPillChip> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
+                      widget.isRoot ? SnapSymbols.home_outlined : SnapSymbols.folder_outlined,
                       size: 13,
                       color: widget.isRoot ? contentColor : (isEnabled ? Colors.white70 : contentColor),
                     ),
@@ -2632,7 +2641,7 @@ class _EditIconButtonState extends State<_EditIconButton> {
               splashColor: sc.rippleColor,
               child: Center(
                 child: Icon(
-                  Icons.edit_outlined,
+                  SnapSymbols.edit_outlined,
                   size: 14,
                   color: isDark ? Colors.white70 : Colors.black87,
                 ),
@@ -2679,7 +2688,7 @@ class _DialogCloseButtonState extends State<_DialogCloseButton> {
             customBorder: const CircleBorder(),
             onTap: widget.onTap,
             splashColor: Colors.white.withValues(alpha: 0.2),
-            child: const Center(child: Icon(Icons.close, size: 18)),
+            child: const Center(child: Icon(SnapSymbols.close, size: 18)),
           ),
         ),
       ),

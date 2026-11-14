@@ -14,6 +14,7 @@ import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_blur.dart';
+import '../theme/snap_symbols.dart';
 import '../services/file_service.dart';
 import '../services/storage_service.dart';
 import '../services/settings_service.dart';
@@ -377,7 +378,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   Future<void> _showContextMenu(BuildContext context, Offset position, int index) async {
-    final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
@@ -390,11 +390,15 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     final selected = await showMenu<String>(
       context: context,
       position: relativeRect,
-      color: sc.surfaceElevated,
-      elevation: 6,
+      color: AppBlur.getBackgroundColor(
+        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+      ),
+      elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: sc.border),
+        side: BorderSide(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
       ),
       items: [
         PopupMenuItem<String>(
@@ -402,7 +406,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.checklist, size: 18, color: isDark ? Colors.white : Colors.black),
+              Icon(SnapSymbols.checklist, size: 18, color: isDark ? Colors.white : Colors.black),
               const SizedBox(width: 10),
               Text(
                 'Select',
@@ -421,7 +425,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.select_all, size: 18, color: isDark ? Colors.white : Colors.black),
+              Icon(SnapSymbols.select_all, size: 18, color: isDark ? Colors.white : Colors.black),
               const SizedBox(width: 10),
               Text(
                 'Select All',
@@ -441,7 +445,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.preview, size: 18, color: isDark ? Colors.white : Colors.black),
+              Icon(SnapSymbols.preview, size: 18, color: isDark ? Colors.white : Colors.black),
               const SizedBox(width: 10),
               Text(
                 'Preview',
@@ -566,7 +570,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 child: Row(
                                   children: [
                                     Icon(
-                                      Icons.snippet_folder_outlined,
+                                      SnapSymbols.snippet_folder_outlined,
                                       size: 19,
                                       color: isDark ? Colors.white70 : Colors.black87,
                                     ),
@@ -598,7 +602,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                         }),
                                         thumbIcon: WidgetStateProperty.resolveWith((states) {
                                           if (states.contains(WidgetState.selected)) {
-                                            return const Icon(Icons.check, size: 12, color: Colors.black);
+                                            return const Icon(SnapSymbols.check, size: 12, color: Colors.black);
                                           }
                                           return null;
                                         }),
@@ -621,7 +625,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             // Option 1: Grid Layout
                             _DropdownMenuOptionTile(
-                              icon: Icons.grid_view_rounded,
+                              icon: SnapSymbols.grid_view_rounded,
                               label: 'Grid Layout',
                               onTap: () {
                                 Navigator.of(ctx).pop();
@@ -637,7 +641,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             // Option 2: Sort
                             _DropdownMenuOptionTile(
-                              icon: Icons.sort_rounded,
+                              icon: SnapSymbols.sort_rounded,
                               label: 'Sort',
                               onTap: () {
                                 Navigator.of(ctx).pop();
@@ -653,7 +657,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             // Option 3: Theme
                             _DropdownMenuOptionTile(
-                              icon: Icons.palette_outlined,
+                              icon: SnapSymbols.palette_outlined,
                               label: 'Theme',
                               onTap: () {
                                 Navigator.of(ctx).pop();
@@ -669,7 +673,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             // Option 4: Settings
                             _DropdownMenuOptionTile(
-                              icon: Icons.settings_outlined,
+                              icon: SnapSymbols.settings_outlined,
                               label: 'Settings',
                               onTap: () {
                                 Navigator.of(ctx).pop();
@@ -1451,28 +1455,28 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   children: [
                     if (width >= 720) ...[
                       _SelectionActionButton(
-                        icon: Icons.done_all,
+                        icon: SnapSymbols.done_all,
                         label: 'Select All',
                         isEnabled: _viewModel.files.isNotEmpty && _selectedIndices.length < _viewModel.files.length,
                         onTap: _selectAll,
                       ),
                       const SizedBox(width: 8),
                       _SelectionActionButton(
-                        icon: Icons.deselect,
+                        icon: SnapSymbols.deselect,
                         label: 'Unselect',
                         isEnabled: _selectedIndices.isNotEmpty,
                         onTap: _unselectAll,
                       ),
                       const SizedBox(width: 8),
                       _SelectionActionButton(
-                        icon: Icons.delete_outline_rounded,
+                        icon: SnapSymbols.delete_outline_rounded,
                         label: 'Delete',
                         isEnabled: _selectedIndices.isNotEmpty,
                         onTap: _showDeleteConfirmationDialog,
                       ),
                       const SizedBox(width: 8),
                       _SelectionActionButton(
-                        icon: Icons.settings_outlined,
+                        icon: SnapSymbols.settings_outlined,
                         label: 'Settings',
                         isEnabled: true,
                         onTap: _openSettings,
@@ -1481,7 +1485,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       IconButton(
                         tooltip: 'Delete selected',
                         icon: Icon(
-                          Icons.delete_outline_rounded,
+                          SnapSymbols.delete_outline_rounded,
                           size: 22,
                           color: _selectedIndices.isNotEmpty
                               ? (isDark ? Colors.white : Colors.black)
@@ -1525,7 +1529,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                               child: Row(
                                 children: [
                                   Icon(
-                                    Icons.done_all,
+                                    SnapSymbols.done_all,
                                     size: 18,
                                     color: isDark ? Colors.white : Colors.black,
                                   ),
@@ -1547,7 +1551,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                               child: Row(
                                 children: [
                                   Icon(
-                                    Icons.deselect,
+                                    SnapSymbols.deselect,
                                     size: 18,
                                     color: isDark ? Colors.white : Colors.black,
                                   ),
@@ -1570,7 +1574,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 child: Row(
                                   children: [
                                     const Icon(
-                                      Icons.delete_outline_rounded,
+                                      SnapSymbols.delete_outline_rounded,
                                       size: 18,
                                       color: Color(0xFFE53935),
                                     ),
@@ -1593,7 +1597,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                               child: Row(
                                 children: [
                                   Icon(
-                                    Icons.settings_outlined,
+                                    SnapSymbols.settings_outlined,
                                     size: 18,
                                     color: isDark ? Colors.white : Colors.black,
                                   ),
@@ -1625,7 +1629,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     Tooltip(
                       message: 'Select images',
                       child: _IconSquare(
-                        icon: Icons.done_all,
+                        icon: SnapSymbols.done_all,
                         onTap: () => _enterSelectionMode(),
                       ),
                     ),
@@ -1633,7 +1637,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     Tooltip(
                       message: 'Manage Folders (tags)',
                       child: _IconSquare(
-                        icon: Icons.folder_open_rounded,
+                        icon: SnapSymbols.folder_open_rounded,
                         onTap: () {
                           final selectedPaths = _isSelectionMode
                               ? _selectedIndices
@@ -1669,7 +1673,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     Tooltip(
                       message: 'Options',
                       child: _IconSquare(
-                        icon: Icons.more_vert,
+                        icon: SnapSymbols.more_vert,
                         onTap: () => _showMoreMenuDropdown(context, width),
                       ),
                     ),
@@ -1756,7 +1760,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.photo_library_outlined, size: 48, color: sc.muted.withValues(alpha: 0.5)),
+                  Icon(SnapSymbols.photo_library_outlined, size: 48, color: sc.muted.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
                   Text(
                     'No screenshots found.',
@@ -2146,7 +2150,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   void _showRenameFolderMenu(BuildContext context, String folder, Offset? position) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sc = context.snapgroveColors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final pos = position ?? const Offset(200, 300);
 
@@ -2157,10 +2160,14 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         Offset.zero & overlay.size,
       ),
       elevation: 8,
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: AppBlur.getBackgroundColor(
+        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: sc.border),
+        side: BorderSide(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+        ),
       ),
       items: [
         PopupMenuItem<String>(
@@ -2168,7 +2175,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           height: 38,
           child: Row(
             children: [
-              Icon(Icons.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
+              Icon(SnapSymbols.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 8),
               const Text('Rename', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
             ],
@@ -2461,8 +2468,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       final success = await _viewModel.moveToBin(selectedFiles);
       if (success) {
         final settings = locator<SettingsService>();
-        final isPc = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-        if (isPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
+        final isOtherPc = !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS);
+        if (isOtherPc && !settings.binFirstMoveDone && !settings.isBinPasswordSet) {
           settings.markBinFirstMoveDone();
           locator<NotificationService>().showSnackBar(
             'Moved $count ${count == 1 ? "file" : "files"} to $destinationName',
@@ -2688,7 +2695,7 @@ class _GroupedOptionTileState extends State<_GroupedOptionTile> {
                   if (widget.isActive) ...[
                     const SizedBox(width: 6),
                     Icon(
-                      Icons.check,
+                      SnapSymbols.check,
                       size: 14,
                       color: fgColor,
                     ),
@@ -2825,7 +2832,7 @@ class _GalleryItemState extends State<_GalleryItem> {
                     top: 6,
                     right: 6,
                     child: Icon(
-                      Icons.done_all,
+                      SnapSymbols.done_all,
                       size: 22,
                       color: Colors.white,
                       shadows: [
@@ -3284,7 +3291,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       highlightColor: sc.rippleColor.withValues(alpha: 0.15),
                       child: Center(
                         child: Icon(
-                          Icons.chevron_left,
+                          SnapSymbols.chevron_left,
                           size: 16,
                           color: isDark ? Colors.white : Colors.black,
                         ),
@@ -3334,7 +3341,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
                       highlightColor: sc.rippleColor.withValues(alpha: 0.15),
                       child: Center(
                         child: Icon(
-                          Icons.chevron_right,
+                          SnapSymbols.chevron_right,
                           size: 16,
                           color: isDark ? Colors.white : Colors.black,
                         ),
@@ -3622,7 +3629,7 @@ class _CreateFolderButtonState extends State<_CreateFolderButton> {
                 mainAxisSize: widget.fullWidth ? MainAxisSize.max : MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  Icon(Icons.create_new_folder, size: 16, color: Color(0xFF000000)),
+                  Icon(SnapSymbols.create_new_folder, size: 16, color: Color(0xFF000000)),
                   SizedBox(width: 8),
                   Text(
                     'Create Folder',
@@ -3926,7 +3933,7 @@ class _ActionChipState extends State<_ActionChip> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      widget.isRoot ? Icons.home_outlined : Icons.folder_outlined,
+                      widget.isRoot ? SnapSymbols.home_outlined : SnapSymbols.folder_outlined,
                       size: 14,
                       color: contentColor,
                     ),
@@ -4020,7 +4027,7 @@ class _DropdownMenuOptionTileState extends State<_DropdownMenuOptionTile> {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
+                  SnapSymbols.chevron_right,
                   size: 18,
                   color: sc.muted,
                 ),
@@ -4103,7 +4110,7 @@ class _ErrorPlaceholder extends StatelessWidget {
     final sc = context.snapgroveColors;
     return Container(
       color: sc.surfaceMuted,
-      child: Center(child: Icon(Icons.broken_image, color: sc.muted)),
+      child: Center(child: Icon(SnapSymbols.broken_image, color: sc.muted)),
     );
   }
 }

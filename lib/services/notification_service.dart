@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/snap_symbols.dart';
 
 class NotificationService {
   final GlobalKey<ScaffoldMessengerState> messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -65,7 +66,7 @@ class _ToastContent extends StatelessWidget {
     return Row(
       children: [
         if (isError) ...[
-          const Icon(Icons.error_outline, size: 18, color: Colors.white),
+          const Icon(SnapSymbols.error_outline, size: 18, color: Colors.white),
           const SizedBox(width: 8),
         ],
         Expanded(
@@ -192,7 +193,7 @@ class _ToastCloseButtonState extends State<_ToastCloseButton> {
             hoverColor: Colors.transparent,
             child: const Center(
               child: Icon(
-                Icons.close,
+                SnapSymbols.close,
                 size: 16,
                 color: Colors.white70,
               ),
