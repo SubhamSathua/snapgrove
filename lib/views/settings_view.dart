@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 import 'theme_dialog.dart';
+import 'debug/debug_view.dart';
 
 class SettingsView extends StatefulWidget {
   final bool highlightBinAuth;
@@ -362,12 +363,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     final showFolderSort = _matchesQuery(['folder', 'sort', 'folder sort order', 'tags', 'alphabetical', 'items', 'date']);
     final showBinAuth = !isWindows && _matchesQuery(['bin', 'security', 'auth', 'biometric', 'fingerprint', 'password', 'trash', 'lock']);
     final showStorage = _matchesQuery(['storage', 'folder', 'screenshot', 'permanent', 'path', 'browse']);
+    final showDebug = kDebugMode && _matchesQuery(['debug', 'developer', 'tools', 'icons', 'diagnostics']);
 
     final hasAppearance = showTheme || showBlur;
     final hasPerformance = showBatterySaver || showBatterySlider;
     final hasFolders = showFolderSort;
     final hasSecurity = showBinAuth;
     final hasStorage = showStorage;
+    final hasDebug = showDebug;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -732,7 +735,33 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         ),
                       ],
 
-                      if (!hasAppearance && !hasPerformance && !hasFolders && !hasSecurity && !hasStorage)
+                      // ── DEVELOPER & DEBUG ────────────────────────
+                      if (kDebugMode && hasDebug) ...[
+                        _buildSectionHeader('DEVELOPER & DEBUG', sc),
+                        _buildCardContainer(
+                          isDark: isDark,
+                          sc: sc,
+                          children: [
+                            _SettingsTile(
+                              icon: SnapSymbols.bug_report,
+                              title: 'Debug Tools',
+                              subtitle: 'Developer settings, icon tester & runtime diagnostics',
+                              trailing: Icon(
+                                SnapSymbols.chevron_right,
+                                size: 19,
+                                color: sc.muted,
+                              ),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const DebugView()),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      if (!hasAppearance && !hasPerformance && !hasFolders && !hasSecurity && !hasStorage && !(kDebugMode && hasDebug))
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Center(

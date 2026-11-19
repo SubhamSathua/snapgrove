@@ -209,4 +209,7 @@ abstract final class SnapSymbols {
   static const IconData panorama_fish_eye = IconData(0xe40c, fontFamily: _family);
   static const IconData drag_handle = IconData(0xe25d, fontFamily: _family);
   static const IconData swap_vert = IconData(0xe8d5, fontFamily: _family);
+  static const IconData bug_report = IconData(0xe868, fontFamily: _family);
+  static const IconData bug_report_outlined = bug_report;
+  static const IconData code = IconData(0xe86f, fontFamily: _family);
 }

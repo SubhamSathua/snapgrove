@@ -22,6 +22,7 @@ class SettingsService extends ChangeNotifier {
   static const String keyBinPasswordHash = 'bin_password_hash';
   static const String keyBinPasswordHint = 'bin_password_hint';
   static const String keyBinFirstMoveDone = 'bin_first_move_done';
+  static const String keyDebugModeEnabled = 'debug_mode_enabled';
 
   ThemeMode _themeMode = ThemeMode.system;
   String _folderSortOrder = 'name_asc';
@@ -32,6 +33,7 @@ class SettingsService extends ChangeNotifier {
       (defaultTargetPlatform != TargetPlatform.windows &&
        defaultTargetPlatform != TargetPlatform.linux &&
        defaultTargetPlatform != TargetPlatform.macOS);
+  bool _debugModeEnabled = true;
 
   // PC bin password state
   String? _binPasswordHash;
@@ -49,6 +51,10 @@ class SettingsService extends ChangeNotifier {
   bool get binAuthEnabled => _binAuthEnabled;
   bool get runtimeBlurDisabled => _runtimeBlurDisabled;
   double? get batteryLevelPercent => _batteryLevelPercent;
+
+  /// Debug mode getters
+  bool get isDebugAvailable => kDebugMode;
+  bool get debugModeEnabled => kDebugMode && _debugModeEnabled;
 
   /// Whether a PC bin password has been created.
   bool get isBinPasswordSet => _binPasswordHash != null && _binPasswordHash!.isNotEmpty;
@@ -157,7 +163,21 @@ class SettingsService extends ChangeNotifier {
       }
     } catch (_) {}
 
+    try {
+      final savedDebug = await _storage.read(storeName, keyDebugModeEnabled);
+      if (savedDebug is bool) {
+        _debugModeEnabled = savedDebug;
+      }
+    } catch (_) {}
+
     notifyListeners();
+  }
+
+  Future<void> setDebugModeEnabled(bool value) async {
+    if (_debugModeEnabled == value) return;
+    _debugModeEnabled = value;
+    notifyListeners();
+    await _storage.write(storeName, keyDebugModeEnabled, value);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

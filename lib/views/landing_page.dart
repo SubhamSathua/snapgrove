@@ -21,6 +21,7 @@ import 'privacy_policy_view.dart';
 import 'licenses_view.dart';
 import 'source_code_view.dart';
 import 'about_view.dart';
+import 'debug/debug_view.dart';
 
 class LandingPage extends StatefulWidget {
   final AppViewModel viewModel;
@@ -349,6 +350,21 @@ class _LandingPageState extends State<LandingPage> {
                               label: 'About',
                               onTap: () => _navigateTo(const AboutView()),
                             ),
+                            if (kDebugMode) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                                ),
+                              ),
+                              _MenuButton(
+                                icon: SnapSymbols.bug_report,
+                                label: 'Debug',
+                                onTap: () => _navigateTo(const DebugView()),
+                              ),
+                            ],
                           ],
                         ),
                       ),
