@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
 import '../theme/app_theme.dart';
@@ -266,11 +265,10 @@ class _BinViewState extends State<BinView> {
               elevation: 0,
               surfaceTintColor: Colors.transparent,
               leading: IconButton(
-                icon: SvgPicture.asset(
-                  'assets/icons/Back-Btn.svg',
-                  width: 22,
-                  height: 22,
-                  colorFilter: ColorFilter.mode(isDark ? Colors.white : Colors.black, BlendMode.srcIn),
+                icon: Icon(
+                  SnapSymbols.arrow_back_ios_new,
+                  size: 20,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
                 onPressed: _viewModel.isRestoring
                     ? null

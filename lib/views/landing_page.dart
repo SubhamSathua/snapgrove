@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:animations/animations.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -299,13 +298,13 @@ class _LandingPageState extends State<LandingPage> {
                             if (!kIsWeb)
                               if (defaultTargetPlatform == TargetPlatform.windows)
                                 _MenuButton(
-                                  svgPath: 'assets/icons/trash.svg',
+                                  icon: SnapSymbols.delete,
                                   label: 'Windows Recycle Bin',
                                   onTap: _openWindowsRecycleBin,
                                 )
                               else
                                 _MenuButton(
-                                  svgPath: 'assets/icons/trash.svg',
+                                  icon: SnapSymbols.delete,
                                   label: 'Bin',
                                   onTap: _openBinWithAuth,
                                 ),
@@ -315,7 +314,7 @@ class _LandingPageState extends State<LandingPage> {
                               onTap: () => _navigateTo(const SettingsView()),
                             ),
                             _MenuButton(
-                              svgPath: 'assets/icons/palette.svg',
+                              icon: SnapSymbols.palette,
                               label: 'Theme',
                               onTap: () async {
                                 await _removeMenu();
@@ -331,22 +330,22 @@ class _LandingPageState extends State<LandingPage> {
                               ),
                             ),
                             _MenuButton(
-                              svgPath: 'assets/icons/shield.svg',
+                              icon: SnapSymbols.shield_person,
                               label: 'Privacy Policy',
                               onTap: () => _navigateTo(const PrivacyPolicyView()),
                             ),
                             _MenuButton(
-                              svgPath: 'assets/icons/github.svg',
+                              icon: SnapSymbols.code,
                               label: 'Source code',
                               onTap: () => _navigateTo(const SourceCodeView()),
                             ),
                             _MenuButton(
-                              svgPath: 'assets/icons/license.svg',
+                              icon: SnapSymbols.license,
                               label: 'Open source license',
                               onTap: () => _navigateTo(const LicensesView()),
                             ),
                             _MenuButton(
-                              svgPath: 'assets/icons/info-circle.svg',
+                              icon: SnapSymbols.info,
                               label: 'About',
                               onTap: () => _navigateTo(const AboutView()),
                             ),
@@ -592,14 +591,10 @@ class _TopBar extends StatelessWidget {
             onTap: onMoreTap,
             splashColor: rippleColor(sc.iconBg),
             child: Center(
-              child: SvgPicture.asset(
-                'assets/icons/more.svg',
-                width: iconSize,
-                height: iconSize,
-                colorFilter: ColorFilter.mode(
-                  isDark ? Colors.white : Colors.black,
-                  BlendMode.srcIn,
-                ),
+              child: Icon(
+                SnapSymbols.more_vert,
+                size: 24,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           ),
@@ -633,8 +628,8 @@ class _Brand extends StatelessWidget {
       logoWidth = (width * percent).clamp(0.0, 300.0) + 20.0;
     }
 
-    return SvgPicture.asset(
-      isDark ? 'assets/icons/logo-white.svg' : 'assets/icons/logo-black.svg',
+    return Image.asset(
+      isDark ? 'assets/images/logo-white.png' : 'assets/images/logo-black.png',
       width: logoWidth,
       fit: BoxFit.contain,
     );
@@ -684,14 +679,10 @@ class _BrowseButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                'assets/icons/browse.svg',
-                width: buttonIconSize,
-                height: buttonIconSize,
-                colorFilter: ColorFilter.mode(
-                  sc.primaryBtnText,
-                  BlendMode.srcIn,
-                ),
+              Icon(
+                SnapSymbols.drive_folder_upload,
+                size: buttonIconSize,
+                color: sc.primaryBtnText,
               ),
               SizedBox(width: actionFontSize * 0.67),
               Text(
@@ -748,14 +739,10 @@ class _ScreenshotButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                'assets/icons/screenshot.svg',
-                width: buttonIconSize,
-                height: buttonIconSize,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF000000),
-                  BlendMode.srcIn,
-                ),
+              Icon(
+                SnapSymbols.screenshot_region,
+                size: buttonIconSize,
+                color: const Color(0xFF000000),
               ),
               SizedBox(width: actionFontSize * 0.67),
               Text(
@@ -830,14 +817,10 @@ class _DownloadAppButtonState extends State<_DownloadAppButton> {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SvgPicture.asset(
-                    'assets/icons/download.svg',
-                    width: widget.buttonIconSize,
-                    height: widget.buttonIconSize,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFF000000),
-                      BlendMode.srcIn,
-                    ),
+                  Icon(
+                    SnapSymbols.download,
+                    size: widget.buttonIconSize,
+                    color: const Color(0xFF000000),
                   ),
                   SizedBox(width: widget.actionFontSize * 0.67),
                   Text(
@@ -1009,17 +992,15 @@ class _DialogButton extends StatelessWidget {
 }
 
 class _MenuButton extends StatelessWidget {
-  final String? svgPath;
-  final IconData? icon;
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
 
   const _MenuButton({
-    this.svgPath,
-    this.icon,
+    required this.icon,
     required this.label,
     required this.onTap,
-  }) : assert(svgPath != null || icon != null);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1037,22 +1018,11 @@ class _MenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              if (svgPath != null)
-                SvgPicture.asset(
-                  svgPath!,
-                  width: 18,
-                  height: 18,
-                  colorFilter: ColorFilter.mode(
-                    iconColor,
-                    BlendMode.srcIn,
-                  ),
-                )
-              else if (icon != null)
-                Icon(
-                  icon,
-                  size: 18,
-                  color: iconColor,
-                ),
+              Icon(
+                icon,
+                size: 20,
+                color: iconColor,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

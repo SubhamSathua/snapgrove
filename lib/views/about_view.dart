@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
@@ -65,9 +64,9 @@ class AboutView extends StatelessWidget {
                         return _buildFeatureCard(
                           sc: sc,
                           isDark: isDark,
-                          title: feat['title']!,
-                          description: feat['description']!,
-                          iconPath: feat['icon']!,
+                          title: feat.title,
+                          description: feat.description,
+                          icon: feat.icon,
                         );
                       }),
                       const SizedBox(height: 12),
@@ -120,14 +119,10 @@ class AboutView extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(),
                 splashColor: sc.rippleColor,
                 child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/Back-Btn.svg',
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(
-                      isDark ? Colors.white : Colors.black,
-                      BlendMode.srcIn,
-                    ),
+                  child: Icon(
+                    SnapSymbols.arrow_back_ios_new,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ),
@@ -238,7 +233,7 @@ class AboutView extends StatelessWidget {
     required bool isDark,
     required String title,
     required String description,
-    required String iconPath,
+    required IconData icon,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -259,11 +254,10 @@ class AboutView extends StatelessWidget {
               color: sc.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: SvgPicture.asset(
-              iconPath,
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(sc.accent, BlendMode.srcIn),
+            child: Icon(
+              icon,
+              size: 20,
+              color: sc.accent,
             ),
           ),
           const SizedBox(width: 14),
@@ -322,7 +316,7 @@ class AboutView extends StatelessWidget {
           _buildLinkTile(
             title: 'Privacy Policy',
             subtitle: '100% offline & local data handling details',
-            svgPath: 'assets/icons/shield.svg',
+            icon: SnapSymbols.shield_person,
             sc: sc,
             isDark: isDark,
             onTap: () {
@@ -335,7 +329,7 @@ class AboutView extends StatelessWidget {
           _buildLinkTile(
             title: 'Open Source Licenses',
             subtitle: 'Third-party libraries & license attributions',
-            svgPath: 'assets/icons/license.svg',
+            icon: SnapSymbols.license,
             sc: sc,
             isDark: isDark,
             onTap: () {
@@ -348,7 +342,7 @@ class AboutView extends StatelessWidget {
           _buildLinkTile(
             title: 'Source Code & Architecture',
             subtitle: 'GitHub repository, clone URLs, and modules',
-            svgPath: 'assets/icons/github.svg',
+            icon: SnapSymbols.code,
             sc: sc,
             isDark: isDark,
             onTap: () {
@@ -365,7 +359,7 @@ class AboutView extends StatelessWidget {
   Widget _buildLinkTile({
     required String title,
     required String subtitle,
-    required String svgPath,
+    required IconData icon,
     required SnapgroveColors sc,
     required bool isDark,
     required VoidCallback onTap,
@@ -377,14 +371,10 @@ class AboutView extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Row(
           children: [
-            SvgPicture.asset(
-              svgPath,
-              width: 18,
-              height: 18,
-              colorFilter: ColorFilter.mode(
-                isDark ? Colors.white70 : Colors.black87,
-                BlendMode.srcIn,
-              ),
+            Icon(
+              icon,
+              size: 18,
+              color: isDark ? Colors.white70 : Colors.black87,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -482,14 +472,10 @@ class AboutView extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'GitHub Profile',
-            icon: SvgPicture.asset(
-              'assets/icons/github.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                isDark ? Colors.white : Colors.black,
-                BlendMode.srcIn,
-              ),
+            icon: Icon(
+              SnapSymbols.code,
+              size: 20,
+              color: isDark ? Colors.white : Colors.black,
             ),
             onPressed: () => _launchUrl(AppConstants.authorGithub),
           ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
+import '../theme/snap_symbols.dart';
 
 class PrivacyPolicyView extends StatelessWidget {
   const PrivacyPolicyView({super.key});
@@ -100,14 +100,10 @@ class PrivacyPolicyView extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(),
                 splashColor: sc.rippleColor,
                 child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/Back-Btn.svg',
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(
-                      isDark ? Colors.white : Colors.black,
-                      BlendMode.srcIn,
-                    ),
+                  child: Icon(
+                    SnapSymbols.arrow_back_ios_new,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ),
@@ -148,11 +144,10 @@ class PrivacyPolicyView extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SvgPicture.asset(
-                  'assets/icons/shield.svg',
-                  width: 13,
-                  height: 13,
-                  colorFilter: ColorFilter.mode(sc.accent, BlendMode.srcIn),
+                Icon(
+                  SnapSymbols.shield_person,
+                  size: 13,
+                  color: sc.accent,
                 ),
                 const SizedBox(width: 5),
                 Text(
@@ -200,11 +195,10 @@ class PrivacyPolicyView extends StatelessWidget {
                   color: sc.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: SvgPicture.asset(
-                  'assets/icons/shield.svg',
-                  width: 22,
-                  height: 22,
-                  colorFilter: ColorFilter.mode(sc.accent, BlendMode.srcIn),
+                child: Icon(
+                  SnapSymbols.shield_person,
+                  size: 22,
+                  color: sc.accent,
                 ),
               ),
               const SizedBox(width: 14),
@@ -307,14 +301,10 @@ class PrivacyPolicyView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                'assets/icons/github.svg',
-                width: 18,
-                height: 18,
-                colorFilter: ColorFilter.mode(
-                  isDark ? Colors.white70 : Colors.black87,
-                  BlendMode.srcIn,
-                ),
+              Icon(
+                SnapSymbols.code,
+                size: 18,
+                color: isDark ? Colors.white70 : Colors.black87,
               ),
               const SizedBox(width: 8),
               const Text(

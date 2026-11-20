@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
@@ -404,7 +403,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           height: 38,
           child: Row(
             children: [
-              Icon(SnapSymbols.create_new_folder_outlined,
+              Icon(SnapSymbols.create_new_folder,
                   size: 18, color: isDark ? Colors.white70 : Colors.black87),
               const SizedBox(width: 10),
               const Text('New Folder',
@@ -471,7 +470,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(SnapSymbols.folder_rounded, size: 18, color: sc.accent),
+                      Icon(SnapSymbols.folder, size: 18, color: sc.accent),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -728,7 +727,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                                   .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(SnapSymbols.folder_rounded,
+                            child: const Icon(SnapSymbols.folder,
                                 color: Color(0xFFF59E0B), size: 22),
                           ),
                           const SizedBox(width: 10),
@@ -1017,12 +1016,10 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
             backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: SvgPicture.asset(
-                'assets/icons/Back-Btn.svg',
-                width: 22,
-                height: 22,
-                colorFilter: ColorFilter.mode(
-                    isDark ? Colors.white : Colors.black, BlendMode.srcIn),
+              icon: Icon(
+                SnapSymbols.arrow_back_ios_new,
+                size: 20,
+                color: isDark ? Colors.white : Colors.black,
               ),
               onPressed: _navigateBack,
             ),
@@ -1473,7 +1470,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
       return [
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         const SizedBox(width: 6),
@@ -1491,7 +1488,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
           ),
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         const SizedBox(width: 8),
@@ -1500,7 +1497,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
       return [
         IconButton(
           tooltip: 'New Folder',
-          icon: const Icon(SnapSymbols.create_new_folder_outlined, size: 22),
+          icon: const Icon(SnapSymbols.create_new_folder, size: 22),
           onPressed: _showCreateFolderDialog,
         ),
         PopupMenuButton<String>(
@@ -1874,9 +1871,7 @@ class _FocusableFolderListItemState extends State<_FocusableFolderListItem> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  child.hasChildren
-                      ? SnapSymbols.folder_rounded
-                      : SnapSymbols.folder_outlined,
+                  SnapSymbols.folder,
                   color: sc.accent,
                   size: 20,
                 ),
@@ -2045,8 +2040,8 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Icon(
                         isGridView
-                            ? SnapSymbols.view_list_rounded
-                            : SnapSymbols.grid_view_rounded,
+                            ? SnapSymbols.view_list
+                            : SnapSymbols.grid_view,
                         size: 15,
                         color: sc.muted,
                       ),
@@ -2169,9 +2164,7 @@ class _FolderGridCardState extends State<_FolderGridCard> {
                 ),
                 child: Center(
                   child: Icon(
-                    node.hasChildren
-                        ? SnapSymbols.folder_rounded
-                        : SnapSymbols.folder_outlined,
+                    SnapSymbols.folder,
                     color: sc.accent,
                     size: 34,
                   ),

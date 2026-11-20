@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material 3 Symbols TTF Tester — MaterialSymbolsRounded.ttf</title>
+  <style>
+    /* Local TTF font-face */
+    @font-face {
+      font-family: 'Material Symbols Rounded Local';
+      font-style: normal;
+      font-weight: 100 700;
+      src: url('./MaterialSymbolsRounded.ttf') format('truetype');
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f6f8fc;
+      --surface: #ffffff;
+      --surface-variant: #eef2f9;
+      --border: #dce3ee;
+      --text: #1b1f27;
+      --text-muted: #5a6475;
+      --primary: #1a73e8;
+      --primary-soft: #e8f0fe;
+      --success: #188038;
+      --success-bg: #e6f4ea;
+      --warn: #b06000;
+      --warn-bg: #fef7e0;
+      --danger: #d93025;
+      --danger-bg: #fce8e6;
+      --radius: 14px;
+      --radius-sm: 9px;
+      --shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+
+      /* Dynamic symbol variables */
+      --sym-fill: 0;
+      --sym-wght: 400;
+      --sym-grad: 0;
+      --sym-opsz: 24;
+      --sym-size: 32px;
+      --sym-color: #1b1f27;
+      --sym-bg: #ffffff;
+      --sym-font-family: 'Material Symbols Rounded Local';
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .material-symbol {
+      font-family: var(--sym-font-family), sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: var(--sym-size);
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-feature-settings: 'liga';
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      font-variation-settings:
+        'FILL' var(--sym-fill),
+        'wght' var(--sym-wght),
+        'GRAD' var(--sym-grad),
+        'opsz' var(--sym-opsz);
+      color: var(--sym-color);
+      transition: font-variation-settings 0.22s ease, transform 0.18s ease, color 0.18s ease;
+      user-select: none;
+    }
+
+    .hover-fill-enabled .symbol-card:hover .material-symbol {
+      font-variation-settings:
+        'FILL' 1,
+        'wght' var(--sym-wght),
+        'GRAD' var(--sym-grad),
+        'opsz' var(--sym-opsz);
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .brand p {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .badge.ok { background: var(--success-bg); color: var(--success); border-color: #ceead6; }
+    .badge.warn { background: var(--warn-bg); color: var(--warn); border-color: #fde293; }
+    .badge.err { background: var(--danger-bg); color: var(--danger); border-color: #fad2cf; }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .btn:hover { background: var(--surface-variant); border-color: #c5d1e3; }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn-primary:hover { background: #1557b0; border-color: #1557b0; }
+
+    /* Main 3-column layout */
+    .layout {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 18px 20px 40px;
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr) 370px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 1240px) {
+      .layout {
+        grid-template-columns: 290px minmax(0, 1fr);
+      }
+      .json-panel {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .sticky-panel {
+      position: sticky;
+      top: 78px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+    }
+
+    .panel-title {
+      margin: 0 0 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin: 14px 0 8px;
+    }
+
+    /* Controls */
+    .control-group {
+      margin-bottom: 13px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .control-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      padding: 2px 7px;
+      background: var(--surface-variant);
+      border-radius: 6px;
+      color: var(--primary);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover { border-color: var(--primary); color: var(--primary); }
+    .chip.active { background: var(--primary-soft); color: var(--primary); border-color: #a8c7fa; }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .color-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 8px;
+      background: var(--surface);
+    }
+
+    .color-box input[type="color"] {
+      width: 26px;
+      height: 26px;
+      border: none;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .color-box input[type="text"] {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 0.82rem;
+    }
+
+    .toggle-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* Center column: Inspector + Toolbar + Grid */
+    .spotlight {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 600px) {
+      .spotlight { grid-template-columns: 1fr; }
+    }
+
+    .spotlight-preview {
+      width: 112px;
+      height: 112px;
+      border-radius: 16px;
+      background: var(--sym-bg);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+    }
+
+    .spotlight-preview .material-symbol {
+      font-size: 64px;
+    }
+
+    .spotlight-meta h2 {
+      margin: 0 0 4px;
+      font-size: 1.08rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .spotlight-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .opsz-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .opsz-sample {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--sym-bg);
+      min-width: 58px;
+    }
+
+    .opsz-sample span.lbl {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, monospace;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .input-text {
+      flex: 1;
+      min-width: 190px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+
+    .input-text:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+    }
+
+    .category-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .symbol-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+      gap: 10px;
+    }
+
+    .symbol-card {
+      background: var(--sym-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 8px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+      min-height: 98px;
+    }
+
+    .symbol-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.12);
+    }
+
+    .symbol-card.selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.25);
+    }
+
+    .symbol-name {
+      font-size: 0.7rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.86);
+      padding: 2px 6px;
+      border-radius: 5px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    /* JSON Preview */
+    .json-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .json-pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      max-height: 520px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    .j-key { color: #93c5fd; }
+    .j-str { color: #86efac; }
+    .j-num { color: #fca5a5; }
+    .j-bool { color: #fcd34d; }
+    .j-null { color: #c4b5fd; }
+
+    .json-editor {
+      width: 100%;
+      min-height: 260px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      resize: vertical;
+      display: none;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1b1f27;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 99;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .drop-hint {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      background: var(--surface-variant);
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <span class="material-symbol" style="font-size:26px; color: var(--primary);">palette</span>
+      </div>
+      <div>
+        <h1>Material 3 Symbols TTF Tester</h1>
+        <p>Testing <code>MaterialSymbolsRounded.ttf</code> variable axes, ligatures &amp; JSON config</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="fontStatus" class="badge warn">Checking MaterialSymbolsRounded.ttf…</span>
+      <label class="btn" title="Load a local .ttf or .woff2 font file directly">
+        Load .ttf File
+        <input id="ttfFileInput" type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none;" />
+      </label>
+      <button id="resetBtn" class="btn" type="button">Reset All</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left Column: Variable Axes & Style Controls -->
+    <aside class="panel sticky-panel">
+      <h2 class="panel-title">
+        <span>Customizations</span>
+        <span id="axisSummaryTag" class="control-val">M3 Rounded</span>
+      </h2>
+
+      <div class="section-label">Variable Font Axes</div>
+
+      <!-- FILL -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="fillRange">FILL (Fill)</label>
+          <span id="fillVal" class="control-val">0</span>
+        </div>
+        <input id="fillRange" type="range" min="0" max="1" step="0.01" value="0" />
+        <div class="preset-row">
+          <button class="chip" data-set="FILL:0">0 (Outlined)</button>
+          <button class="chip" data-set="FILL:0.5">0.5 (Half)</button>
+          <button class="chip" data-set="FILL:1">1 (Filled)</button>
+        </div>
+      </div>
+
+      <!-- wght -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="wghtRange">wght (Weight)</label>
+          <span id="wghtVal" class="control-val">400</span>
+        </div>
+        <input id="wghtRange" type="range" min="100" max="700" step="10" value="400" />
+        <div class="preset-row">
+          <button class="chip" data-set="wght:100">100</button>
+          <button class="chip" data-set="wght:200">200</button>
+          <button class="chip" data-set="wght:300">300</button>
+          <button class="chip" data-set="wght:400">400</button>
+          <button class="chip" data-set="wght:500">500</button>
+          <button class="chip" data-set="wght:600">600</button>
+          <button class="chip" data-set="wght:700">700</button>
+        </div>
+      </div>
+
+      <!-- GRAD -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="gradRange">GRAD (Grade)</label>
+          <span id="gradVal" class="control-val">0</span>
+        </div>
+        <input id="gradRange" type="range" min="-50" max="200" step="5" value="0" />
+        <div class="preset-row">
+          <button class="chip" data-set="GRAD:-25">-25 (Dark)</button>
+          <button class="chip" data-set="GRAD:0">0 (Normal)</button>
+          <button class="chip" data-set="GRAD:200">200 (Emphasis)</button>
+        </div>
+      </div>
+
+      <!-- opsz -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="opszRange">opsz (Optical Size)</label>
+          <span id="opszVal" class="control-val">24</span>
+        </div>
+        <input id="opszRange" type="range" min="20" max="48" step="1" value="24" />
+        <div class="preset-row">
+          <button class="chip" data-set="opsz:20">20dp</button>
+          <button class="chip" data-set="opsz:24">24dp</button>
+          <button class="chip" data-set="opsz:40">40dp</button>
+          <button class="chip" data-set="opsz:48">48dp</button>
+        </div>
+      </div>
+
+      <div class="section-label">Visual &amp; Interaction</div>
+
+      <!-- Font Size -->
+      <div class="control-group">
+        <div class="control-header">
+          <label for="sizeRange">Font Size (px)</label>
+          <span id="sizeVal" class="control-val">32px</span>
+        </div>
+        <input id="sizeRange" type="range" min="16" max="88" step="2" value="32" />
+        <div class="preset-row">
+          <button class="chip" data-set="size:20">20px</button>
+          <button class="chip" data-set="size:24">24px</button>
+          <button class="chip" data-set="size:32">32px</button>
+          <button class="chip" data-set="size:48">48px</button>
+          <button class="chip" data-set="size:64">64px</button>
+        </div>
+      </div>
+
+      <!-- Colors -->
+      <div class="control-group">
+        <div class="control-header"><span>Icon &amp; Surface Color</span></div>
+        <div class="color-row">
+          <div class="color-box" title="Icon foreground color">
+            <input id="fgColor" type="color" value="#1b1f27" />
+            <input id="fgHex" type="text" value="#1b1f27" aria-label="Foreground hex" />
+          </div>
+          <div class="color-box" title="Card background color">
+            <input id="bgColor" type="color" value="#ffffff" />
+            <input id="bgHex" type="text" value="#ffffff" aria-label="Background hex" />
+          </div>
+        </div>
+        <div class="preset-row">
+          <button class="chip" data-theme="light">Light</button>
+          <button class="chip" data-theme="dark">Dark (GRAD -25)</button>
+          <button class="chip" data-theme="m3blue">M3 Primary</button>
+          <button class="chip" data-theme="m3tonal">M3 Tonal</button>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="toggle-row">
+        <label for="syncOpsz">Auto-sync opsz with font size</label>
+        <input id="syncOpsz" type="checkbox" />
+      </div>
+      <div class="toggle-row">
+        <label for="hoverFill">Animate FILL=1 on hover</label>
+        <input id="hoverFill" type="checkbox" checked />
+      </div>
+      <div class="toggle-row">
+        <label for="includeListInJson">Include visible symbols in JSON</label>
+        <input id="includeListInJson" type="checkbox" />
+      </div>
+
+      <div class="drop-hint">
+        Place <code>MaterialSymbolsRounded.ttf</code> in the same folder as this HTML file, or click <strong>Load .ttf File</strong> above to test any local font file.
+      </div>
+    </aside>
+
+    <!-- Center Column: Selected Symbol Inspector + Search + Symbol Grid -->
+    <section>
+      <!-- Selected Symbol Spotlight -->
+      <div class="spotlight">
+        <div class="spotlight-preview">
+          <span id="spotlightIcon" class="material-symbol">home</span>
+        </div>
+        <div class="spotlight-meta">
+          <h2>
+            <span id="spotlightName">home</span>
+            <span id="spotlightCat" class="chip active">Navigation</span>
+            <button id="copyLigatureBtn" class="btn" type="button" style="padding:4px 9px; font-size:0.74rem;">Copy Name</button>
+          </h2>
+          <div class="spotlight-sub">
+            Optical size comparison (fixed <code>opsz</code> at 20 / 24 / 40 / 48 with current FILL, wght, GRAD):
+          </div>
+          <div class="opsz-strip" id="opszStrip"></div>
+        </div>
+      </div>
+
+      <!-- Search, Custom Symbol Tester & Category Filter -->
+      <div class="panel">
+        <div class="toolbar">
+          <input id="searchInput" class="input-text" type="search" placeholder="Search 130+ symbols (e.g., home, search, bolt, cloud, star)..." />
+          <input id="customSymbolInput" class="input-text" style="max-width: 240px;" type="text" placeholder="Test custom ligature (e.g. rocket_launch)" />
+          <button id="addCustomBtn" class="btn btn-primary" type="button">Add &amp; Test</button>
+        </div>
+
+        <div id="categoryBar" class="category-bar"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:0.8rem; color:var(--text-muted);">
+          <span id="countLabel">Showing 0 symbols</span>
+          <span>Click any tile to inspect &amp; update JSON</span>
+        </div>
+
+        <div id="symbolGrid" class="symbol-grid"></div>
+      </div>
+    </section>
+
+    <!-- Right Column: Live JSON Preview -->
+    <aside class="panel sticky-panel json-panel">
+      <h2 class="panel-title">
+        <span>JSON Preview</span>
+        <span class="control-val">Live</span>
+      </h2>
+
+      <div class="json-toolbar">
+        <button id="copyJsonBtn" class="btn btn-primary" type="button">Copy JSON</button>
+        <button id="downloadJsonBtn" class="btn" type="button">Download</button>
+        <button id="toggleEditJsonBtn" class="btn" type="button">Edit / Import</button>
+      </div>
+
+      <pre id="jsonPreview" class="json-pre"></pre>
+      <textarea id="jsonEditor" class="json-editor" spellcheck="false"></textarea>
+      <div id="jsonEditorActions" style="display:none; gap:8px; margin-top:8px;">
+        <button id="applyJsonBtn" class="btn btn-primary" type="button">Apply JSON</button>
+        <button id="cancelEditJsonBtn" class="btn" type="button">Cancel</button>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Curated catalog of 130+ Material 3 Symbols across categories
+    const SYMBOL_CATALOG = [
+      // Navigation & UI
+      { name: 'home', cat: 'Navigation' },
+      { name: 'menu', cat: 'Navigation' },
+      { name: 'close', cat: 'Navigation' },
+      { name: 'arrow_back', cat: 'Navigation' },
+      { name: 'arrow_forward', cat: 'Navigation' },
+      { name: 'arrow_upward', cat: 'Navigation' },
+      { name: 'arrow_downward', cat: 'Navigation' },
+      { name: 'chevron_left', cat: 'Navigation' },
+      { name: 'chevron_right', cat: 'Navigation' },
+      { name: 'expand_more', cat: 'Navigation' },
+      { name: 'expand_less', cat: 'Navigation' },
+      { name: 'more_vert', cat: 'Navigation' },
+      { name: 'more_horiz', cat: 'Navigation' },
+      { name: 'apps', cat: 'Navigation' },
+      { name: 'dashboard', cat: 'Navigation' },
+      { name: 'widgets', cat: 'Navigation' },
+      { name: 'fullscreen', cat: 'Navigation' },
+      { name: 'open_in_new', cat: 'Navigation' },
+
+      // Actions
+      { name: 'search', cat: 'Actions' },
+      { name: 'settings', cat: 'Actions' },
+      { name: 'tune', cat: 'Actions' },
+      { name: 'favorite', cat: 'Actions' },
+      { name: 'star', cat: 'Actions' },
+      { name: 'bookmark', cat: 'Actions' },
+      { name: 'delete', cat: 'Actions' },
+      { name: 'edit', cat: 'Actions' },
+      { name: 'add', cat: 'Actions' },
+      { name: 'add_circle', cat: 'Actions' },
+      { name: 'remove', cat: 'Actions' },
+      { name: 'check', cat: 'Actions' },
+      { name: 'check_circle', cat: 'Actions' },
+      { name: 'done_all', cat: 'Actions' },
+      { name: 'refresh', cat: 'Actions' },
+      { name: 'sync', cat: 'Actions' },
+      { name: 'download', cat: 'Actions' },
+      { name: 'upload', cat: 'Actions' },
+      { name: 'share', cat: 'Actions' },
+      { name: 'content_copy', cat: 'Actions' },
+      { name: 'content_paste', cat: 'Actions' },
+      { name: 'visibility', cat: 'Actions' },
+      { name: 'visibility_off', cat: 'Actions' },
+      { name: 'lock', cat: 'Actions' },
+      { name: 'lock_open', cat: 'Actions' },
+      { name: 'key', cat: 'Actions' },
+      { name: 'login', cat: 'Actions' },
+      { name: 'logout', cat: 'Actions' },
+      { name: 'filter_list', cat: 'Actions' },
+      { name: 'sort', cat: 'Actions' },
+
+      // Communication
+      { name: 'mail', cat: 'Communication' },
+      { name: 'inbox', cat: 'Communication' },
+      { name: 'send', cat: 'Communication' },
+      { name: 'chat', cat: 'Communication' },
+      { name: 'forum', cat: 'Communication' },
+      { name: 'comment', cat: 'Communication' },
+      { name: 'call', cat: 'Communication' },
+      { name: 'videocam', cat: 'Communication' },
+      { name: 'notifications', cat: 'Communication' },
+      { name: 'notifications_active', cat: 'Communication' },
+      { name: 'notifications_off', cat: 'Communication' },
+      { name: 'campaign', cat: 'Communication' },
+      { name: 'alternate_email', cat: 'Communication' },
+      { name: 'contacts', cat: 'Communication' },
+
+      // Media & AV
+      { name: 'play_arrow', cat: 'Media' },
+      { name: 'play_circle', cat: 'Media' },
+      { name: 'pause', cat: 'Media' },
+      { name: 'stop', cat: 'Media' },
+      { name: 'skip_next', cat: 'Media' },
+      { name: 'skip_previous', cat: 'Media' },
+      { name: 'volume_up', cat: 'Media' },
+      { name: 'volume_off', cat: 'Media' },
+      { name: 'mic', cat: 'Media' },
+      { name: 'mic_off', cat: 'Media' },
+      { name: 'headphones', cat: 'Media' },
+      { name: 'music_note', cat: 'Media' },
+      { name: 'photo_camera', cat: 'Media' },
+      { name: 'image', cat: 'Media' },
+      { name: 'movie', cat: 'Media' },
+      { name: 'cast', cat: 'Media' },
+
+      // Content & Files
+      { name: 'folder', cat: 'Files' },
+      { name: 'folder_open', cat: 'Files' },
+      { name: 'description', cat: 'Files' },
+      { name: 'article', cat: 'Files' },
+      { name: 'draft', cat: 'Files' },
+      { name: 'attach_file', cat: 'Files' },
+      { name: 'link', cat: 'Files' },
+      { name: 'cloud', cat: 'Files' },
+      { name: 'cloud_upload', cat: 'Files' },
+      { name: 'cloud_download', cat: 'Files' },
+      { name: 'cloud_done', cat: 'Files' },
+      { name: 'code', cat: 'Files' },
+      { name: 'terminal', cat: 'Files' },
+      { name: 'data_object', cat: 'Files' },
+      { name: 'database', cat: 'Files' },
+      { name: 'print', cat: 'Files' },
+
+      // Device & Hardware
+      { name: 'smartphone', cat: 'Device' },
+      { name: 'laptop_mac', cat: 'Device' },
+      { name: 'desktop_windows', cat: 'Device' },
+      { name: 'tablet', cat: 'Device' },
+      { name: 'watch', cat: 'Device' },
+      { name: 'wifi', cat: 'Device' },
+      { name: 'bluetooth', cat: 'Device' },
+      { name: 'battery_full', cat: 'Device' },
+      { name: 'battery_charging_full', cat: 'Device' },
+      { name: 'bolt', cat: 'Device' },
+      { name: 'dark_mode', cat: 'Device' },
+      { name: 'light_mode', cat: 'Device' },
+      { name: 'memory', cat: 'Device' },
+      { name: 'qr_code_2', cat: 'Device' },
+
+      // People & Social
+      { name: 'person', cat: 'Social' },
+      { name: 'account_circle', cat: 'Social' },
+      { name: 'group', cat: 'Social' },
+      { name: 'groups', cat: 'Social' },
+      { name: 'thumb_up', cat: 'Social' },
+      { name: 'thumb_down', cat: 'Social' },
+      { name: 'mood', cat: 'Social' },
+      { name: 'public', cat: 'Social' },
+      { name: 'school', cat: 'Social' },
+      { name: 'work', cat: 'Social' },
+      { name: 'rocket_launch', cat: 'Social' },
+      { name: 'auto_awesome', cat: 'Social' },
+
+      // Status, Commerce & Maps
+      { name: 'info', cat: 'Status' },
+      { name: 'help', cat: 'Status' },
+      { name: 'warning', cat: 'Status' },
+      { name: 'error', cat: 'Status' },
+      { name: 'verified', cat: 'Status' },
+      { name: 'shield', cat: 'Status' },
+      { name: 'schedule', cat: 'Status' },
+      { name: 'calendar_today', cat: 'Status' },
+      { name: 'shopping_cart', cat: 'Commerce' },
+      { name: 'shopping_bag', cat: 'Commerce' },
+      { name: 'credit_card', cat: 'Commerce' },
+      { name: 'payments', cat: 'Commerce' },
+      { name: 'storefront', cat: 'Commerce' },
+      { name: 'location_on', cat: 'Maps' },
+      { name: 'map', cat: 'Maps' },
+      { name: 'explore', cat: 'Maps' },
+      { name: 'directions_car', cat: 'Maps' },
+      { name: 'flight', cat: 'Maps' },
+      { name: 'palette', cat: 'Design' }
+    ];
+
+    const DEFAULT_STATE = {
+      fontSource: './MaterialSymbolsRounded.ttf',
+      fontFamily: 'Material Symbols Rounded Local',
+      fontLoaded: false,
+      selectedSymbol: 'home',
+      selectedCategory: 'All',
+      searchQuery: '',
+      axes: {
+        FILL: 0,
+        wght: 400,
+        GRAD: 0,
+        opsz: 24
+      },
+      style: {
+        fontSize: 32,
+        color: '#1b1f27',
+        backgroundColor: '#ffffff',
+        syncOpsz: false,
+        hoverFill: true
+      },
+      includeListInJson: false
+    };
+
+    const state = structuredClone(DEFAULT_STATE);
+    const customSymbols = [];
+
+    // DOM Elements
+    const el = {
+      fontStatus: document.getElementById('fontStatus'),
+      ttfFileInput: document.getElementById('ttfFileInput'),
+      resetBtn: document.getElementById('resetBtn'),
+      fillRange: document.getElementById('fillRange'),
+      fillVal: document.getElementById('fillVal'),
+      wghtRange: document.getElementById('wghtRange'),
+      wghtVal: document.getElementById('wghtVal'),
+      gradRange: document.getElementById('gradRange'),
+      gradVal: document.getElementById('gradVal'),
+      opszRange: document.getElementById('opszRange'),
+      opszVal: document.getElementById('opszVal'),
+      sizeRange: document.getElementById('sizeRange'),
+      sizeVal: document.getElementById('sizeVal'),
+      fgColor: document.getElementById('fgColor'),
+      fgHex: document.getElementById('fgHex'),
+      bgColor: document.getElementById('bgColor'),
+      bgHex: document.getElementById('bgHex'),
+      syncOpsz: document.getElementById('syncOpsz'),
+      hoverFill: document.getElementById('hoverFill'),
+      includeListInJson: document.getElementById('includeListInJson'),
+      spotlightIcon: document.getElementById('spotlightIcon'),
+      spotlightName: document.getElementById('spotlightName'),
+      spotlightCat: document.getElementById('spotlightCat'),
+      copyLigatureBtn: document.getElementById('copyLigatureBtn'),
+      opszStrip: document.getElementById('opszStrip'),
+      searchInput: document.getElementById('searchInput'),
+      customSymbolInput: document.getElementById('customSymbolInput'),
+      addCustomBtn: document.getElementById('addCustomBtn'),
+      categoryBar: document.getElementById('categoryBar'),
+      countLabel: document.getElementById('countLabel'),
+      symbolGrid: document.getElementById('symbolGrid'),
+      jsonPreview: document.getElementById('jsonPreview'),
+      jsonEditor: document.getElementById('jsonEditor'),
+      jsonEditorActions: document.getElementById('jsonEditorActions'),
+      copyJsonBtn: document.getElementById('copyJsonBtn'),
+      downloadJsonBtn: document.getElementById('downloadJsonBtn'),
+      toggleEditJsonBtn: document.getElementById('toggleEditJsonBtn'),
+      applyJsonBtn: document.getElementById('applyJsonBtn'),
+      cancelEditJsonBtn: document.getElementById('cancelEditJsonBtn'),
+      toast: document.getElementById('toast')
+    };
+
+    let toastTimer;
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove('show'), 2200);
+    }
+
+    function getAllSymbols() {
+      return [...customSymbols, ...SYMBOL_CATALOG];
+    }
+
+    function getFilteredSymbols() {
+      const q = state.searchQuery.trim().toLowerCase();
+      return getAllSymbols().filter(item => {
+        const matchCat = state.selectedCategory === 'All' || item.cat === state.selectedCategory;
+        const matchQuery = !q || item.name.toLowerCase().includes(q) || item.cat.toLowerCase().includes(q);
+        return matchCat && matchQuery;
+      });
+    }
+
+    function applyCssVars() {
+      const root = document.documentElement.style;
+      root.setProperty('--sym-fill', state.axes.FILL);
+      root.setProperty('--sym-wght', state.axes.wght);
+      root.setProperty('--sym-grad', state.axes.GRAD);
+      root.setProperty('--sym-opsz', state.axes.opsz);
+      root.setProperty('--sym-size', state.style.fontSize + 'px');
+      root.setProperty('--sym-color', state.style.color);
+      root.setProperty('--sym-bg', state.style.backgroundColor);
+      root.setProperty('--sym-font-family', `'${state.fontFamily}'`);
+
+      document.body.classList.toggle('hover-fill-enabled', state.style.hoverFill);
+    }
+
+    function syncInputsFromState() {
+      el.fillRange.value = state.axes.FILL;
+      el.fillVal.textContent = Number(state.axes.FILL).toFixed(state.axes.FILL % 1 === 0 ? 0 : 2);
+      el.wghtRange.value = state.axes.wght;
+      el.wghtVal.textContent = state.axes.wght;
+      el.gradRange.value = state.axes.GRAD;
+      el.gradVal.textContent = state.axes.GRAD;
+      el.opszRange.value = state.axes.opsz;
+      el.opszVal.textContent = state.axes.opsz;
+      el.sizeRange.value = state.style.fontSize;
+      el.sizeVal.textContent = state.style.fontSize + 'px';
+      el.fgColor.value = state.style.color;
+      el.fgHex.value = state.style.color;
+      el.bgColor.value = state.style.backgroundColor;
+      el.bgHex.value = state.style.backgroundColor;
+      el.syncOpsz.checked = state.style.syncOpsz;
+      el.hoverFill.checked = state.style.hoverFill;
+      el.includeListInJson.checked = state.includeListInJson;
+    }
+
+    function renderSpotlight() {
+      const found = getAllSymbols().find(s => s.name === state.selectedSymbol);
+      el.spotlightIcon.textContent = state.selectedSymbol;
+      el.spotlightName.textContent = state.selectedSymbol;
+      el.spotlightCat.textContent = found ? found.cat : 'Custom';
+
+      const opszSizes = [20, 24, 40, 48];
+      el.opszStrip.innerHTML = opszSizes.map(sz => `
+        <div class="opsz-sample">
+          <span class="material-symbol" style="font-size:${sz}px; font-variation-settings:'FILL' ${state.axes.FILL}, 'wght' ${state.axes.wght}, 'GRAD' ${state.axes.GRAD}, 'opsz' ${sz};">${state.selectedSymbol}</span>
+          <span class="lbl">opsz ${sz}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderCategories() {
+      const cats = ['All', ...new Set(getAllSymbols().map(s => s.cat))];
+      el.categoryBar.innerHTML = cats.map(cat => `
+        <button class="chip ${state.selectedCategory === cat ? 'active' : ''}" data-cat="${cat}">${cat}</button>
+      `).join('');
+    }
+
+    function renderGrid() {
+      const list = getFilteredSymbols();
+      el.countLabel.textContent = `Showing ${list.length} of ${getAllSymbols().length} symbols`;
+
+      if (!list.length) {
+        el.symbolGrid.innerHTML = `<div class="empty-state">No symbols matched "${state.searchQuery}". Use the custom ligature box above to test any Material Symbol name.</div>`;
+        return;
+      }
+
+      el.symbolGrid.innerHTML = list.map(item => `
+        <div class="symbol-card ${item.name === state.selectedSymbol ? 'selected' : ''}" data-symbol="${item.name}" title="${item.name} (${item.cat})">
+          <span class="material-symbol">${item.name}</span>
+          <span class="symbol-name">${item.name}</span>
+        </div>
+      `).join('');
+    }
+
+    function buildJsonObject() {
+      const fvs = `'FILL' ${state.axes.FILL}, 'wght' ${state.axes.wght}, 'GRAD' ${state.axes.GRAD}, 'opsz' ${state.axes.opsz}`;
+      const found = getAllSymbols().find(s => s.name === state.selectedSymbol);
+      const filtered = getFilteredSymbols();
+
+      const payload = {
+        font: {
+          file: state.fontSource,
+          family: state.fontFamily,
+          loaded: state.fontLoaded
+        },
+        selectedSymbol: {
+          ligature: state.selectedSymbol,
+          category: found ? found.cat : 'Custom'
+        },
+        variationSettings: {
+          FILL: Number(state.axes.FILL),
+          wght: Number(state.axes.wght),
+          GRAD: Number(state.axes.GRAD),
+          opsz: Number(state.axes.opsz),
+          cssValue: fvs
+        },
+        style: {
+          fontSize: `${state.style.fontSize}px`,
+          color: state.style.color,
+          backgroundColor: state.style.backgroundColor,
+          syncOpszWithFontSize: state.style.syncOpsz,
+          hoverFillAnimation: state.style.hoverFill
+        },
+        snippets: {
+          html: `<span class="material-symbols-rounded">${state.selectedSymbol}</span>`,
+          css: `.material-symbols-rounded { font-family: 'Material Symbols Rounded'; font-size: ${state.style.fontSize}px; color: ${state.style.color}; font-variation-settings: ${fvs}; }`
+        },
+        catalog: {
+          totalSymbols: getAllSymbols().length,
+          visibleSymbols: filtered.length,
+          activeCategory: state.selectedCategory,
+          searchQuery: state.searchQuery
+        }
+      };
+
+      if (state.includeListInJson) {
+        payload.catalog.symbols = filtered.map(s => s.name);
+      }
+
+      return payload;
+    }
+
+    function highlightJson(jsonStr) {
+      const escaped = jsonStr
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return escaped.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        match => {
+          let cls = 'j-num';
+          if (/^"/.test(match)) {
+            cls = /:$/.test(match) ? 'j-key' : 'j-str';
+          } else if (/true|false/.test(match)) {
+            cls = 'j-bool';
+          } else if (/null/.test(match)) {
+            cls = 'j-null';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+
+    function renderJson() {
+      const str = JSON.stringify(buildJsonObject(), null, 2);
+      el.jsonPreview.innerHTML = highlightJson(str);
+    }
+
+    function updateAll() {
+      applyCssVars();
+      syncInputsFromState();
+      renderSpotlight();
+      renderJson();
+    }
+
+    // Check if ./MaterialSymbolsRounded.ttf loaded
+    async function checkLocalFont() {
+      try {
+        await document.fonts.load(`24px "${state.fontFamily}"`, 'home');
+        const loaded = document.fonts.check(`24px "${state.fontFamily}"`, 'home');
+        state.fontLoaded = loaded;
+        if (loaded) {
+          el.fontStatus.className = 'badge ok';
+          el.fontStatus.textContent = `Loaded: ${state.fontSource}`;
+        } else {
+          el.fontStatus.className = 'badge err';
+          el.fontStatus.textContent = 'MaterialSymbolsRounded.ttf not found — use "Load .ttf File"';
+        }
+      } catch (e) {
+        state.fontLoaded = false;
+        el.fontStatus.className = 'badge err';
+        el.fontStatus.textContent = 'Font load error — use "Load .ttf File"';
+      }
+      renderJson();
+    }
+
+    // Load user-selected local .ttf file via FontFace API
+    el.ttfFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const buffer = await file.arrayBuffer();
+        const customFamily = 'Material Symbols Custom Uploaded';
+        const fontFace = new FontFace(customFamily, buffer, { weight: '100 700', style: 'normal' });
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        state.fontFamily = customFamily;
+        state.fontSource = file.name;
+        state.fontLoaded = true;
+        el.fontStatus.className = 'badge ok';
+        el.fontStatus.textContent = `Loaded: ${file.name}`;
+        updateAll();
+        showToast(`Loaded ${file.name}`);
+      } catch (err) {
+        el.fontStatus.className = 'badge err';
+        el.fontStatus.textContent = `Failed to load ${file.name}`;
+        showToast('Could not parse font file');
+      }
+    });
+
+    // Range & input bindings
+    el.fillRange.addEventListener('input', e => { state.axes.FILL = parseFloat(e.target.value); updateAll(); });
+    el.wghtRange.addEventListener('input', e => { state.axes.wght = parseInt(e.target.value, 10); updateAll(); });
+    el.gradRange.addEventListener('input', e => { state.axes.GRAD = parseInt(e.target.value, 10); updateAll(); });
+    el.opszRange.addEventListener('input', e => {
+      state.axes.opsz = parseInt(e.target.value, 10);
+      state.style.syncOpsz = false;
+      updateAll();
+    });
+    el.sizeRange.addEventListener('input', e => {
+      state.style.fontSize = parseInt(e.target.value, 10);
+      if (state.style.syncOpsz) {
+        state.axes.opsz = Math.max(20, Math.min(48, state.style.fontSize));
+      }
+      updateAll();
+    });
+
+    el.fgColor.addEventListener('input', e => { state.style.color = e.target.value; updateAll(); });
+    el.fgHex.addEventListener('change', e => {
+      if (/^#[0-9a-fA-F]{6}$/.test(e.target.value.trim())) {
+        state.style.color = e.target.value.trim();
+        updateAll();
+      }
+    });
+    el.bgColor.addEventListener('input', e => { state.style.backgroundColor = e.target.value; updateAll(); });
+    el.bgHex.addEventListener('change', e => {
+      if (/^#[0-9a-fA-F]{6}$/.test(e.target.value.trim())) {
+        state.style.backgroundColor = e.target.value.trim();
+        updateAll();
+      }
+    });
+
+    el.syncOpsz.addEventListener('change', e => {
+      state.style.syncOpsz = e.target.checked;
+      if (state.style.syncOpsz) {
+        state.axes.opsz = Math.max(20, Math.min(48, state.style.fontSize));
+      }
+      updateAll();
+    });
+    el.hoverFill.addEventListener('change', e => { state.style.hoverFill = e.target.checked; updateAll(); });
+    el.includeListInJson.addEventListener('change', e => { state.includeListInJson = e.target.checked; renderJson(); });
+
+    // Preset buttons
+    document.querySelectorAll('[data-set]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [key, rawVal] = btn.dataset.set.split(':');
+        const val = parseFloat(rawVal);
+        if (key === 'size') {
+          state.style.fontSize = val;
+          if (state.style.syncOpsz) state.axes.opsz = Math.max(20, Math.min(48, val));
+        } else {
+          state.axes[key] = val;
+        }
+        updateAll();
+      });
+    });
+
+    // Theme presets
+    document.querySelectorAll('[data-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.theme;
+        if (t === 'light') {
+          state.style.color = '#1b1f27';
+          state.style.backgroundColor = '#ffffff';
+          state.axes.GRAD = 0;
+        } else if (t === 'dark') {
+          state.style.color = '#e3e8f0';
+          state.style.backgroundColor = '#14171f';
+          state.axes.GRAD = -25;
+        } else if (t === 'm3blue') {
+          state.style.color = '#0b57d0';
+          state.style.backgroundColor = '#e8f0fe';
+          state.axes.GRAD = 0;
+        } else if (t === 'm3tonal') {
+          state.style.color = '#4f378b';
+          state.style.backgroundColor = '#f3edf7';
+          state.axes.GRAD = 0;
+        }
+        updateAll();
+      });
+    });
+
+    // Category & grid interaction
+    el.categoryBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-cat]');
+      if (!btn) return;
+      state.selectedCategory = btn.dataset.cat;
+      renderCategories();
+      renderGrid();
+      renderJson();
+    });
+
+    el.symbolGrid.addEventListener('click', e => {
+      const card = e.target.closest('[data-symbol]');
+      if (!card) return;
+      state.selectedSymbol = card.dataset.symbol;
+      document.querySelectorAll('.symbol-card.selected').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      renderSpotlight();
+      renderJson();
+    });
+
+    el.searchInput.addEventListener('input', e => {
+      state.searchQuery = e.target.value;
+      renderGrid();
+      renderJson();
+    });
+
+    // Add & test custom ligature
+    function addCustomSymbol() {
+      const name = el.customSymbolInput.value.trim().replace(/\s+/g, '_');
+      if (!name) return;
+      if (!getAllSymbols().some(s => s.name === name)) {
+        customSymbols.unshift({ name, cat: 'Custom' });
+      }
+      state.selectedSymbol = name;
+      state.selectedCategory = 'All';
+      el.customSymbolInput.value = '';
+      renderCategories();
+      renderGrid();
+      renderSpotlight();
+      renderJson();
+      showToast(`Testing symbol "${name}"`);
+    }
+
+    el.addCustomBtn.addEventListener('click', addCustomSymbol);
+    el.customSymbolInput.addEventListener('keydown', e => { if (e.key === 'Enter') addCustomSymbol(); });
+
+    el.copyLigatureBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(state.selectedSymbol);
+      showToast(`Copied "${state.selectedSymbol}"`);
+    });
+
+    // JSON actions
+    el.copyJsonBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(JSON.stringify(buildJsonObject(), null, 2));
+      showToast('JSON copied to clipboard');
+    });
+
+    el.downloadJsonBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(buildJsonObject(), null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `material-symbol-${state.selectedSymbol}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('JSON downloaded');
+    });
+
+    function setEditMode(editing) {
+      el.jsonPreview.style.display = editing ? 'none' : 'block';
+      el.jsonEditor.style.display = editing ? 'block' : 'none';
+      el.jsonEditorActions.style.display = editing ? 'flex' : 'none';
+      if (editing) {
+        el.jsonEditor.value = JSON.stringify(buildJsonObject(), null, 2);
+      }
+    }
+
+    el.toggleEditJsonBtn.addEventListener('click', () => {
+      const isEditing = el.jsonEditor.style.display === 'block';
+      setEditMode(!isEditing);
+    });
+
+    el.cancelEditJsonBtn.addEventListener('click', () => setEditMode(false));
+
+    el.applyJsonBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(el.jsonEditor.value);
+        if (parsed.selectedSymbol?.ligature) {
+          state.selectedSymbol = String(parsed.selectedSymbol.ligature);
+        }
+        if (parsed.variationSettings) {
+          if (typeof parsed.variationSettings.FILL === 'number') state.axes.FILL = Math.max(0, Math.min(1, parsed.variationSettings.FILL));
+          if (typeof parsed.variationSettings.wght === 'number') state.axes.wght = Math.max(100, Math.min(700, parsed.variationSettings.wght));
+          if (typeof parsed.variationSettings.GRAD === 'number') state.axes.GRAD = Math.max(-50, Math.min(200, parsed.variationSettings.GRAD));
+          if (typeof parsed.variationSettings.opsz === 'number') state.axes.opsz = Math.max(20, Math.min(48, parsed.variationSettings.opsz));
+        }
+        if (parsed.style) {
+          if (parsed.style.fontSize) {
+            const px = parseInt(String(parsed.style.fontSize), 10);
+            if (!isNaN(px)) state.style.fontSize = Math.max(16, Math.min(88, px));
+          }
+          if (parsed.style.color) state.style.color = parsed.style.color;
+          if (parsed.style.backgroundColor) state.style.backgroundColor = parsed.style.backgroundColor;
+          if (typeof parsed.style.syncOpszWithFontSize === 'boolean') state.style.syncOpsz = parsed.style.syncOpszWithFontSize;
+          if (typeof parsed.style.hoverFillAnimation === 'boolean') state.style.hoverFill = parsed.style.hoverFillAnimation;
+        }
+        setEditMode(false);
+        renderGrid();
+        updateAll();
+        showToast('Applied JSON configuration');
+      } catch (err) {
+        showToast('Invalid JSON syntax');
+      }
+    });
+
+    // Reset button
+    el.resetBtn.addEventListener('click', () => {
+      const currentFont = { fontSource: state.fontSource, fontFamily: state.fontFamily, fontLoaded: state.fontLoaded };
+      Object.assign(state, structuredClone(DEFAULT_STATE), currentFont);
+      el.searchInput.value = '';
+      renderCategories();
+      renderGrid();
+      updateAll();
+      showToast('Reset to Material 3 defaults');
+    });
+
+    // Init
+    renderCategories();
+    renderGrid();
+    updateAll();
+    checkLocalFont();
+  </script>
+</body>
+</html>

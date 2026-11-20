@@ -1,3 +1,31 @@
+import 'package:flutter/widgets.dart';
+import '../theme/snap_symbols.dart';
+
+class FeatureItem {
+  final String title;
+  final String description;
+  final IconData icon;
+
+  const FeatureItem({
+    required this.title,
+    required this.description,
+    required this.icon,
+  });
+
+  dynamic operator [](String key) {
+    switch (key) {
+      case 'title':
+        return title;
+      case 'description':
+        return description;
+      case 'icon':
+        return icon;
+      default:
+        return null;
+    }
+  }
+}
+
 class AppConstants {
   AppConstants._();
 
@@ -20,27 +48,27 @@ class AppConstants {
   static const String contactEmail = 'contact@snapgrove.app';
 
   // About Features & Highlights
-  static const List<Map<String, String>> keyFeatures = [
-    {
-      'title': '100% Offline & Private',
-      'description': 'Zero cloud sync, zero telemetry, and zero ads. Your screenshots never leave your local storage.',
-      'icon': 'assets/icons/shield.svg',
-    },
-    {
-      'title': 'Blazing SAF Performance',
-      'description': 'Engineered with single-scan batching and asynchronous chunked pipelines for instantaneous multi-file moves.',
-      'icon': 'assets/icons/folder-plus.svg',
-    },
-    {
-      'title': 'Intelligent Preview Cache',
-      'description': 'Adaptive 3-tier in-memory LRU cache with background bidirectional preloading for silky-smooth 60fps zooming.',
-      'icon': 'assets/icons/preview.svg',
-    },
-    {
-      'title': 'Cross-Platform Harmony',
-      'description': 'Consistent design system with glassmorphism blur across Android, Windows, and modern Web platforms.',
-      'icon': 'assets/icons/desktop.svg',
-    },
+  static const List<FeatureItem> keyFeatures = [
+    FeatureItem(
+      title: 'Private & Local-First',
+      description: 'Zero cloud sync, zero telemetry, and zero ads. Your screenshots never leave your local storage.',
+      icon: SnapSymbols.shield_person,
+    ),
+    FeatureItem(
+      title: 'Blazing SAF Performance',
+      description: 'Engineered with single-scan batching and asynchronous chunked pipelines for instantaneous multi-file moves.',
+      icon: SnapSymbols.create_new_folder,
+    ),
+    FeatureItem(
+      title: 'Crystal-Clear Fullscreen Preview',
+      description: 'Adaptive 3-tier in-memory LRU cache with background bidirectional preloading for silky-smooth 60fps zooming.',
+      icon: SnapSymbols.preview,
+    ),
+    FeatureItem(
+      title: 'Cross-Platform Harmony',
+      description: 'Consistent design system with glassmorphism blur across Android, Windows, and modern Web platforms.',
+      icon: SnapSymbols.display_settings,
+    ),
   ];
 
   // Privacy Policy Clauses

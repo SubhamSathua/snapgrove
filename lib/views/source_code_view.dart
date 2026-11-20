@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
@@ -126,14 +125,10 @@ class SourceCodeView extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(),
                 splashColor: sc.rippleColor,
                 child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/Back-Btn.svg',
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(
-                      isDark ? Colors.white : Colors.black,
-                      BlendMode.srcIn,
-                    ),
+                  child: Icon(
+                    SnapSymbols.arrow_back_ios_new,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ),
@@ -217,14 +212,10 @@ class SourceCodeView extends StatelessWidget {
                   color: isDark ? const Color(0xFF222222) : const Color(0xFFF3F3F3),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: SvgPicture.asset(
-                  'assets/icons/github.svg',
-                  width: 24,
-                  height: 24,
-                  colorFilter: ColorFilter.mode(
-                    isDark ? Colors.white : Colors.black,
-                    BlendMode.srcIn,
-                  ),
+                child: Icon(
+                  SnapSymbols.code,
+                  size: 24,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
               const SizedBox(width: 14),
@@ -286,14 +277,10 @@ class SourceCodeView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onPressed: () => _launchUrl(context, AppConstants.repoUrl),
-              icon: SvgPicture.asset(
-                'assets/icons/github.svg',
-                width: 16,
-                height: 16,
-                colorFilter: ColorFilter.mode(
-                  isDark ? Colors.white : Colors.black,
-                  BlendMode.srcIn,
-                ),
+              icon: Icon(
+                SnapSymbols.code,
+                size: 16,
+                color: isDark ? Colors.white : Colors.black,
               ),
               label: const Text(
                 'View Repository on GitHub',

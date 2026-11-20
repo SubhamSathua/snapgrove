@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/snap_symbols.dart';
@@ -125,14 +124,10 @@ class _LicensesViewState extends State<LicensesView> {
                 onTap: () => Navigator.of(context).pop(),
                 splashColor: sc.rippleColor,
                 child: Center(
-                  child: SvgPicture.asset(
-                    'assets/icons/Back-Btn.svg',
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(
-                      isDark ? Colors.white : Colors.black,
-                      BlendMode.srcIn,
-                    ),
+                  child: Icon(
+                    SnapSymbols.arrow_back_ios_new,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ),
@@ -173,11 +168,10 @@ class _LicensesViewState extends State<LicensesView> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SvgPicture.asset(
-                  'assets/icons/license.svg',
-                  width: 13,
-                  height: 13,
-                  colorFilter: ColorFilter.mode(sc.accent, BlendMode.srcIn),
+                Icon(
+                  SnapSymbols.license,
+                  size: 13,
+                  color: sc.accent,
                 ),
                 const SizedBox(width: 5),
                 Text(

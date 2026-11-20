@@ -21,6 +21,8 @@ abstract final class SnapSymbols {
   static const IconData home_outlined = home;
   static const IconData arrow_back = IconData(0xe5c4, fontFamily: _family);
   static const IconData arrow_back_rounded = arrow_back;
+  static const IconData arrow_back_ios = IconData(0xe5e0, fontFamily: _family);
+  static const IconData arrow_back_ios_new = IconData(0xe2ea, fontFamily: _family);
   static const IconData arrow_forward = IconData(0xe5c8, fontFamily: _family);
   static const IconData arrow_forward_rounded = arrow_forward;
   static const IconData chevron_left = IconData(0xe5cb, fontFamily: _family);
@@ -212,4 +214,9 @@ abstract final class SnapSymbols {
   static const IconData bug_report = IconData(0xe868, fontFamily: _family);
   static const IconData bug_report_outlined = bug_report;
   static const IconData code = IconData(0xe86f, fontFamily: _family);
+  static const IconData screenshot_region = IconData(0xf7d2, fontFamily: _family);
+  static const IconData screenshot = IconData(0xf056, fontFamily: _family);
+  static const IconData shield_person = IconData(0xf650, fontFamily: _family);
+  static const IconData license = IconData(0xeb04, fontFamily: _family);
+  static const IconData select_check_box = IconData(0xf1fe, fontFamily: _family);
 }

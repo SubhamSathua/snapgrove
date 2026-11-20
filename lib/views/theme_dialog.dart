@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/locator.dart';
 import '../theme/app_blur.dart';
 import '../theme/app_theme.dart';
@@ -103,7 +102,7 @@ class ThemeDialog extends StatelessWidget {
                               Expanded(
                                 flex: selected == ThemeMode.system ? 16 : 10,
                                 child: _ThemeOption(
-                                  svgPath: 'assets/icons/desktop.svg',
+                                  icon: SnapSymbols.display_settings,
                                   label: 'System',
                                   isActive: selected == ThemeMode.system,
                                   onTap: () => onThemeChanged(ThemeMode.system),
@@ -113,7 +112,7 @@ class ThemeDialog extends StatelessWidget {
                               Expanded(
                                 flex: selected == ThemeMode.light ? 16 : 10,
                                 child: _ThemeOption(
-                                  svgPath: 'assets/icons/sun.svg',
+                                  icon: SnapSymbols.light_mode,
                                   label: 'Light',
                                   isActive: selected == ThemeMode.light,
                                   onTap: () => onThemeChanged(ThemeMode.light),
@@ -123,7 +122,7 @@ class ThemeDialog extends StatelessWidget {
                               Expanded(
                                 flex: selected == ThemeMode.dark ? 16 : 10,
                                 child: _ThemeOption(
-                                  svgPath: 'assets/icons/moon.svg',
+                                  icon: SnapSymbols.dark_mode,
                                   label: 'Dark',
                                   isActive: selected == ThemeMode.dark,
                                   onTap: () => onThemeChanged(ThemeMode.dark),
@@ -146,13 +145,13 @@ class ThemeDialog extends StatelessWidget {
 }
 
 class _ThemeOption extends StatefulWidget {
-  final String svgPath;
+  final IconData icon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
 
   const _ThemeOption({
-    required this.svgPath,
+    required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -229,11 +228,10 @@ class _ThemeOptionState extends State<_ThemeOption>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SvgPicture.asset(
-                    widget.svgPath,
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(fgColor, BlendMode.srcIn),
+                  Icon(
+                    widget.icon,
+                    size: 24,
+                    color: fgColor,
                   ),
                   const SizedBox(height: 6),
                   Text(

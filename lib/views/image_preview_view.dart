@@ -6,7 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../models/folder_node.dart';
@@ -1995,11 +1994,10 @@ class _RoundBackButtonState extends State<_RoundBackButton> {
             splashColor: Colors.white.withValues(alpha: 0.25),
             highlightColor: Colors.white.withValues(alpha: 0.12),
             child: Center(
-              child: SvgPicture.asset(
-                'assets/icons/Back-Btn.svg',
-                width: 24,
-                height: 24,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              child: Icon(
+                SnapSymbols.arrow_back_ios_new,
+                size: 20,
+                color: Colors.white,
               ),
             ),
           ),

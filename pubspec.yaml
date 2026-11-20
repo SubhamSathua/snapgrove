@@ -37,7 +37,6 @@ dependencies:
   shared_preferences: ^2.5.5
   idb_shim: ^2.9.3
   path_provider: ^2.1.5
-  flutter_svg: ^2.3.0
   url_launcher: ^6.3.2
   saf_stream: ^3.0.0
   saf_util: ^3.1.0
@@ -77,28 +76,7 @@ flutter:
   assets:
     - assets/images/logo-black.png
     - assets/images/logo-white.png
-    - assets/icons/more.svg
-    - assets/icons/logo-black.svg
-    - assets/icons/logo-white.svg
-    - assets/icons/browse.svg
-    - assets/icons/check.svg
-    - assets/icons/screenshot.svg
-    - assets/icons/palette.svg
-    - assets/icons/shield.svg
-    - assets/icons/info-circle.svg
-    - assets/icons/github.svg
-    - assets/icons/desktop.svg
-    - assets/icons/sun.svg
-    - assets/icons/moon.svg
-    - assets/icons/Back-Btn.svg
-    - assets/icons/grid.svg
-    - assets/icons/sort.svg
-    - assets/icons/preview.svg
-    - assets/icons/folder-plus.svg
     - assets/icons/icon.png
-    - assets/icons/download.svg
-    - assets/icons/license.svg
-    - assets/icons/trash.svg
     - assets/logo/logo.png
     - assets/licenses/
 

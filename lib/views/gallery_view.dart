@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../models/folder_node.dart';
@@ -406,7 +405,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           height: 38,
           child: Row(
             children: [
-              Icon(SnapSymbols.checklist, size: 18, color: isDark ? Colors.white : Colors.black),
+              Icon(SnapSymbols.select_check_box, size: 18, color: isDark ? Colors.white : Colors.black),
               const SizedBox(width: 10),
               Text(
                 'Select',
@@ -625,7 +624,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             // Option 1: Grid Layout
                             _DropdownMenuOptionTile(
-                              icon: SnapSymbols.grid_view_rounded,
+                              icon: SnapSymbols.grid_view,
                               label: 'Grid Layout',
                               onTap: () {
                                 Navigator.of(ctx).pop();
@@ -1495,14 +1494,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       ),
                       const SizedBox(width: 4),
                       PopupMenuButton<String>(
-                        icon: SvgPicture.asset(
-                          'assets/icons/more.svg',
-                          width: 20,
-                          height: 20,
-                          colorFilter: ColorFilter.mode(
-                            isDark ? Colors.white : Colors.black,
-                            BlendMode.srcIn,
-                          ),
+                        icon: Icon(
+                          SnapSymbols.more_vert,
+                          size: 22,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                         color: sc.surfaceElevated,
                         elevation: 6,
@@ -1629,7 +1624,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     Tooltip(
                       message: 'Select images',
                       child: _IconSquare(
-                        icon: SnapSymbols.done_all,
+                        icon: SnapSymbols.select_check_box,
                         onTap: () => _enterSelectionMode(),
                       ),
                     ),
@@ -1637,7 +1632,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     Tooltip(
                       message: 'Manage Folders (tags)',
                       child: _IconSquare(
-                        icon: SnapSymbols.folder_open_rounded,
+                        icon: SnapSymbols.folder_open,
                         onTap: () {
                           final selectedPaths = _isSelectionMode
                               ? _selectedIndices
@@ -2532,11 +2527,10 @@ class _RoundBackButton extends StatelessWidget {
           splashColor: sc.rippleColor,
           highlightColor: sc.rippleColor.withValues(alpha: 0.15),
           child: Center(
-            child: SvgPicture.asset(
-              'assets/icons/Back-Btn.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            child: Icon(
+              SnapSymbols.arrow_back_ios_new,
+              size: 20,
+              color: iconColor,
             ),
           ),
         ),
