@@ -307,6 +307,7 @@ class _DebugViewState extends State<DebugView> {
   }) {
     return InkWell(
       onTap: () => onChanged(!value),
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -341,6 +342,7 @@ class _DebugViewState extends State<DebugView> {
               scale: 0.85,
               child: Switch(
                 value: value,
+                mouseCursor: SystemMouseCursors.click,
                 activeThumbColor: sc.accent,
                 activeTrackColor: sc.accent.withValues(alpha: 0.35),
                 inactiveThumbColor: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
@@ -364,6 +366,7 @@ class _DebugViewState extends State<DebugView> {
   }) {
     return InkWell(
       onTap: onTap,
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(

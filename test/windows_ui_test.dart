@@ -124,5 +124,35 @@ void main() {
       final solid = AppBlur.getBackgroundColor(translucent, Colors.white);
       expect(solid.a, closeTo(0.85, 0.01));
     });
+
+    testWidgets('SettingsView top header spans full width on desktop', (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          home: const SettingsView(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find the header container
+      final headerFinder = find.byKey(const Key('settings_top_nav_bar'));
+      expect(headerFinder, findsOneWidget);
+      final RenderBox headerBox = tester.renderObject(headerFinder);
+      expect(headerBox.size.width, equals(1200.0));
+
+      // Close button and back button should be spaced across
+      final closeButtonFinder = find.byTooltip('Close');
+      expect(closeButtonFinder, findsOneWidget);
+      final Offset closePos = tester.getCenter(closeButtonFinder);
+      expect(closePos.dx, greaterThan(1100.0)); // Placed near right edge
+    });
   });
 }

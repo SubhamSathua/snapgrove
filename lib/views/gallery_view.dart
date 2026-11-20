@@ -378,87 +378,108 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   Future<void> _showContextMenu(BuildContext context, Offset position, int index) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
+    final screenSize = MediaQuery.of(context).size;
 
-    final relativeRect = RelativeRect.fromRect(
-      Rect.fromLTWH(position.dx, position.dy, 0, 0),
-      Offset.zero & overlay.size,
-    );
+    const double menuWidth = 190.0;
+    const double menuHeight = 140.0;
 
-    final selected = await showMenu<String>(
+    final left = position.dx + menuWidth > screenSize.width - 12
+        ? (screenSize.width - menuWidth - 12).clamp(12.0, double.infinity)
+        : position.dx;
+    final top = position.dy + menuHeight > screenSize.height - 12
+        ? (screenSize.height - menuHeight - 12).clamp(12.0, double.infinity)
+        : position.dy;
+
+    final selected = await showGeneralDialog<String>(
       context: context,
-      position: relativeRect,
-      color: AppBlur.getBackgroundColor(
-        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
-      ),
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-        ),
-      ),
-      items: [
-        PopupMenuItem<String>(
-          value: 'select',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(SnapSymbols.select_check_box, size: 18, color: isDark ? Colors.white : Colors.black),
-              const SizedBox(width: 10),
-              Text(
-                'Select',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : Colors.black,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss Context Menu',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 140),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: anim1, curve: Curves.easeOut),
+          child: child,
+        );
+      },
+      pageBuilder: (ctx, anim1, anim2) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => Navigator.of(ctx).pop(),
+                onSecondaryTap: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+            Positioned(
+              left: left,
+              top: top,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
+                  child: Container(
+                    width: menuWidth,
+                    decoration: BoxDecoration(
+                      color: AppBlur.getBackgroundColor(
+                        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildContextMenuItem(
+                            icon: SnapSymbols.select_check_box,
+                            label: 'Select',
+                            isDark: isDark,
+                            onTap: () => Navigator.of(ctx).pop('select'),
+                          ),
+                          _buildContextMenuItem(
+                            icon: SnapSymbols.select_all,
+                            label: 'Select All',
+                            isDark: isDark,
+                            onTap: () => Navigator.of(ctx).pop('select_all'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                            ),
+                          ),
+                          _buildContextMenuItem(
+                            icon: SnapSymbols.preview,
+                            label: 'Preview',
+                            isDark: isDark,
+                            onTap: () => Navigator.of(ctx).pop('preview'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'select_all',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(SnapSymbols.select_all, size: 18, color: isDark ? Colors.white : Colors.black),
-              const SizedBox(width: 10),
-              Text(
-                'Select All',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(height: 1),
-        PopupMenuItem<String>(
-          value: 'preview',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(SnapSymbols.preview, size: 18, color: isDark ? Colors.white : Colors.black),
-              const SizedBox(width: 10),
-              Text(
-                'Preview',
-                style: TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
 
     if (!context.mounted || selected == null) return;
@@ -486,6 +507,37 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
         );
         break;
     }
+  }
+
+  Widget _buildContextMenuItem({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      mouseCursor: SystemMouseCursors.click,
+      hoverColor: isDark ? const Color(0x22FFFFFF) : const Color(0x12000000),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: isDark ? Colors.white : Colors.black),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Dynamically computes maximum allowable columns based on viewport width
@@ -2145,38 +2197,84 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   void _showRenameFolderMenu(BuildContext context, String folder, Offset? position) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final screenSize = MediaQuery.of(context).size;
     final pos = position ?? const Offset(200, 300);
 
-    final selected = await showMenu<String>(
+    const double menuWidth = 160.0;
+    const double menuHeight = 56.0;
+
+    final left = pos.dx + menuWidth > screenSize.width - 12
+        ? (screenSize.width - menuWidth - 12).clamp(12.0, double.infinity)
+        : pos.dx;
+    final top = pos.dy + menuHeight > screenSize.height - 12
+        ? (screenSize.height - menuHeight - 12).clamp(12.0, double.infinity)
+        : pos.dy;
+
+    final selected = await showGeneralDialog<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        pos & const Size(40, 40),
-        Offset.zero & overlay.size,
-      ),
-      elevation: 8,
-      color: AppBlur.getBackgroundColor(
-        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-        ),
-      ),
-      items: [
-        PopupMenuItem<String>(
-          value: 'rename',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(SnapSymbols.drive_file_rename_outline_rounded, size: 16, color: isDark ? Colors.white70 : Colors.black87),
-              const SizedBox(width: 8),
-              const Text('Rename', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13)),
-            ],
-          ),
-        ),
-      ],
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss Rename Menu',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 140),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: anim1, curve: Curves.easeOut),
+          child: child,
+        );
+      },
+      pageBuilder: (ctx, anim1, anim2) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => Navigator.of(ctx).pop(),
+                onSecondaryTap: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+            Positioned(
+              left: left,
+              top: top,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
+                  child: Container(
+                    width: menuWidth,
+                    decoration: BoxDecoration(
+                      color: AppBlur.getBackgroundColor(
+                        (isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.85),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: _buildContextMenuItem(
+                        icon: SnapSymbols.drive_file_rename_outline_rounded,
+                        label: 'Rename',
+                        isDark: isDark,
+                        onTap: () => Navigator.of(ctx).pop('rename'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
 
     if (selected == 'rename' && mounted) {

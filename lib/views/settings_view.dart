@@ -375,22 +375,32 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              children: [
-                // ── Top Navigation Bar ──────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      // Back button
-                      _TopBarCircleButton(
-                        icon: SnapSymbols.arrow_back_rounded,
-                        tooltip: 'Back',
-                        onTap: () => Navigator.of(context).pop(),
-                      ),
+        child: Column(
+          children: [
+            // ── Top Navigation Bar (Full width across window) ──────────
+            Container(
+              key: const Key('settings_top_nav_bar'),
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: isPc ? 24 : 16,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? const Color(0x18FFFFFF) : const Color(0x10000000),
+                    width: 1.0,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Back button
+                  _TopBarCircleButton(
+                    icon: SnapSymbols.arrow_back_ios_new,
+                    tooltip: 'Back',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                       const SizedBox(width: 14),
                       Text(
                         'Settings',
@@ -419,9 +429,16 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                   ),
                 ),
 
-                // ── Search Bar matching settings.png ────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                // ── Settings Content Area (Centered constrained width) ─────
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        children: [
+                          // ── Search Bar matching settings.png ────────────────
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
@@ -463,17 +480,20 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           ),
                         ),
                         if (_searchQuery.isNotEmpty)
-                          GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                SnapSymbols.clear_rounded,
-                                size: 16,
-                                color: sc.muted.withValues(alpha: 0.7),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  SnapSymbols.clear_rounded,
+                                  size: 16,
+                                  color: sc.muted.withValues(alpha: 0.7),
+                                ),
                               ),
                             ),
                           ),
@@ -783,7 +803,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           ),
         ),
       ),
-    );
+    ],
+  ),
+),
+);
   }
 
   Widget _buildSectionHeader(String title, SnapgroveColors sc) {
@@ -843,6 +866,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       scale: 0.85,
       child: Switch(
         value: value,
+        mouseCursor: SystemMouseCursors.click,
         activeThumbColor: sc.accent,
         activeTrackColor: sc.accent.withValues(alpha: 0.35),
         inactiveThumbColor: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
@@ -926,16 +950,19 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 trackHeight: 4,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
               ),
-              child: Slider(
-                value: threshold.clamp(0.0, 100.0),
-                min: 0,
-                max: 100,
-                label: threshold == 0 ? 'Off' : '${threshold.toInt()}%',
-                onChanged: isEnabled
-                    ? (val) {
-                        _settingsService.setLowBatteryThreshold(val);
-                      }
-                    : null,
+              child: MouseRegion(
+                cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                child: Slider(
+                  value: threshold.clamp(0.0, 100.0),
+                  min: 0,
+                  max: 100,
+                  label: threshold == 0 ? 'Off' : '${threshold.toInt()}%',
+                  onChanged: isEnabled
+                      ? (val) {
+                          _settingsService.setLowBatteryThreshold(val);
+                        }
+                      : null,
+                ),
               ),
             ),
             Padding(
@@ -1026,6 +1053,7 @@ class _SettingsTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      mouseCursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
       hoverColor: sc.menuHover,
       splashColor: sc.rippleColor,
       child: Padding(
@@ -1104,6 +1132,7 @@ class _TopBarCircleButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(19),
           child: Container(
             width: 38,
@@ -1163,10 +1192,12 @@ class _BlinkingYellowDotState extends State<_BlinkingYellowDot> with SingleTicke
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
         animation: _animation,
         builder: (context, child) {
           final val = _animation.value;
@@ -1195,8 +1226,9 @@ class _BlinkingYellowDotState extends State<_BlinkingYellowDot> with SingleTicke
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── Create PC Bin Password Dialog ────────────────────────────────────────────

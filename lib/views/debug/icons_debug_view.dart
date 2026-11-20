@@ -1844,6 +1844,7 @@ class _SymbolCardTileState extends State<_SymbolCardTile> {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(

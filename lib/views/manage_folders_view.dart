@@ -2025,37 +2025,40 @@ class _StickyFolderHeaderDelegate extends SliverPersistentHeaderDelegate {
                 ],
               ),
               // List / Grid toggle
-              GestureDetector(
-                onTap: onToggleView,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: sc.surfaceMuted,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: sc.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isGridView
-                            ? SnapSymbols.view_list
-                            : SnapSymbols.grid_view,
-                        size: 15,
-                        color: sc.muted,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isGridView ? 'List' : 'Grid',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onToggleView,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: sc.surfaceMuted,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: sc.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isGridView
+                              ? SnapSymbols.view_list
+                              : SnapSymbols.grid_view,
+                          size: 15,
                           color: sc.muted,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          isGridView ? 'List' : 'Grid',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: sc.muted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

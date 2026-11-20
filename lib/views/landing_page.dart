@@ -1323,26 +1323,29 @@ class _PcBinPasswordPromptDialogState extends State<_PcBinPasswordPromptDialog> 
                   ],
                   if (hint != null && hint.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () => setState(() => _showHint = !_showHint),
-                      child: Row(
-                        children: [
-                          Icon(
-                            SnapSymbols.help_outline_rounded,
-                            size: 14,
-                            color: sc.muted.withValues(alpha: 0.8),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _showHint ? 'Hint: $hint' : 'Show Hint',
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 11,
-                              color: _showHint ? sc.accent : sc.muted.withValues(alpha: 0.8),
-                              fontWeight: _showHint ? FontWeight.w600 : FontWeight.normal,
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _showHint = !_showHint),
+                        child: Row(
+                          children: [
+                            Icon(
+                              SnapSymbols.help_outline_rounded,
+                              size: 14,
+                              color: sc.muted.withValues(alpha: 0.8),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text(
+                              _showHint ? 'Hint: $hint' : 'Show Hint',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 11,
+                                color: _showHint ? sc.accent : sc.muted.withValues(alpha: 0.8),
+                                fontWeight: _showHint ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

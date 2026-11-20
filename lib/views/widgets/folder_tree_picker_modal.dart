@@ -310,22 +310,25 @@ class _FolderTreePickerModalState extends State<FolderTreePickerModal> {
           children: [
             // Expand / Collapse Chevron
             if (hasChildren)
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (isExpanded) {
-                      _expandedRelPaths.remove(relPath);
-                    } else {
-                      _expandedRelPaths.add(relPath);
-                    }
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Icon(
-                    isExpanded ? SnapSymbols.keyboard_arrow_down : SnapSymbols.keyboard_arrow_right,
-                    size: 20,
-                    color: sc.muted,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedRelPaths.remove(relPath);
+                      } else {
+                        _expandedRelPaths.add(relPath);
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(
+                      isExpanded ? SnapSymbols.keyboard_arrow_down : SnapSymbols.keyboard_arrow_right,
+                      size: 20,
+                      color: sc.muted,
+                    ),
                   ),
                 ),
               )
