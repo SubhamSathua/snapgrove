@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:snapgrove/core/app_constants.dart';
 import 'package:snapgrove/core/locator.dart';
 import 'package:snapgrove/services/notification_service.dart';
 import 'package:snapgrove/services/settings_service.dart';
 import 'package:snapgrove/services/storage_service.dart';
 import 'package:snapgrove/theme/app_blur.dart';
 import 'package:snapgrove/theme/app_theme.dart';
+import 'package:snapgrove/theme/snap_symbols.dart';
 import 'package:snapgrove/viewmodels/app_view_model.dart';
 import 'package:snapgrove/views/about_view.dart';
 import 'package:snapgrove/views/settings_view.dart';
@@ -153,6 +155,22 @@ void main() {
       expect(closeButtonFinder, findsOneWidget);
       final Offset closePos = tester.getCenter(closeButtonFinder);
       expect(closePos.dx, greaterThan(1100.0)); // Placed near right edge
+    });
+
+    test('AppConstants.truncateFileName cleanly shortens long names while preserving extension', () {
+      expect(AppConstants.truncateFileName('short.png', maxLength: 20), equals('short.png'));
+      
+      const longName = 'screenshot_20261120_very_long_file_name_12345.png';
+      final truncated = AppConstants.truncateFileName(longName, maxLength: 24);
+      expect(truncated.length, lessThanOrEqualTo(24));
+      expect(truncated.endsWith('.png'), isTrue);
+      expect(truncated.contains('...'), isTrue);
+    });
+
+    test('SnapSymbols.info and SnapSymbols.info_outline both map to valid 0xe88e glyph', () {
+      expect(SnapSymbols.info.codePoint, equals(0xe88e));
+      expect(SnapSymbols.info_outline.codePoint, equals(0xe88e));
+      expect(SnapSymbols.info_outline_rounded.codePoint, equals(0xe88e));
     });
   });
 }

@@ -154,8 +154,8 @@ abstract final class SnapSymbols {
 
   // ── Info & Status ─────────────────────────────────────────────────────────
   static const IconData info = IconData(0xe88e, fontFamily: _family);
-  static const IconData info_outline = IconData(0xe88f, fontFamily: _family);
-  static const IconData info_outline_rounded = info_outline;
+  static const IconData info_outline = info;
+  static const IconData info_outline_rounded = info;
   static const IconData warning = IconData(0xf083, fontFamily: _family);
   static const IconData error = IconData(0xf8b6, fontFamily: _family);
   static const IconData error_outline = error;

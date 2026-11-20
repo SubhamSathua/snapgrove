@@ -36,6 +36,25 @@ class AppConstants {
   static const String appVersionName = 'v1.7.41';
   static const String appBuildNumber = '34';
 
+  /// Truncates a filename nicely preserving its extension (e.g. `very_long_file_name_12345.png` -> `very_long...345.png`).
+  static String truncateFileName(String name, {int maxLength = 26}) {
+    if (name.length <= maxLength) return name;
+    final dotIndex = name.lastIndexOf('.');
+    final ext = dotIndex != -1 ? name.substring(dotIndex) : '';
+    final base = dotIndex != -1 ? name.substring(0, dotIndex) : name;
+
+    final remaining = maxLength - ext.length - 3; // 3 for '...'
+    if (remaining <= 3) {
+      if (maxLength > 3) {
+        return '${name.substring(0, maxLength - 3)}...';
+      }
+      return name;
+    }
+    final startLen = (remaining * 0.6).ceil();
+    final endLen = remaining - startLen;
+    return '${base.substring(0, startLen)}...${base.substring(base.length - endLen)}$ext';
+  }
+
   // URLs & Links
   static const String repoUrl = 'https://github.com/SubhamSathua/snapgrove';
   static const String repoCloneUrl = 'https://github.com/SubhamSathua/snapgrove.git';

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
+import '../core/app_constants.dart';
 import '../core/locator.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
@@ -662,9 +663,10 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       destinationName = 'trash';
     }
 
+    final String displayFileName = AppConstants.truncateFileName(fileName, maxLength: 28);
     final String message = kIsWeb
-        ? 'Are you sure you want to permanently delete "$fileName"?'
-        : '"$fileName" is being moved to the $destinationName.';
+        ? 'Are you sure you want to permanently delete "$displayFileName"?'
+        : '"$displayFileName" is being moved to the $destinationName.';
 
     final choice = await showGeneralDialog<String>(
       context: context,
@@ -1311,6 +1313,12 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                 Navigator.of(context).pop();
               }
               return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyF) {
+              _toggleFullScreen();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyI) {
+              _showInfoDialog();
+              return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
               _goNext();
               return KeyEventResult.handled;
@@ -1551,6 +1559,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                             children: [
                               // Back button
                               _RoundBackButton(
+                                tooltip: _isDesktopOrWeb ? 'Back (Esc)' : 'Back',
                                 onTap: () => Navigator.of(context).pop(),
                               ),
                               const SizedBox(width: 8),
@@ -1566,7 +1575,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                       border: Border.all(color: const Color(0x33FFFFFF)),
                                     ),
                                     child: Text(
-                                      fileName,
+                                      AppConstants.truncateFileName(fileName, maxLength: 28),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -1585,7 +1594,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                               if (isWide) ...[
                                 _PreviewActionButton(
                                   icon: _isFullScreen ? SnapSymbols.fullscreen_exit : SnapSymbols.fullscreen,
-                                  tooltip: 'Fullscreen',
+                                  tooltip: _isDesktopOrWeb
+                                      ? (_isFullScreen ? 'Exit Fullscreen (f)' : 'Fullscreen (f)')
+                                      : (_isFullScreen ? 'Exit Fullscreen' : 'Fullscreen'),
                                   onTap: _toggleFullScreen,
                                 ),
                                 const SizedBox(width: 6),
@@ -1596,8 +1607,8 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                                 ),
                                 const SizedBox(width: 6),
                                 _PreviewActionButton(
-                                  icon: SnapSymbols.info_outline,
-                                  tooltip: 'Info',
+                                  icon: SnapSymbols.info,
+                                  tooltip: _isDesktopOrWeb ? 'Info (i)' : 'Info',
                                   onTap: _showInfoDialog,
                                 ),
                                 const SizedBox(width: 6),
@@ -1809,7 +1820,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
               ),
               Expanded(
                 child: _BottomBarAction(
-                  icon: SnapSymbols.info_outline,
+                  icon: SnapSymbols.info,
                   label: 'Info',
                   onTap: _showInfoDialog,
                 ),
@@ -1957,8 +1968,9 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
 
 class _RoundBackButton extends StatefulWidget {
   final VoidCallback onTap;
+  final String? tooltip;
 
-  const _RoundBackButton({required this.onTap});
+  const _RoundBackButton({required this.onTap, this.tooltip});
 
   @override
   State<_RoundBackButton> createState() => _RoundBackButtonState();
@@ -1969,7 +1981,7 @@ class _RoundBackButtonState extends State<_RoundBackButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
+    final Widget button = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -1993,7 +2005,7 @@ class _RoundBackButtonState extends State<_RoundBackButton> {
             hoverColor: Colors.transparent,
             splashColor: Colors.white.withValues(alpha: 0.25),
             highlightColor: Colors.white.withValues(alpha: 0.12),
-            child: Center(
+            child: const Center(
               child: Icon(
                 SnapSymbols.arrow_back_ios_new,
                 size: 20,
@@ -2004,6 +2016,11 @@ class _RoundBackButtonState extends State<_RoundBackButton> {
         ),
       ),
     );
+
+    if (widget.tooltip != null) {
+      return Tooltip(message: widget.tooltip!, child: button);
+    }
+    return button;
   }
 }
 
@@ -2165,8 +2182,9 @@ class _ExitFullScreenButtonState extends State<_ExitFullScreenButton> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktopOrWeb = kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
     return Tooltip(
-      message: 'Exit Fullscreen (Esc)',
+      message: isDesktopOrWeb ? 'Exit Fullscreen (f)' : 'Exit Fullscreen',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),

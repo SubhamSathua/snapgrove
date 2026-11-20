@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/app_constants.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
 import '../services/notification_service.dart';
@@ -137,6 +140,24 @@ class _BinPreviewViewState extends State<BinPreviewView> {
     });
   }
 
+  void _goNext() {
+    if (_currentIndex < _files.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _goPrev() {
+    if (_currentIndex > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   Future<void> _shareCurrentImage() async {
     if (_files.isEmpty) return;
     final file = _files[_currentIndex];
@@ -240,7 +261,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Are you sure you want to permanently delete "${file.originalName}"? This action cannot be undone.',
+                    'Are you sure you want to permanently delete "${AppConstants.truncateFileName(file.originalName, maxLength: 28)}"? This action cannot be undone.',
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 13,
@@ -357,7 +378,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(SnapSymbols.info_outline, color: Color(0xFFf89838), size: 20),
+                          child: Icon(SnapSymbols.info, color: Color(0xFFf89838), size: 20),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -422,10 +443,38 @@ class _BinPreviewViewState extends State<BinPreviewView> {
     }
 
     final currentFile = _files[_currentIndex];
+    final isDesktopOrWeb = kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (FocusNode node, KeyEvent event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              if (_isFullScreen) {
+                _toggleFullScreen();
+              } else {
+                Navigator.of(context).pop();
+              }
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyF) {
+              _toggleFullScreen();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyI) {
+              _showInfoDialog();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              _goNext();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+              _goPrev();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Stack(
         children: [
           // PageView with zoom
           GestureDetector(
@@ -522,6 +571,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                       // Back Button
                       _BlurCircleButton(
                         icon: SnapSymbols.arrow_back,
+                        tooltip: isDesktopOrWeb ? 'Back (Esc)' : 'Back',
                         onTap: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 12),
@@ -532,7 +582,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              currentFile.originalName,
+                              AppConstants.truncateFileName(currentFile.originalName, maxLength: 28),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -559,12 +609,14 @@ class _BinPreviewViewState extends State<BinPreviewView> {
                       ),
                       // Action buttons
                       _BlurCircleButton(
-                        icon: SnapSymbols.info_outline,
+                        icon: SnapSymbols.info,
+                        tooltip: isDesktopOrWeb ? 'Info (i)' : 'Info',
                         onTap: _showInfoDialog,
                       ),
                       const SizedBox(width: 8),
                       _BlurCircleButton(
                         icon: SnapSymbols.share_outlined,
+                        tooltip: 'Share',
                         onTap: _shareCurrentImage,
                       ),
                     ],
@@ -633,6 +685,7 @@ class _BinPreviewViewState extends State<BinPreviewView> {
               ),
             ),
         ],
+        ),
       ),
     );
   }
@@ -641,12 +694,17 @@ class _BinPreviewViewState extends State<BinPreviewView> {
 class _BlurCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final String? tooltip;
 
-  const _BlurCircleButton({required this.icon, required this.onTap});
+  const _BlurCircleButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ClipOval(
+    Widget button = ClipOval(
       child: BackdropFilter(
         filter: AppBlur.filter(sigmaX: 10, sigmaY: 10)!,
         child: Container(
@@ -660,6 +718,7 @@ class _BlurCircleButton extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
+              mouseCursor: SystemMouseCursors.click,
               onTap: onTap,
               child: Center(
                 child: Icon(icon, color: Colors.white, size: 20),
@@ -669,6 +728,11 @@ class _BlurCircleButton extends StatelessWidget {
         ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: button);
+    }
+    return button;
   }
 }
 

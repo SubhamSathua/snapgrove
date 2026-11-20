@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import '../core/app_constants.dart';
 import '../core/locator.dart';
 import '../models/folder_node.dart';
 import '../viewmodels/gallery_view_model.dart';
@@ -1487,7 +1488,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
       slivers: [
         SliverAppBar(
-          expandedHeight: _isSelectionMode ? kToolbarHeight : ((width < 400) ? 128.0 : 120.0),
+          expandedHeight: _isSelectionMode ? kToolbarHeight : ((width < 400) ? 132.0 : 136.0),
           floating: false,
           pinned: true,
           elevation: 0,
@@ -1728,40 +1729,82 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 ),
               ),
           ],
-          flexibleSpace: FlexibleSpaceBar(
-            title: !_isSelectionMode
-                ? LayoutBuilder(
-                    builder: (context, constraints) {
-                      final folderName = _getDisplayFolderName(widget.path, widget.title);
-                      final double fontSize = width < 380
-                          ? (folderName.length > 14 ? 13.0 : 15.0)
-                          : (width < 600 ? (folderName.length > 20 ? 14.0 : 16.0) : 18.0);
-                      final double rightPad = !isLoading && _viewModel.files.isNotEmpty
-                          ? (width < 600 ? 150.0 : 170.0)
-                          : 48.0;
+          flexibleSpace: !_isSelectionMode
+              ? LayoutBuilder(
+                  builder: (context, constraints) {
+                    final topPadding = MediaQuery.paddingOf(context).top;
+                    final double currentHeight = constraints.maxHeight;
+                    final double minHeight = kToolbarHeight + topPadding;
+                    final double maxHeight = ((width < 400) ? 132.0 : 136.0) + topPadding;
+                    final double delta = (maxHeight - minHeight).abs();
+                    final double t = delta > 0 ? ((currentHeight - minHeight) / delta).clamp(0.0, 1.0) : 0.0;
 
-                      return Padding(
-                        padding: EdgeInsets.only(left: 56, right: rightPad, bottom: 16),
-                        child: Text(
-                          folderName,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: true,
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: fontSize,
-                            fontWeight: FontWeight.w700,
-                            height: 1.15,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      );
-                    },
-                  )
-                : null,
-            centerTitle: false,
-            titlePadding: EdgeInsets.zero,
-          ),
+                    final double expandedOpacity = Curves.easeIn.transform((t - 0.25).clamp(0.0, 0.75) / 0.75);
+                    final double collapsedOpacity = Curves.easeOut.transform((0.35 - t).clamp(0.0, 0.35) / 0.35);
+
+                    final folderName = _getDisplayFolderName(widget.path, widget.title);
+                    final double rightPad = !isLoading && _viewModel.files.isNotEmpty
+                        ? (width < 600 ? 152.0 : 172.0)
+                        : 48.0;
+
+                    return IgnorePointer(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Collapsed Title (Header row between Back button and Action buttons)
+                          if (collapsedOpacity > 0.01)
+                            Positioned(
+                              top: topPadding,
+                              left: 56.0,
+                              right: rightPad,
+                              height: kToolbarHeight,
+                              child: Opacity(
+                                opacity: collapsedOpacity,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    folderName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 16.0,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Expanded Title (Below top action row, spanning full width as marked in user's image)
+                          if (expandedOpacity > 0.01)
+                            Positioned(
+                              left: 20.0,
+                              right: 20.0,
+                              bottom: 12.0,
+                              child: Opacity(
+                                opacity: expandedOpacity,
+                                child: Text(
+                                  folderName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: width < 380 ? 20.0 : (width < 600 ? 22.0 : 26.0),
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.15,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+              : null,
         ),
         if (useTopPane)
           SliverPersistentHeader(
@@ -2412,9 +2455,17 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       destinationName = 'trash';
     }
 
+    final String singleName = count == 1
+        ? p.basename(selectedFiles.first).replaceAll('%2F', '/').split('/').last
+        : '';
+    final String truncatedSingleName = AppConstants.truncateFileName(singleName, maxLength: 28);
     final String message = kIsWeb
-        ? '$count ${count == 1 ? "file is" : "files are"} being deleted permanently.'
-        : '$count ${count == 1 ? "file is" : "files are"} being moved to the $destinationName.';
+        ? (count == 1
+            ? 'Are you sure you want to permanently delete "$truncatedSingleName"?'
+            : '$count files are being deleted permanently.')
+        : (count == 1
+            ? '"$truncatedSingleName" is being moved to the $destinationName.'
+            : '$count files are being moved to the $destinationName.');
 
     final choice = await showGeneralDialog<String>(
       context: context,
@@ -2452,7 +2503,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Delete $count ${count == 1 ? "file" : "files"}?',
+                        count == 1 ? 'Delete image?' : 'Delete $count files?',
                         style: const TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 16,
@@ -2610,25 +2661,31 @@ class _RoundBackButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sc = context.snapgroveColors;
     final iconColor = isDark ? Colors.white : Colors.black;
+    final isDesktopOrWeb = kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final message = isDesktopOrWeb ? 'Back (Esc)' : 'Back';
 
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          hoverColor: sc.menuHover,
-          splashColor: sc.rippleColor,
-          highlightColor: sc.rippleColor.withValues(alpha: 0.15),
-          child: Center(
-            child: Icon(
-              SnapSymbols.arrow_back_ios_new,
-              size: 20,
-              color: iconColor,
+    return Tooltip(
+      message: message,
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            mouseCursor: SystemMouseCursors.click,
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            hoverColor: sc.menuHover,
+            splashColor: sc.rippleColor,
+            highlightColor: sc.rippleColor.withValues(alpha: 0.15),
+            child: Center(
+              child: Icon(
+                SnapSymbols.arrow_back_ios_new,
+                size: 20,
+                color: iconColor,
+              ),
             ),
           ),
         ),
@@ -2661,6 +2718,7 @@ class _IconSquare extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           hoverColor: sc.menuHover,
