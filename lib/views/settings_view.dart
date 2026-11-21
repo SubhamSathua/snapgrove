@@ -9,6 +9,7 @@ import '../theme/snap_symbols.dart';
 import '../viewmodels/app_view_model.dart';
 import 'theme_dialog.dart';
 import 'debug/debug_view.dart';
+import 'widgets/m3_switch.dart';
 
 class SettingsView extends StatefulWidget {
   final bool highlightBinAuth;
@@ -862,29 +863,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     required bool isDark,
     required ValueChanged<bool> onChanged,
   }) {
-    return Transform.scale(
-      scale: 0.85,
-      child: Switch(
-        value: value,
-        mouseCursor: SystemMouseCursors.click,
-        activeThumbColor: sc.accent,
-        activeTrackColor: sc.accent.withValues(alpha: 0.35),
-        inactiveThumbColor: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
-        inactiveTrackColor: isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0),
-        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return sc.accent;
-          }
-          return isDark ? const Color(0x33FFFFFF) : const Color(0x33000000);
-        }),
-        thumbIcon: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const Icon(SnapSymbols.check, size: 12, color: Colors.black);
-          }
-          return null;
-        }),
-        onChanged: onChanged,
-      ),
+    return M3Switch(
+      value: value,
+      activeColor: sc.accent,
+      onChanged: onChanged,
     );
   }
 

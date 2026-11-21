@@ -33,7 +33,7 @@ class SettingsService extends ChangeNotifier {
       (defaultTargetPlatform != TargetPlatform.windows &&
        defaultTargetPlatform != TargetPlatform.linux &&
        defaultTargetPlatform != TargetPlatform.macOS);
-  bool _debugModeEnabled = true;
+  bool _debugModeEnabled = false;
 
   // PC bin password state
   String? _binPasswordHash;

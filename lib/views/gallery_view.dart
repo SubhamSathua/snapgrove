@@ -24,6 +24,7 @@ import '../services/notification_service.dart';
 import 'image_preview_view.dart';
 import 'manage_folders_view.dart';
 import 'widgets/folder_tree_picker_modal.dart';
+import 'widgets/m3_switch.dart';
 import 'theme_dialog.dart';
 import 'settings_view.dart';
 
@@ -638,31 +639,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                         ),
                                       ),
                                     ),
-                                    Transform.scale(
-                                      scale: 0.85,
-                                      child: Switch(
-                                        value: _viewModel.includeSubfolders,
-                                        activeThumbColor: sc.accent,
-                                        activeTrackColor: sc.accent.withValues(alpha: 0.35),
-                                        inactiveThumbColor: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
-                                        inactiveTrackColor: isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0),
-                                        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-                                          if (states.contains(WidgetState.selected)) {
-                                            return sc.accent;
-                                          }
-                                          return isDark ? const Color(0x33FFFFFF) : const Color(0x33000000);
-                                        }),
-                                        thumbIcon: WidgetStateProperty.resolveWith((states) {
-                                          if (states.contains(WidgetState.selected)) {
-                                            return const Icon(SnapSymbols.check, size: 12, color: Colors.black);
-                                          }
-                                          return null;
-                                        }),
-                                        onChanged: (val) {
-                                          _viewModel.setIncludeSubfolders(val);
-                                          setStateDropdown(() {});
-                                        },
-                                      ),
+                                    M3Switch(
+                                      value: _viewModel.includeSubfolders,
+                                      activeColor: sc.accent,
+                                      onChanged: (val) {
+                                        _viewModel.setIncludeSubfolders(val);
+                                        setStateDropdown(() {});
+                                      },
                                     ),
                                   ],
                                 ),

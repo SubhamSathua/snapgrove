@@ -1,0 +1,169 @@
+name: Android Release CI/CD
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build, Sign, Verify & Publish APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse Release Tag & Channel
+        id: release_info
+        run: |
+          RAW_TAG="${GITHUB_REF#refs/tags/}"
+          # Strip leading 'v' if present for version matching
+          CLEAN_VERSION="${RAW_TAG#v}"
+          echo "tag=$RAW_TAG" >> $GITHUB_OUTPUT
+          echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+          
+          # Detect Alpha vs Stable
+          if [[ "$RAW_TAG" =~ (alpha|beta|rc|preview) ]]; then
+            echo "channel=alpha" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "channel_label=Alpha Release" >> $GITHUB_OUTPUT
+          else
+            echo "channel=stable" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "channel_label=Stable Release" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Locate Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          NOTE_FILE=".github/releases/${VERSION}.md"
+          
+          if [ -f "$NOTE_FILE" ]; then
+            echo "Using release notes from $NOTE_FILE"
+            echo "note_path=$NOTE_FILE" >> $GITHUB_OUTPUT
+          else
+            echo "Release note $NOTE_FILE not found, searching fallback..."
+            ALT_FILE=".github/releases/v${VERSION}.md"
+            if [ -f "$ALT_FILE" ]; then
+              echo "note_path=$ALT_FILE" >> $GITHUB_OUTPUT
+            else
+              echo "note_path=" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Build Universal APK
+        run: flutter build apk --release
+
+      - name: Build Split-per-ABI APKs
+        run: flutter build apk --release --split-per-abi
+
+      - name: Prepare Artifact Directory
+        id: artifacts
+        run: |
+          mkdir -p dist
+          VERSION="${{ steps.release_info.outputs.version }}"
+          
+          # Copy universal and per-ABI APKs with clean naming
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Snapgrove-${VERSION}-universal.apk
+          if [ -f "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Snapgrove-${VERSION}-arm64-v8a.apk
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/Snapgrove-${VERSION}-armeabi-v7a.apk
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-x86_64-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/Snapgrove-${VERSION}-x86_64.apk
+          fi
+          
+          # Compute SHA-256 Checksums
+          cd dist
+          sha256sum Snapgrove-*.apk > SHA256SUMS.txt
+          cd ..
+
+      - name: Sign APKs (If Keystore Secret Provided)
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "Decoding Android release keystore..."
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          
+          # Sign each APK with apksigner if available
+          ANDROID_BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
+          APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
+          
+          if [ -f "$APKSIGNER" ]; then
+            for apk in dist/*.apk; do
+              echo "Signing $apk..."
+              "$APKSIGNER" sign --ks release.jks \
+                --ks-pass pass:"$KEYSTORE_PASSWORD" \
+                --ks-key-alias "$KEY_ALIAS" \
+                --key-pass pass:"$KEY_PASSWORD" \
+                "$apk"
+            done
+            # Recompute SHA256 sums after signing
+            cd dist
+            sha256sum Snapgrove-*.apk > SHA256SUMS.txt
+            cd ..
+          fi
+          rm -f release.jks
+
+      - name: Cryptographically Sign Release Checksums
+        run: |
+          cd dist
+          if [ -n "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" > verify.key
+            openssl dgst -sha256 -sign verify.key -out SHA256SUMS.txt.sig SHA256SUMS.txt
+            rm -f verify.key
+          fi
+          cd ..
+          
+          # Copy public verification key if present in repo
+          if [ -f "scripts/snapgrove-release.pub" ]; then
+            cp scripts/snapgrove-release.pub dist/
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: "Snapgrove ${{ steps.release_info.outputs.version }} (${{ steps.release_info.outputs.channel_label }})"
+          body_path: ${{ steps.release_notes.outputs.note_path }}
+          prerelease: ${{ steps.release_info.outputs.is_prerelease == 'true' }}
+          draft: false
+          files: |
+            dist/Snapgrove-*.apk
+            dist/SHA256SUMS.txt
+            dist/SHA256SUMS.txt.sig
+            dist/snapgrove-release.pub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

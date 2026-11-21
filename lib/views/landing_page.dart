@@ -496,18 +496,21 @@ class _LandingPageState extends State<LandingPage> {
                           title: 'Browse Gallery',
                         ),
                         closedBuilder: (context, action) => Center(
-                          child: _BrowseButton(
-                            actionFontSize: actionFontSize,
-                            buttonIconSize: buttonIconSize,
-                            browsePaddingH: browsePaddingH,
-                            browsePaddingV: browsePaddingV,
-                            onTap: () async {
-                              final dir = await PickerService.pickDirectory();
-                              if (dir != null) {
-                                widget.viewModel.setScreenshotDir(dir);
-                                Future.delayed(const Duration(milliseconds: 100), action);
-                              }
-                            },
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: _BrowseButton(
+                              actionFontSize: actionFontSize,
+                              buttonIconSize: buttonIconSize,
+                              browsePaddingH: browsePaddingH,
+                              browsePaddingV: browsePaddingV,
+                              onTap: () async {
+                                final dir = await PickerService.pickDirectory();
+                                if (dir != null) {
+                                  widget.viewModel.setScreenshotDir(dir);
+                                  Future.delayed(const Duration(milliseconds: 100), action);
+                                }
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -531,19 +534,22 @@ class _LandingPageState extends State<LandingPage> {
                             path: widget.viewModel.permanentScreenshotDir ?? '',
                             title: 'Screenshot Folder',
                           ),
-                          closedBuilder: (context, action) => _ScreenshotButton(
-                            actionFontSize: actionFontSize,
-                            buttonIconSize: buttonIconSize,
-                            ssPaddingH: ssPaddingH,
-                            ssPaddingV: ssPaddingV,
-                            onTap: () {
-                              if (widget.viewModel.permanentScreenshotDir == null ||
-                                  widget.viewModel.permanentScreenshotDir!.isEmpty) {
-                                _showFolderPromptDialog(onSuccess: action);
-                              } else {
-                                action();
-                              }
-                            },
+                          closedBuilder: (context, action) => MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: _ScreenshotButton(
+                              actionFontSize: actionFontSize,
+                              buttonIconSize: buttonIconSize,
+                              ssPaddingH: ssPaddingH,
+                              ssPaddingV: ssPaddingV,
+                              onTap: () {
+                                if (widget.viewModel.permanentScreenshotDir == null ||
+                                    widget.viewModel.permanentScreenshotDir!.isEmpty) {
+                                  _showFolderPromptDialog(onSuccess: action);
+                                } else {
+                                  action();
+                                }
+                              },
+                            ),
                           ),
                         ),
                     ],
@@ -654,21 +660,24 @@ class _BrowseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Ink(
-      decoration: BoxDecoration(
-        color: sc.primaryBtnBg,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: sc.primaryBtnBg,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
         splashColor: rippleColor(sc.primaryBtnBg),
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -698,8 +707,9 @@ class _BrowseButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ScreenshotButton extends StatelessWidget {
@@ -720,14 +730,17 @@ class _ScreenshotButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
-    return Ink(
-      decoration: BoxDecoration(
-        color: sc.accent,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(5),
-        onTap: onTap,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: sc.accent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(5),
+          onTap: onTap,
         splashColor: rippleColor(sc.accent),
         child: Container(
           width: double.infinity,
@@ -758,8 +771,9 @@ class _ScreenshotButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _DownloadAppButton extends StatefulWidget {

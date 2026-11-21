@@ -32,9 +32,9 @@ class AppConstants {
   // App Metadata
   static const String appName = 'Snapgrove';
   static const String appTagline = 'Fast, distraction-free screenshot & image organizer';
-  static const String appVersion = '01.07.41+34';
-  static const String appVersionName = 'v1.7.41';
-  static const String appBuildNumber = '34';
+  static const String appVersion = '01.07.42+35';
+  static const String appVersionName = 'v1.7.42';
+  static const String appBuildNumber = '35';
 
   /// Truncates a filename nicely preserving its extension (e.g. `very_long_file_name_12345.png` -> `very_long...345.png`).
   static String truncateFileName(String name, {int maxLength = 26}) {

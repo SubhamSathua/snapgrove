@@ -99,26 +99,26 @@ void main() {
       expect(settings.isDebugAvailable, equals(kDebugMode));
     });
 
-    test('debugModeEnabled defaults to true in debug mode', () {
-      expect(settings.debugModeEnabled, equals(kDebugMode));
+    test('debugModeEnabled defaults to false', () {
+      expect(settings.debugModeEnabled, isFalse);
     });
 
     test('setDebugModeEnabled updates state and notifies listeners', () async {
       bool notified = false;
       settings.addListener(() => notified = true);
 
-      await settings.setDebugModeEnabled(false);
+      await settings.setDebugModeEnabled(true);
       expect(notified, isTrue);
-      expect(settings.debugModeEnabled, isFalse);
+      expect(settings.debugModeEnabled, equals(kDebugMode));
 
       final saved = await storage.read(
         SettingsService.storeName,
         SettingsService.keyDebugModeEnabled,
       );
-      expect(saved, isFalse);
+      expect(saved, isTrue);
 
-      await settings.setDebugModeEnabled(true);
-      expect(settings.debugModeEnabled, equals(kDebugMode));
+      await settings.setDebugModeEnabled(false);
+      expect(settings.debugModeEnabled, isFalse);
     });
   });
 
@@ -160,7 +160,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const DebugView()));
       await tester.pumpAndSettle();
 
-      expect(settings.debugModeEnabled, isTrue);
+      expect(settings.debugModeEnabled, isFalse);
 
       final switchFinder = find.byType(Switch);
       expect(switchFinder, findsOneWidget);
@@ -168,7 +168,7 @@ void main() {
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
-      expect(settings.debugModeEnabled, isFalse);
+      expect(settings.debugModeEnabled, isTrue);
     });
 
     testWidgets('Tapping Icons Debug navigates to IconsDebugView', (tester) async {

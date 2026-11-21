@@ -6,6 +6,7 @@ import '../../services/settings_service.dart';
 import '../../theme/app_blur.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/snap_symbols.dart';
+import '../widgets/m3_switch.dart';
 import 'icons_debug_view.dart';
 
 class DebugView extends StatefulWidget {
@@ -338,17 +339,10 @@ class _DebugViewState extends State<DebugView> {
               ),
             ),
             const SizedBox(width: 12),
-            Transform.scale(
-              scale: 0.85,
-              child: Switch(
-                value: value,
-                mouseCursor: SystemMouseCursors.click,
-                activeThumbColor: sc.accent,
-                activeTrackColor: sc.accent.withValues(alpha: 0.35),
-                inactiveThumbColor: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
-                inactiveTrackColor: isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0),
-                onChanged: onChanged,
-              ),
+            M3Switch(
+              value: value,
+              activeColor: sc.accent,
+              onChanged: onChanged,
             ),
           ],
         ),

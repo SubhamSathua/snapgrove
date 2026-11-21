@@ -46,6 +46,12 @@ app.*.map.json
 build
 
 
+# Release credentials and keys
+*.jks
+*.keystore
+keystore_base64.txt
+verify-private.pem
+
 # Others
 Scratchpad
 AGENTS.md
