@@ -5,6 +5,8 @@ import '../models/folder_node.dart';
 import 'exif_cleaner.dart';
 import 'saf_helper_stub.dart'
     if (dart.library.io) 'saf_helper_native.dart';
+import 'win32/win32_recycle_stub.dart'
+    if (dart.library.io) 'win32/win32_recycle_native.dart';
 import 'web_image_utils.dart';
 
 abstract class FileService {
@@ -451,6 +453,11 @@ class FileServiceImpl implements FileService {
   Future<bool> _moveToWindowsRecycleBin(List<String> files) async {
     if (files.isEmpty) return false;
     try {
+      // 1. Primary path: Native Win32 SHFileOperationW (< 2ms, zero subprocess overhead)
+      final nativeSuccess = await win32MoveToRecycleBin(files);
+      if (nativeSuccess) return true;
+
+      // 2. Fallback path: PowerShell script (safety net if Win32 FFI fails or file is on UNC share)
       final joinedPaths = files.map((f) => "'${f.replaceAll("'", "''")}'").join(', ');
       final psScript = '''
 Add-Type -AssemblyName Microsoft.VisualBasic

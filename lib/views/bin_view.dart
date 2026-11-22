@@ -1,4 +1,5 @@
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/locator.dart';
 import '../services/bin_service.dart';
@@ -28,6 +29,14 @@ class _BinViewState extends State<BinView> {
     super.initState();
     _viewModel = locator<BinViewModel>();
     _viewModel.loadBin();
+  }
+
+  Future<void> _openWindowsRecycleBin() async {
+    try {
+      await Process.run('explorer.exe', ['shell:RecycleBinFolder']);
+    } catch (e) {
+      debugPrint('Error opening Windows Recycle Bin: $e');
+    }
   }
 
   Future<void> _confirmEmptyFullBin() async {
@@ -307,6 +316,12 @@ class _BinViewState extends State<BinView> {
               ),
               actions: [
                 if (!_viewModel.isSelectionMode) ...[
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+                    IconButton(
+                      tooltip: 'Open Windows Recycle Bin',
+                      icon: const Icon(SnapSymbols.open_in_new, size: 20),
+                      onPressed: _openWindowsRecycleBin,
+                    ),
                   if (_viewModel.allFiles.isNotEmpty) ...[
                     IconButton(
                       tooltip: 'Select',
@@ -377,7 +392,74 @@ class _BinViewState extends State<BinView> {
   }
 
   Widget _buildBody(SnapgroveColors sc, bool isDark) {
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     if (_viewModel.allFiles.isEmpty) {
+      if (isWindows) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: sc.surfaceMuted,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: sc.border),
+                  ),
+                  child: Center(
+                    child: Icon(SnapSymbols.delete_outline, size: 40, color: sc.accent),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Windows Recycle Bin',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'On Windows, deleted screenshots are securely sent\nto your Windows Recycle Bin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12.5,
+                    color: sc.muted,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                OutlinedButton.icon(
+                  onPressed: _openWindowsRecycleBin,
+                  icon: const Icon(SnapSymbols.open_in_new, size: 16),
+                  label: const Text(
+                    'Open Windows Recycle Bin',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: sc.accent,
+                    side: BorderSide(color: sc.accent.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -423,6 +505,42 @@ class _BinViewState extends State<BinView> {
 
     return Column(
       children: [
+        if (isWindows)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: sc.surfaceMuted.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: sc.border),
+            ),
+            child: Row(
+              children: [
+                Icon(SnapSymbols.info_outline, size: 16, color: sc.accent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Active deletions go to your Windows Recycle Bin.',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 11.5,
+                      color: sc.muted,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _openWindowsRecycleBin,
+                  icon: const Icon(SnapSymbols.open_in_new, size: 14),
+                  label: const Text(
+                    'Open Recycle Bin',
+                    style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11),
+                  ),
+                  style: TextButton.styleFrom(foregroundColor: sc.accent),
+                ),
+              ],
+            ),
+          ),
         // 30 Days Retention Notice Banner
         Container(
           width: double.infinity,
