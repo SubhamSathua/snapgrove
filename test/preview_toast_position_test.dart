@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snapgrove/core/locator.dart';
 import 'package:snapgrove/models/folder_node.dart';
+import 'package:snapgrove/models/move_transaction.dart';
 import 'package:snapgrove/services/bin_service.dart';
 import 'package:snapgrove/services/file_service.dart';
 import 'package:snapgrove/services/notification_service.dart';
@@ -54,9 +55,10 @@ class MockFileService implements FileService {
   @override
   Future<bool> createSubfolder(String path, String name) async => true;
   @override
-  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async => true;
+  Future<MoveResult> moveFilesToFolder(String path, String folderName, List<String> files) async =>
+      MoveResult(succeededRecords: files.map((f) => MoveRecord(originalSource: f, exactDestination: f, targetFolder: folderName, timestamp: DateTime.now())).toList());
   @override
-  Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async => true;
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files, {List<MoveRecord>? records}) async => true;
   @override
   Future<bool> deleteFile(String path) async => true;
   @override

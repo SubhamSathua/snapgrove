@@ -477,7 +477,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               directoryPath: _viewModel.path,
               subfolders: _viewModel.subfolders,
               onFolderCreated: (name) => _viewModel.createSubfolder(name),
-              onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
+              onFileMoved: (file, folder) async => (await _viewModel.moveFilesToFolder([file], folder)).isSuccess,
               onFileDeleted: (file) => _viewModel.deleteFilesPermanently([file]),
                             onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
             ),
@@ -1834,7 +1834,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             directoryPath: _viewModel.path,
                             subfolders: _viewModel.subfolders,
                             onFolderCreated: (name) => _viewModel.createSubfolder(name),
-                            onFileMoved: (file, folder) => _viewModel.moveFilesToFolder([file], folder),
+                            onFileMoved: (file, folder) async => (await _viewModel.moveFilesToFolder([file], folder)).isSuccess,
                             onFileDeleted: (file) => _viewModel.deleteFilesPermanently([file]),
                             onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
                           ),
@@ -2065,8 +2065,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     });
 
     try {
-      final success = await _viewModel.moveFilesToFolder(filesToMove, folderName);
-      if (success && mounted) {
+      final result = await _viewModel.moveFilesToFolder(filesToMove, folderName);
+      if (result.isSuccess && mounted) {
         locator<NotificationService>().showSnackBar(
           'Moved $count ${count == 1 ? "file" : "files"} to $folderName',
           actionLabel: 'Undo',
@@ -2078,10 +2078,44 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               });
             }
             try {
-              final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName);
+              final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName, records: result.succeededRecords);
               if (undoSuccess) {
                 locator<NotificationService>().showSnackBar(
                   'Restored $count ${count == 1 ? "file" : "files"}',
+                );
+              } else {
+                locator<NotificationService>().showSnackBar(
+                  'Failed to undo move',
+                  isError: true,
+                );
+              }
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isMovingFiles = false;
+                  _movingFilesStatus = null;
+                });
+              }
+            }
+          },
+          duration: const Duration(seconds: 6),
+        );
+      } else if (result.isPartial && mounted) {
+        locator<NotificationService>().showSnackBar(
+          'Moved ${result.totalMoved} ${result.totalMoved == 1 ? "file" : "files"} to $folderName (${result.totalFailed} failed)',
+          actionLabel: 'Undo',
+          onAction: () async {
+            if (mounted) {
+              setState(() {
+                _isMovingFiles = true;
+                _movingFilesStatus = 'Restoring ${result.totalMoved} ${result.totalMoved == 1 ? "file" : "files"}...';
+              });
+            }
+            try {
+              final undoSuccess = await _viewModel.undoMoveFiles(filesToMove, folderName, records: result.succeededRecords);
+              if (undoSuccess) {
+                locator<NotificationService>().showSnackBar(
+                  'Restored ${result.totalMoved} ${result.totalMoved == 1 ? "file" : "files"}',
                 );
               } else {
                 locator<NotificationService>().showSnackBar(

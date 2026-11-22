@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import '../models/folder_node.dart';
+import '../models/move_transaction.dart';
 
 abstract class SafHelper {
   static Future<List<String>> listImages(String uri, {bool includeSubfolders = false}) async => [];
@@ -8,8 +9,9 @@ abstract class SafHelper {
   static Future<Uint8List?> getThumbnail(String uri, {int width = 300, int height = 400}) async => null;
   static Future<List<String>> listSubfolders(String uri) async => [];
   static Future<bool> createSubfolder(String parentUri, String name) async => false;
-  static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async => false;
-  static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async => false;
+  static Future<MoveResult> moveFilesToFolder(String parentUri, String folderName, List<String> files) async =>
+      const MoveResult(succeededRecords: []);
+  static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files, {List<MoveRecord>? records}) async => false;
   static Future<bool> moveToBin(String parentUri, List<String> files) async => false;
   static Future<bool> deleteFile(String uri) async => false;
   static Future<String?> renameFile(String uri, String newName) async => null;

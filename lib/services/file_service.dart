@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import '../models/folder_node.dart';
+import '../models/move_transaction.dart';
 import 'exif_cleaner.dart';
 import 'saf_helper_stub.dart'
     if (dart.library.io) 'saf_helper_native.dart';
@@ -14,8 +15,8 @@ abstract class FileService {
   Future<Uint8List?> readFile(String path);
   Future<List<String>> listSubfolders(String path);
   Future<bool> createSubfolder(String path, String name);
-  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files);
-  Future<bool> undoMoveFiles(String path, String folderName, List<String> files);
+  Future<MoveResult> moveFilesToFolder(String path, String folderName, List<String> files);
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files, {List<MoveRecord>? records});
   Future<bool> deleteFile(String path);
   Future<bool> moveToBin(String path, List<String> files);
   Future<bool> deleteFilesPermanently(List<String> files);
@@ -351,7 +352,7 @@ class FileServiceImpl implements FileService {
   }
 
   @override
-  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
+  Future<MoveResult> moveFilesToFolder(String path, String folderName, List<String> files) async {
     try {
       if (kIsWeb) {
         return await WebImageUtils.moveFilesToFolder(folderName, files);
@@ -364,43 +365,115 @@ class FileServiceImpl implements FileService {
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
         }
+
+        final targetDirNorm = p.normalize(targetDirPath).toLowerCase();
+        final List<MoveRecord> succeeded = [];
+        final List<String> failed = [];
+
         for (final filePath in files) {
           final file = File(filePath);
-          if (!await file.exists()) continue;
+          if (!await file.exists()) {
+            failed.add(filePath);
+            continue;
+          }
+
+          // Canonical path check (Pillar 4): If source directory is already the target directory, it's a no-op!
+          final sourceDirNorm = p.normalize(file.parent.path).toLowerCase();
+          if (sourceDirNorm == targetDirNorm) {
+            succeeded.add(MoveRecord(
+              originalSource: filePath,
+              exactDestination: filePath,
+              targetFolder: folderName,
+              timestamp: DateTime.now(),
+            ));
+            continue;
+          }
 
           final fileName = p.basename(filePath);
           final uniqueFileName = _generateUniqueFileName(targetDirPath, fileName);
           final destPath = p.join(targetDirPath, uniqueFileName);
 
-          if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
+          bool moved = false;
+          try {
+            await file.rename(destPath);
+            moved = true;
+          } catch (e) {
             try {
-              await file.rename(destPath);
-            } catch (e) {
-              try {
-                await file.copy(destPath);
-                await file.delete();
-              } catch (err) {
-                debugPrint('Error moving single file $filePath to $destPath: $err');
-              }
+              await file.copy(destPath);
+              await file.delete();
+              moved = true;
+            } catch (err) {
+              debugPrint('Error moving single file $filePath to $destPath: $err');
+              moved = false;
             }
           }
+
+          if (moved) {
+            succeeded.add(MoveRecord(
+              originalSource: filePath,
+              exactDestination: destPath,
+              targetFolder: folderName,
+              timestamp: DateTime.now(),
+            ));
+          } else {
+            failed.add(filePath);
+          }
         }
-        return true;
+
+        return MoveResult(succeededRecords: succeeded, failedSources: failed);
       }
     } catch (e) {
       debugPrint('Error moving files: $e');
-      return false;
+      return MoveResult(succeededRecords: [], failedSources: files);
     }
   }
 
   @override
-  Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files, {List<MoveRecord>? records}) async {
     try {
       if (kIsWeb) {
-        return await WebImageUtils.undoMoveFiles(folderName, files);
+        return await WebImageUtils.undoMoveFiles(folderName, files, records: records);
       } else if (Platform.isAndroid) {
-        return await SafHelper.undoMoveFiles(path, folderName, files);
+        return await SafHelper.undoMoveFiles(path, folderName, files, records: records);
       } else {
+        int restoredCount = 0;
+
+        if (records != null && records.isNotEmpty) {
+          // Exact Journal Undo (Pillar 5): Invert exactDestination -> originalSource directly!
+          for (final record in records) {
+            final destFile = File(record.exactDestination);
+            if (!await destFile.exists()) continue;
+
+            final originalParent = p.dirname(record.originalSource);
+            final targetDir = Directory(originalParent);
+            if (!await targetDir.exists()) {
+              await targetDir.create(recursive: true);
+            }
+
+            final fileName = p.basename(record.originalSource);
+            final uniqueFileName = _generateUniqueFileName(originalParent, fileName);
+            final restorePath = p.join(originalParent, uniqueFileName);
+
+            bool restored = false;
+            try {
+              await destFile.rename(restorePath);
+              restored = true;
+            } catch (_) {
+              try {
+                await destFile.copy(restorePath);
+                await destFile.delete();
+                restored = true;
+              } catch (e) {
+                debugPrint('Error restoring record ${record.exactDestination}: $e');
+              }
+            }
+
+            if (restored) restoredCount++;
+          }
+          return restoredCount > 0 || records.isEmpty;
+        }
+
+        // Fallback for legacy calls without records
         final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
         final targetDirPath = isMovingToRoot ? path : (p.isAbsolute(folderName) ? folderName : p.join(path, folderName));
         final targetDir = Directory(targetDirPath);
@@ -415,10 +488,12 @@ class FileServiceImpl implements FileService {
             if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
               try {
                 await file.rename(destPath);
+                restoredCount++;
               } catch (e) {
                 try {
                   await file.copy(destPath);
                   await file.delete();
+                  restoredCount++;
                 } catch (err) {
                   debugPrint('Error undoing move file $filePath: $err');
                 }
@@ -426,7 +501,7 @@ class FileServiceImpl implements FileService {
             }
           }
         }
-        return true;
+        return restoredCount > 0 || files.isEmpty;
       }
     } catch (e) {
       debugPrint('Error undoing move files: $e');

@@ -1,4 +1,5 @@
 import '../models/folder_node.dart';
+import '../models/move_transaction.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -34,12 +35,20 @@ class GalleryViewModel extends ChangeNotifier {
 
   // Subfolders toggle state (in-memory per session, OFF by default)
   static bool _sessionIncludeSubfolders = false;
+  @visibleForTesting
+  static void resetSessionSettings() {
+    _sessionIncludeSubfolders = false;
+  }
   bool _includeSubfolders = _sessionIncludeSubfolders;
 
   // Selection state (path-based file identity)
   bool _isSelectionMode = false;
   final Set<String> _selectedPaths = {};
   
+  // Move transaction journal for exact undo
+  List<MoveRecord> _lastMoveRecords = [];
+  List<MoveRecord> get lastMoveRecords => List.unmodifiable(_lastMoveRecords);
+
   // Subfolders for chips
   List<String> _subfolders = [];
   FolderNode? _folderTree;
@@ -635,7 +644,7 @@ class GalleryViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> moveFilesToFolder(List<String> files, String folderName) async {
+  Future<MoveResult> moveFilesToFolder(List<String> files, String folderName) async {
     _isInternalFileOperation = true;
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
@@ -649,40 +658,57 @@ class GalleryViewModel extends ChangeNotifier {
       }).toList();
 
       if (filesToMove.isEmpty) {
-        return true;
+        return MoveResult(
+          succeededRecords: files
+              .map((f) => MoveRecord(
+                    originalSource: f,
+                    exactDestination: f,
+                    targetFolder: folderName,
+                    timestamp: DateTime.now(),
+                  ))
+              .toList(),
+        );
       }
 
-      // Optimistic removal when viewing current folder without subfolders
+      final result = await _fileService.moveFilesToFolder(path, folderName, filesToMove);
+      _lastMoveRecords = result.succeededRecords;
+
+      // Optimistic removal: remove ONLY files that genuinely succeeded!
       if (!_includeSubfolders && !isMovingToRoot) {
-        final movedKeys = filesToMove.map(normalizePathKey).toSet();
+        final movedKeys = result.succeededRecords.map((r) => normalizePathKey(r.originalSource)).toSet();
         _files.removeWhere((f) => movedKeys.contains(normalizePathKey(f)));
-        _selectedPaths.clear();
+        
+        // Remove only succeeded files from selection; keep failed files selected for easy retry!
+        _selectedPaths.removeWhere((p) => movedKeys.contains(p));
         notifyListeners();
-      }
-
-      final success = await _fileService.moveFilesToFolder(path, folderName, filesToMove);
-      if (success) {
-        if (_includeSubfolders || isMovingToRoot) {
-          await loadFiles();
-        }
       } else {
         await loadFiles();
       }
-      return success;
+
+      return result;
     } catch (e) {
       debugPrint('Error moving files: $e');
       await loadFiles();
-      return false;
+      return MoveResult(succeededRecords: [], failedSources: files);
     } finally {
       _isInternalFileOperation = false;
     }
   }
 
-  Future<bool> undoMoveFiles(List<String> files, String folderName) async {
+  Future<bool> undoMoveFiles(List<String> files, String folderName, {List<MoveRecord>? records}) async {
     _isInternalFileOperation = true;
     try {
-      final success = await _fileService.undoMoveFiles(path, folderName, files);
-      if (success) await loadFiles();
+      final effectiveRecords = records ?? _lastMoveRecords;
+      final success = await _fileService.undoMoveFiles(
+        path,
+        folderName,
+        files,
+        records: effectiveRecords.isNotEmpty ? effectiveRecords : null,
+      );
+      if (success) {
+        _lastMoveRecords.clear();
+        await loadFiles();
+      }
       return success;
     } catch (e) {
       debugPrint('Error undoing move files: $e');

@@ -1,4 +1,5 @@
 import '../models/folder_node.dart';
+import '../models/move_transaction.dart';
 import 'bin_service.dart';
 import 'dart:async';
 import 'dart:io';
@@ -143,7 +144,7 @@ class SafHelper {
     return candidate;
   }
 
-  static Future<bool> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
+  static Future<MoveResult> moveFilesToFolder(String parentUri, String folderName, List<String> files) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
       final destUri = isMovingToRoot ? parentUri : (await SafUtil().mkdirp(parentUri, folderName.split('/'))).uri;
@@ -155,19 +156,26 @@ class SafHelper {
         existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
       } catch (_) {}
 
-      bool anySuccess = false;
+      final List<MoveRecord> succeeded = [];
+      final List<String> failed = [];
+
       for (final fileUri in files) {
         try {
           final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
 
-          // Check if file is already in destination folder
+          // Check if file is already in destination folder (Pillar 4)
           final currentFolder = _extractSubfolderFromUri(parentUri, fileUri);
           final isAlreadyInDest = isMovingToRoot
               ? (currentFolder == null || currentFolder.isEmpty)
               : (currentFolder != null && currentFolder.toLowerCase() == folderName.toLowerCase());
 
           if (isAlreadyInDest) {
-            anySuccess = true;
+            succeeded.add(MoveRecord(
+              originalSource: fileUri,
+              exactDestination: fileUri,
+              targetFolder: folderName,
+              timestamp: DateTime.now(),
+            ));
             continue;
           }
 
@@ -192,14 +200,21 @@ class SafHelper {
           }
 
           if (moved && movedDoc != null) {
-            anySuccess = true;
+            String finalDocUri = movedDoc.uri;
             if (uniqueName != originalName) {
               try {
-                await SafUtil().rename(movedDoc.uri, false, uniqueName);
+                final renamed = await SafUtil().rename(movedDoc.uri, false, uniqueName);
+                finalDocUri = renamed.uri;
               } catch (e) {
                 debugPrint('SAF Warning: rename at destination failed for ${movedDoc.uri}: $e');
               }
             }
+            succeeded.add(MoveRecord(
+              originalSource: fileUri,
+              exactDestination: finalDocUri,
+              targetFolder: folderName,
+              timestamp: DateTime.now(),
+            ));
           } else {
             try {
               final copiedDoc = await SafUtil().copyTo(fileUri, false, destUri);
@@ -214,30 +229,85 @@ class SafHelper {
               final destExists = await SafUtil().exists(targetDocUri, false);
               if (destExists) {
                 await SafUtil().delete(fileUri, false);
-                anySuccess = true;
+                succeeded.add(MoveRecord(
+                  originalSource: fileUri,
+                  exactDestination: targetDocUri,
+                  targetFolder: folderName,
+                  timestamp: DateTime.now(),
+                ));
               } else {
                 debugPrint('SAF Error: fallback copyTo verification failed for $fileUri');
+                failed.add(fileUri);
               }
             } catch (e) {
               debugPrint('SAF Error: copy+delete fallback failed for $fileUri: $e');
+              failed.add(fileUri);
             }
           }
         } catch (e) {
           debugPrint('SAF Error: moveFilesToFolder single file failed for $fileUri: $e');
+          failed.add(fileUri);
         }
       }
-      return anySuccess || files.isEmpty;
+      return MoveResult(succeededRecords: succeeded, failedSources: failed);
     } catch (e) {
       debugPrint('SAF Error: moveFilesToFolder failed: $e');
-      return false;
+      return MoveResult(succeededRecords: [], failedSources: files);
     }
   }
 
-  static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files) async {
+  static Future<bool> undoMoveFiles(String parentUri, String folderName, List<String> files, {List<MoveRecord>? records}) async {
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
-
       int restoredCount = 0;
+
+      if (records != null && records.isNotEmpty) {
+        // Exact Transaction Journal Undo (Pillar 5): Invert exactDestination -> originalSource directly!
+        for (final record in records) {
+          try {
+            final currentDocUri = record.exactDestination;
+            final originalFileUri = record.originalSource;
+
+            String currentFolderUri;
+            String originalFolderUri;
+
+            if (isMovingToRoot) {
+              currentFolderUri = parentUri;
+              final originalSubfolder = _extractSubfolderFromUri(parentUri, originalFileUri);
+              if (originalSubfolder == null || originalSubfolder.isEmpty) continue;
+              originalFolderUri = (await SafUtil().mkdirp(parentUri, originalSubfolder.split('/'))).uri;
+            } else {
+              currentFolderUri = (await SafUtil().mkdirp(parentUri, folderName.split('/'))).uri;
+              final originalSubfolder = _extractSubfolderFromUri(parentUri, originalFileUri);
+              if (originalSubfolder != null && originalSubfolder.isNotEmpty) {
+                originalFolderUri = (await SafUtil().mkdirp(parentUri, originalSubfolder.split('/'))).uri;
+              } else {
+                originalFolderUri = parentUri;
+              }
+            }
+
+            bool restored = false;
+            try {
+              await SafUtil().moveTo(currentDocUri, false, currentFolderUri, originalFolderUri);
+              restored = true;
+            } catch (_) {
+              try {
+                await SafUtil().copyTo(currentDocUri, false, originalFolderUri);
+                await SafUtil().delete(currentDocUri, false);
+                restored = true;
+              } catch (e) {
+                debugPrint('SAF Error: exact undo move copy+delete failed for $currentDocUri: $e');
+              }
+            }
+
+            if (restored) restoredCount++;
+          } catch (e) {
+            debugPrint('SAF Error: undo single record failed: $e');
+          }
+        }
+        return restoredCount > 0 || records.isEmpty;
+      }
+
       for (final fileUri in files) {
         final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
 

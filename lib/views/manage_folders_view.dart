@@ -949,17 +949,23 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
 
     if (targetRelPath != null && mounted) {
       final selectedList = _selectedImagePaths.toList();
-      final success = await _fileService.moveFilesToFolder(
+      final result = await _fileService.moveFilesToFolder(
         widget.rootPath,
         targetRelPath,
         selectedList,
       );
 
-      if (success) {
+      if (result.isSuccess) {
         _notificationService.showSnackBar(
             'Moved ${selectedList.length} image(s) to $targetRelPath');
         _selectedImagePaths.clear();
         _isSelectionMode = false;
+        await _loadTreeAndCurrentLevel();
+      } else if (result.isPartial) {
+        _notificationService.showSnackBar(
+            'Moved ${result.totalMoved} image(s) (${result.totalFailed} failed)');
+        final succeededKeys = result.succeededRecords.map((r) => r.originalSource).toSet();
+        _selectedImagePaths.removeWhere((p) => succeededKeys.contains(p));
         await _loadTreeAndCurrentLevel();
       } else {
         _notificationService.showSnackBar('Failed to move images',

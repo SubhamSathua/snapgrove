@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:snapgrove/models/folder_node.dart';
+import 'package:snapgrove/models/move_transaction.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -102,27 +103,70 @@ class MockFileService implements FileService {
   }
 
   @override
-  Future<bool> moveFilesToFolder(String path, String folderName, List<String> files) async {
+  @override
+  Future<MoveResult> moveFilesToFolder(String path, String folderName, List<String> files) async {
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
     final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
     final targetDir = Directory(targetDirPath);
     if (!await targetDir.exists()) {
       await targetDir.create(recursive: true);
     }
+    final targetDirNorm = p.normalize(targetDirPath).toLowerCase();
+    final List<MoveRecord> succeeded = [];
+    final List<String> failed = [];
+
     for (final filePath in files) {
       final file = File(filePath);
+      if (!await file.exists()) {
+        failed.add(filePath);
+        continue;
+      }
+
+      final sourceDirNorm = p.normalize(file.parent.path).toLowerCase();
+      if (sourceDirNorm == targetDirNorm) {
+        succeeded.add(MoveRecord(
+          originalSource: filePath,
+          exactDestination: filePath,
+          targetFolder: folderName,
+          timestamp: DateTime.now(),
+        ));
+        continue;
+      }
+
       final fileName = p.basename(filePath);
       final uniqueFileName = _generateUniqueFileName(targetDirPath, fileName);
       final destPath = p.join(targetDirPath, uniqueFileName);
       if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase() && await file.exists()) {
         await file.rename(destPath);
+        succeeded.add(MoveRecord(
+          originalSource: filePath,
+          exactDestination: destPath,
+          targetFolder: folderName,
+          timestamp: DateTime.now(),
+        ));
+      } else {
+        failed.add(filePath);
       }
     }
-    return true;
+    return MoveResult(succeededRecords: succeeded, failedSources: failed);
   }
 
   @override
-  Future<bool> undoMoveFiles(String path, String folderName, List<String> files) async {
+  Future<bool> undoMoveFiles(String path, String folderName, List<String> files, {List<MoveRecord>? records}) async {
+    int restored = 0;
+    if (records != null && records.isNotEmpty) {
+      for (final record in records) {
+        final destFile = File(record.exactDestination);
+        if (await destFile.exists()) {
+          final origDir = p.dirname(record.originalSource);
+          final uniqueName = _generateUniqueFileName(origDir, p.basename(record.originalSource));
+          await destFile.rename(p.join(origDir, uniqueName));
+          restored++;
+        }
+      }
+      return restored > 0 || records.isEmpty;
+    }
+
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
     final targetDirPath = isMovingToRoot ? path : p.join(path, folderName);
     final targetDir = Directory(targetDirPath);
@@ -136,10 +180,11 @@ class MockFileService implements FileService {
         final destPath = p.join(destDir, uniqueFileName);
         if (p.normalize(file.path).toLowerCase() != p.normalize(destPath).toLowerCase()) {
           await file.rename(destPath);
+          restored++;
         }
       }
     }
-    return true;
+    return restored > 0 || files.isEmpty;
   }
 
   @override
@@ -272,6 +317,7 @@ void main() {
   });
 
   setUp(() async {
+    GalleryViewModel.resetSessionSettings();
     mockFileService = MockFileService();
     tempDir = await Directory.systemTemp.createTemp('gallery_test_');
     viewModel = GalleryViewModel(
@@ -462,7 +508,7 @@ void main() {
         viewModel.files,
         'Moved',
       );
-      expect(result, true);
+      expect(result.isSuccess, true);
 
       // Files should be in subfolder
       final movedDir = Directory('${tempDir.path}\\Moved');
@@ -479,7 +525,7 @@ void main() {
         [file.path],
         'NewFolder',
       );
-      expect(result, true);
+      expect(result.isSuccess, true);
 
       final target = Directory('${tempDir.path}\\NewFolder');
       expect(await target.exists(), true);
@@ -494,7 +540,7 @@ void main() {
       expect(viewModel.files.contains(file.path), true);
 
       final moveResult = await viewModel.moveFilesToFolder([file.path], 'Archive');
-      expect(moveResult, true);
+      expect(moveResult.isSuccess, true);
       expect(await File('${tempDir.path}\\Archive\\to_undo.png').exists(), true);
 
       final undoResult = await viewModel.undoMoveFiles([file.path], 'Archive');
@@ -557,7 +603,7 @@ void main() {
 
       final filesToMove = [rootFile.path, fileA.path, fileB.path, fileY.path];
       final moveSuccess = await viewModel.moveFilesToFolder(filesToMove, 'FolderY');
-      expect(moveSuccess, true);
+      expect(moveSuccess.isSuccess, true);
 
       // All 4 files are now inside FolderY
       expect(await File('${dirY.path}\\root_img.png').exists(), true);
@@ -588,7 +634,7 @@ void main() {
 
       final filesToMove = [rootFile.path, fileA.path, fileB.path];
       final moveSuccess = await viewModel.moveFilesToFolder(filesToMove, 'ROOT');
-      expect(moveSuccess, true);
+      expect(moveSuccess.isSuccess, true);
 
       // All 3 files are now in root
       expect(await rootFile.exists(), true);
@@ -615,7 +661,7 @@ void main() {
       await viewModel.loadFiles();
       // Moving root A.png into places
       final moveSuccess = await viewModel.moveFilesToFolder([rootFile.path], 'places');
-      expect(moveSuccess, true);
+      expect(moveSuccess.isSuccess, true);
 
       // The original places/A.png should still exist with its original content
       expect(await placesFile.exists(), true);
@@ -653,7 +699,7 @@ void main() {
       expect(viewModel.files.contains(file1.path), true);
 
       final moved = await viewModel.moveFilesToFolder([file1.path], 'NewAlbum');
-      expect(moved, true);
+      expect(moved.isSuccess, true);
       expect(viewModel.files.contains(file1.path), false);
     });
 
@@ -725,7 +771,7 @@ void main() {
 
       // Move to subfolder
       final moveSuccess = await viewModel.moveFilesToFolder([f1.path], 'UndoTarget');
-      expect(moveSuccess, true);
+      expect(moveSuccess.isSuccess, true);
       expect(viewModel.files.contains(f1.path), false);
 
       // Undo move
@@ -868,6 +914,95 @@ void main() {
       expect(() => viewModel.notifyListeners(), returnsNormally);
 
       await streamController.close();
+    });
+
+    test('MoveResult tracks partial failures and keeps failed files selected for easy retry', () async {
+      final f1 = File('${tempDir.path}\\good.png');
+      await f1.create();
+      final nonExistentPath = '${tempDir.path}\\bad_does_not_exist.png';
+
+      await viewModel.loadFiles();
+      viewModel.enterSelectionMode(initialPath: f1.path);
+      viewModel.toggleSelection(nonExistentPath);
+      expect(viewModel.selectedCount, 2);
+
+      final result = await viewModel.moveFilesToFolder([f1.path, nonExistentPath], 'PartialAlbum');
+
+      expect(result.isPartial, true);
+      expect(result.totalMoved, 1);
+      expect(result.totalFailed, 1);
+      expect(result.failedSources.contains(nonExistentPath), true);
+
+      // Successfully moved f1 is removed from selection; failed nonExistentPath remains selected
+      expect(viewModel.isPathSelected(f1.path), false);
+      expect(viewModel.isPathSelected(nonExistentPath), true);
+    });
+
+    test('Canonical path check prevents self-move from creating duplicate renamed files', () async {
+      final f1 = File('${tempDir.path}\\self_move.png');
+      await f1.create();
+      await viewModel.loadFiles();
+
+      final result = await viewModel.moveFilesToFolder([f1.path], 'ROOT');
+
+      expect(result.isSuccess, true);
+      // File remains in place with its original name, no (1) collision duplicate created
+      expect(await f1.exists(), true);
+      expect(await File('${tempDir.path}\\self_move (1).png').exists(), false);
+    });
+
+    test('Exact transaction journal undo restores collision-renamed file without hijacking unrelated files', () async {
+      // Create existing receipt in folder
+      final receiptsDir = await Directory('${tempDir.path}\\Receipts').create();
+      final oldReceipt = File('${receiptsDir.path}\\tax.png');
+      await oldReceipt.create();
+      await oldReceipt.writeAsString('OLD RECEIPT 2024');
+
+      // Create new receipt in root
+      final newReceipt = File('${tempDir.path}\\tax.png');
+      await newReceipt.create();
+      await newReceipt.writeAsString('NEW RECEIPT 2026');
+
+      await viewModel.loadFiles();
+
+      // Move new receipt into Receipts folder (it should be collision-renamed to tax (1).png)
+      final moveResult = await viewModel.moveFilesToFolder([newReceipt.path], 'Receipts');
+      expect(moveResult.isSuccess, true);
+
+      final renamedAtDest = File('${receiptsDir.path}\\tax (1).png');
+      expect(await renamedAtDest.exists(), true);
+      expect(await oldReceipt.exists(), true);
+      expect(await oldReceipt.readAsString(), 'OLD RECEIPT 2024');
+
+      // Undo the move using exact records journal
+      final undoSuccess = await viewModel.undoMoveFiles(
+        [newReceipt.path],
+        'Receipts',
+        records: moveResult.succeededRecords,
+      );
+      expect(undoSuccess, true);
+
+      // Verify NEW receipt is restored back to root as tax.png (or tax (1).png if root has tax.png)
+      expect(await File('${tempDir.path}\\tax.png').exists(), true);
+      expect(await File('${tempDir.path}\\tax.png').readAsString(), 'NEW RECEIPT 2026');
+
+      // CRITICAL: verify the OLD receipt was NOT hijacked or touched!
+      expect(await oldReceipt.exists(), true);
+      expect(await oldReceipt.readAsString(), 'OLD RECEIPT 2024');
+    });
+
+    test('FolderNode isDescendantOrSelf prevents folder loops', () {
+      const root = FolderNode(
+        name: 'Work',
+        path: '/Work',
+        relPath: 'Work',
+      );
+
+      expect(root.isDescendantOrSelf('Work'), true);
+      expect(root.isDescendantOrSelf('Work/Projects'), true);
+      expect(root.isDescendantOrSelf('Work/Projects/2026'), true);
+      expect(root.isDescendantOrSelf('Personal'), false);
+      expect(root.isDescendantOrSelf('WorkPersonal'), false);
     });
   });
 }

@@ -77,4 +77,12 @@ class FolderNode {
     }
     return null;
   }
+
+  /// Checks if [targetRelPath] is this node or any descendant of this node
+  bool isDescendantOrSelf(String targetRelPath) {
+    if (relPath.isEmpty) return false;
+    final normSelf = relPath.toLowerCase().replaceAll('\\', '/');
+    final normTarget = targetRelPath.toLowerCase().replaceAll('\\', '/');
+    return normSelf == normTarget || normTarget.startsWith('$normSelf/');
+  }
 }
