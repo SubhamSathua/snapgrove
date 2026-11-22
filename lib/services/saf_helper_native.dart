@@ -155,36 +155,78 @@ class SafHelper {
         existingNames = contents.map((f) => f.name.toLowerCase()).toSet();
       } catch (_) {}
 
+      bool anySuccess = false;
       for (final fileUri in files) {
-        String effectiveFileUri = fileUri;
         try {
           final originalName = Uri.decodeFull(fileUri).split('/').last.split('%2F').last;
+
+          // Check if file is already in destination folder
+          final currentFolder = _extractSubfolderFromUri(parentUri, fileUri);
+          final isAlreadyInDest = isMovingToRoot
+              ? (currentFolder == null || currentFolder.isEmpty)
+              : (currentFolder != null && currentFolder.toLowerCase() == folderName.toLowerCase());
+
+          if (isAlreadyInDest) {
+            anySuccess = true;
+            continue;
+          }
+
           final uniqueName = _generateUniqueName(existingNames, originalName);
           existingNames.add(uniqueName.toLowerCase());
-          if (uniqueName != originalName) {
-            final renamedDoc = await SafUtil().rename(fileUri, false, uniqueName);
-            effectiveFileUri = renamedDoc.uri;
+
+          // Determine the source parent URI
+          String sourceParentUri = parentUri;
+          if (currentFolder != null && currentFolder.isNotEmpty) {
+            try {
+              sourceParentUri = (await SafUtil().mkdirp(parentUri, currentFolder.split('/'))).uri;
+            } catch (_) {}
           }
-        } catch (_) {}
 
-        bool moved = false;
-        try {
-          await SafUtil().moveTo(effectiveFileUri, false, parentUri, destUri);
-          moved = true;
-        } catch (_) {
-          moved = false;
-        }
-
-        if (!moved) {
+          bool moved = false;
+          dynamic movedDoc;
           try {
-            await SafUtil().copyTo(effectiveFileUri, false, destUri);
-            await SafUtil().delete(effectiveFileUri, false);
-          } catch (e) {
-            debugPrint('SAF Error: copy+delete fallback failed for $effectiveFileUri: $e');
+            movedDoc = await SafUtil().moveTo(fileUri, false, sourceParentUri, destUri);
+            moved = true;
+          } catch (_) {
+            moved = false;
           }
+
+          if (moved && movedDoc != null) {
+            anySuccess = true;
+            if (uniqueName != originalName) {
+              try {
+                await SafUtil().rename(movedDoc.uri, false, uniqueName);
+              } catch (e) {
+                debugPrint('SAF Warning: rename at destination failed for ${movedDoc.uri}: $e');
+              }
+            }
+          } else {
+            try {
+              final copiedDoc = await SafUtil().copyTo(fileUri, false, destUri);
+              String targetDocUri = copiedDoc.uri;
+              if (uniqueName != originalName) {
+                try {
+                  final renamedDoc = await SafUtil().rename(copiedDoc.uri, false, uniqueName);
+                  targetDocUri = renamedDoc.uri;
+                } catch (_) {}
+              }
+
+              final destExists = await SafUtil().exists(targetDocUri, false);
+              if (destExists) {
+                await SafUtil().delete(fileUri, false);
+                anySuccess = true;
+              } else {
+                debugPrint('SAF Error: fallback copyTo verification failed for $fileUri');
+              }
+            } catch (e) {
+              debugPrint('SAF Error: copy+delete fallback failed for $fileUri: $e');
+            }
+          }
+        } catch (e) {
+          debugPrint('SAF Error: moveFilesToFolder single file failed for $fileUri: $e');
         }
       }
-      return true;
+      return anySuccess || files.isEmpty;
     } catch (e) {
       debugPrint('SAF Error: moveFilesToFolder failed: $e');
       return false;
@@ -442,10 +484,16 @@ class SafHelper {
             );
             final destFile = File('${targetBinDir.path}/$binFileName');
             await destFile.writeAsBytes(altered, flush: true);
-            await SafUtil().delete(fileUri, false);
-            anySuccess = true;
+
+            // Verify the encrypted bin file was safely written to disk before deleting source
+            if (await destFile.exists() && (await destFile.length()) >= bytes.length) {
+              await SafUtil().delete(fileUri, false);
+              anySuccess = true;
+            } else {
+              debugPrint('SAF Warning: Dest bin file verification failed for $binFileName. Preserving original file $fileUri');
+            }
           } else {
-            await SafUtil().delete(fileUri, false);
+            debugPrint('SAF Warning: readFileBytes returned empty bytes for $fileUri. Preserving original file.');
           }
         } catch (e) {
           debugPrint('SAF Error: moveToBin failed for $fileUri: $e');

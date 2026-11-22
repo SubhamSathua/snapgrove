@@ -495,10 +495,12 @@ foreach (\$p in \$paths) {
   Future<bool> deleteFilesPermanently(List<String> files) async {
     try {
       if (kIsWeb) {
+        bool allOk = true;
         for (final file in files) {
-          await WebImageUtils.deleteFile(file);
+          final ok = await WebImageUtils.deleteFile(file);
+          if (!ok) allOk = false;
         }
-        return true;
+        return allOk;
       } else if (Platform.isAndroid) {
         bool allOk = true;
         for (final file in files) {
@@ -507,13 +509,21 @@ foreach (\$p in \$paths) {
         }
         return allOk;
       } else {
+        bool allOk = true;
         for (final path in files) {
-          final file = File(path);
-          if (await file.exists()) {
-            await file.delete();
+          try {
+            final file = File(path);
+            if (await file.exists()) {
+              await file.delete();
+            } else {
+              allOk = false;
+            }
+          } catch (e) {
+            debugPrint('Error deleting file $path: $e');
+            allOk = false;
           }
         }
-        return true;
+        return allOk;
       }
     } catch (e) {
       debugPrint('Error deleting files permanently: $e');

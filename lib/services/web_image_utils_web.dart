@@ -491,21 +491,26 @@ class WebImageUtils {
     try {
       final dir = getLastPickerHandle();
       if (dir == null) return false;
-      final fileName = path.split('/').last;
+      final normalizedPath = path.replaceAll('\\', '/');
+      final fileName = normalizedPath.split('/').last;
+      if (fileName.isEmpty) return false;
 
-      final oldUrl = _blobCache.remove(path);
-      if (oldUrl != null) {
-        _revokeObjectURL(oldUrl);
-      }
-
-      if (path.contains('/')) {
-        final folder = path.split('/').first;
+      if (normalizedPath.contains('/')) {
+        final folder = normalizedPath.split('/').first;
         final subDir = await dir.getDirectoryHandle(folder).toDart;
         await subDir.removeEntry(fileName).toDart;
       } else {
         await dir.removeEntry(fileName).toDart;
       }
+
+      final oldUrl = _blobCache.remove(path) ?? _blobCache.remove(normalizedPath);
+      if (oldUrl != null) {
+        _revokeObjectURL(oldUrl);
+      }
+      _cacheOrder.remove(path);
+      _cacheOrder.remove(normalizedPath);
       _handleMap.remove(path);
+      _handleMap.remove(normalizedPath);
       return true;
     } catch (e) {
       debugPrint('Web Error: deleteFile failed: $e');

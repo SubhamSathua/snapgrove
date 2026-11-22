@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snapgrove/services/bin_service.dart';
@@ -63,6 +64,71 @@ void main() {
       // Decrypt
       final decrypted = BinService.decryptBytes(encrypted);
       expect(decrypted, equals(originalData));
+    });
+
+    test('readMetadata extracts V2 metadata correctly even when metadata JSON > 1014 bytes', () async {
+      final binService = BinService();
+      final tempDir = await Directory.systemTemp.createTemp('sgbin_test_');
+      try {
+        final longOriginUri = 'content://com.android.externalstorage.documents/tree/primary%3A${'A' * 1200}';
+        final encrypted = BinService.alterBytesV2(
+          originalBytes: Uint8List.fromList([10, 20, 30, 40]),
+          originalName: 'large_meta.png',
+          folderName: 'LongFolder',
+          parentBreadcrumb: 'Deep/Breadcrumb/Path',
+          originUri: longOriginUri,
+          deletedAt: DateTime(2026, 11, 20, 10, 0),
+        );
+
+        final testFile = File('${tempDir.path}/large_meta.png.sgbin');
+        await testFile.writeAsBytes(encrypted);
+
+        final info = await binService.readMetadata(testFile);
+        expect(info, isNotNull);
+        expect(info!.originalName, equals('large_meta.png'));
+        expect(info.folderName, equals('LongFolder'));
+        expect(info.parentBreadcrumb, equals('Deep/Breadcrumb/Path'));
+        expect(info.originUri, equals(longOriginUri));
+        expect(info.deletedDate, equals(DateTime(2026, 11, 20, 10, 0)));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('readMetadata handles truncated files (<10 bytes) with graceful fallback', () async {
+      final binService = BinService();
+      final tempDir = await Directory.systemTemp.createTemp('sgbin_truncated_');
+      try {
+        final testFile = File('${tempDir.path}/short.png.sgbin');
+        await testFile.writeAsBytes([0x53, 0x47, 0x42]); // Only 3 bytes
+
+        final info = await binService.readMetadata(testFile);
+        expect(info, isNotNull);
+        expect(info!.originalName, equals('short.png'));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('readMetadata handles corrupted V2 payload with fallback', () async {
+      final binService = BinService();
+      final tempDir = await Directory.systemTemp.createTemp('sgbin_corrupted_');
+      try {
+        final testFile = File('${tempDir.path}/corrupt.png.sgbin');
+        // Valid 10-byte header with length 4, but payload is invalid JSON
+        final corruptedBytes = [
+          0x53, 0x47, 0x42, 0x49, 0x4E, 0x02, // Magic
+          0x00, 0x00, 0x00, 0x04,             // metaLen = 4
+          0xFF, 0xFF, 0xFF, 0xFF              // Invalid UTF-8 JSON
+        ];
+        await testFile.writeAsBytes(corruptedBytes);
+
+        final info = await binService.readMetadata(testFile);
+        expect(info, isNotNull);
+        expect(info!.originalName, equals('corrupt.png'));
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
     });
 
     test('BinFolderInfo formats bytes correctly', () {

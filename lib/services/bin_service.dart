@@ -271,45 +271,55 @@ class BinService {
       final folderName = defaultFolderName ?? p.basename(p.dirname(filePath));
       final stat = await file.stat();
 
-      // Read first 1024 bytes for fast header extraction
+      BinFileMetadata? v2Meta;
       final raf = await file.open(mode: FileMode.read);
-      final headerBytes = await raf.read(1024);
-      await raf.close();
+      try {
+        final headerBytes = await raf.read(10);
+        if (headerBytes.length == 10 &&
+            headerBytes[0] == 0x53 &&
+            headerBytes[1] == 0x47 &&
+            headerBytes[2] == 0x42 &&
+            headerBytes[3] == 0x49 &&
+            headerBytes[4] == 0x4E &&
+            headerBytes[5] == 0x02) {
+          final metaLen = (headerBytes[6] << 24) |
+              (headerBytes[7] << 16) |
+              (headerBytes[8] << 8) |
+              headerBytes[9];
+          if (metaLen > 0 && metaLen < 5 * 1024 * 1024) {
+            final metaBytes = await raf.read(metaLen);
+            if (metaBytes.length == metaLen) {
+              try {
+                final jsonStr = utf8.decode(metaBytes);
+                final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
+                v2Meta = BinFileMetadata.fromJson(jsonMap);
+              } catch (e) {
+                debugPrint('BinService: Failed to parse V2 metadata JSON: $e');
+              }
+            }
+          }
+        }
+      } finally {
+        await raf.close();
+      }
 
       final now = DateTime.now();
 
-      // Check for V2 header: SGBIN\x02
-      if (headerBytes.length >= 10 &&
-          headerBytes[0] == 0x53 &&
-          headerBytes[1] == 0x47 &&
-          headerBytes[2] == 0x42 &&
-          headerBytes[3] == 0x49 &&
-          headerBytes[4] == 0x4E &&
-          headerBytes[5] == 0x02) {
-        final metaLen = (headerBytes[6] << 24) |
-            (headerBytes[7] << 16) |
-            (headerBytes[8] << 8) |
-            headerBytes[9];
-        if (headerBytes.length >= 10 + metaLen) {
-          final jsonStr = utf8.decode(headerBytes.sublist(10, 10 + metaLen));
-          final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
-          final meta = BinFileMetadata.fromJson(jsonMap);
+      if (v2Meta != null) {
+        final daysPassed = now.difference(v2Meta.deletedAt).inDays;
+        final daysRemaining = (_retentionDays - daysPassed).clamp(0, _retentionDays);
 
-          final daysPassed = now.difference(meta.deletedAt).inDays;
-          final daysRemaining = (_retentionDays - daysPassed).clamp(0, _retentionDays);
-
-          return BinFileInfo(
-            path: filePath,
-            originalName: meta.originalName,
-            folderName: meta.folderName.isNotEmpty ? meta.folderName : folderName,
-            parentBreadcrumb: meta.parentBreadcrumb,
-            originUri: meta.originUri,
-            originPath: meta.originPath,
-            sizeBytes: meta.sizeBytes > 0 ? meta.sizeBytes : stat.size,
-            deletedDate: meta.deletedAt,
-            daysRemaining: daysRemaining,
-          );
-        }
+        return BinFileInfo(
+          path: filePath,
+          originalName: v2Meta.originalName,
+          folderName: v2Meta.folderName.isNotEmpty ? v2Meta.folderName : folderName,
+          parentBreadcrumb: v2Meta.parentBreadcrumb,
+          originUri: v2Meta.originUri,
+          originPath: v2Meta.originPath,
+          sizeBytes: v2Meta.sizeBytes > 0 ? v2Meta.sizeBytes : stat.size,
+          deletedDate: v2Meta.deletedAt,
+          daysRemaining: daysRemaining,
+        );
       }
 
       // Fallback for V1 format or legacy files
