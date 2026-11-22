@@ -33,9 +33,9 @@ class GalleryViewModel extends ChangeNotifier {
   static bool _sessionIncludeSubfolders = false;
   bool _includeSubfolders = _sessionIncludeSubfolders;
 
-  // Selection state
+  // Selection state (path-based file identity)
   bool _isSelectionMode = false;
-  final Set<int> _selectedIndices = {};
+  final Set<String> _selectedPaths = {};
   
   // Subfolders for chips
   List<String> _subfolders = [];
@@ -58,15 +58,36 @@ class GalleryViewModel extends ChangeNotifier {
   
   // Selection getters
   bool get isSelectionMode => _isSelectionMode;
-  Set<int> get selectedIndices => _selectedIndices;
-  int get selectedCount => _selectedIndices.length;
-  bool isSelected(int index) => _selectedIndices.contains(index);
+  Set<String> get selectedPaths => Set.unmodifiable(_selectedPaths);
+  int get selectedCount => _selectedPaths.length;
+  bool isPathSelected(String path) => _selectedPaths.contains(normalizePathKey(path));
+  bool isSelected(int index) {
+    if (index >= 0 && index < _files.length) {
+      return isPathSelected(_files[index]);
+    }
+    return _selectedPaths.contains('#index_$index');
+  }
+
+  Set<int> get selectedIndices => {
+        for (int i = 0; i < _files.length; i++)
+          if (isPathSelected(_files[i])) i,
+        for (final p in _selectedPaths)
+          if (p.startsWith('#index_')) int.tryParse(p.substring(7)) ?? -1,
+      }..remove(-1);
   
   // Subfolders getter
   List<String> get subfolders => _subfolders;
   FolderNode? get folderTree => _folderTree;
   String get folderSortOrder => _folderSortOrder;
   bool get isTagsLoading => _isTagsLoading;
+
+  static String normalizePathKey(String filePath) {
+    if (filePath.isEmpty) return filePath;
+    if (kIsWeb || filePath.startsWith('content://')) {
+      return Uri.decodeFull(filePath).trim();
+    }
+    return p.normalize(filePath).toLowerCase();
+  }
 
   static String? extractSubfolderTag(String rootPath, String filePath) {
     if (filePath.isEmpty) return null;
@@ -128,11 +149,6 @@ class GalleryViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Preserve selection by file paths across reload if selection mode is active
-    final selectedPaths = _isSelectionMode
-        ? _selectedIndices.where((i) => i < _files.length).map((i) => _files[i]).toSet()
-        : <String>{};
-
     try {
       final storage = locator<StorageService>();
       final savedField = await storage.read('settings', 'sort_field');
@@ -162,13 +178,10 @@ class GalleryViewModel extends ChangeNotifier {
       debugPrint('Error loading files: $e');
     }
 
-    if (_isSelectionMode && selectedPaths.isNotEmpty) {
-      _selectedIndices.clear();
-      for (int i = 0; i < _files.length; i++) {
-        if (selectedPaths.contains(_files[i])) {
-          _selectedIndices.add(i);
-        }
-      }
+    // Preserve selection by file identity; remove any files that no longer exist on disk
+    if (_isSelectionMode && _selectedPaths.isNotEmpty) {
+      final currentKeys = _files.map(normalizePathKey).toSet();
+      _selectedPaths.retainAll(currentKeys);
     }
 
     _isLoading = false;
@@ -377,7 +390,7 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   /// Smoothly refreshes the tags/subfolders sorting with an animated skeleton loader.
-  /// Selection state (_selectedIndices, _isSelectionMode, and _files) is kept 100% intact.
+  /// Selection state (_selectedPaths, _isSelectionMode, and _files) is kept 100% intact.
   Future<void> refreshTagsSmoothly({String? newSortOrder}) async {
     if (newSortOrder != null && newSortOrder.isNotEmpty) {
       _folderSortOrder = newSortOrder;
@@ -427,17 +440,25 @@ class GalleryViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void enterSelectionMode({int? initialIndex}) {
+  void enterSelectionMode({int? initialIndex, String? initialPath}) {
     if (_isSelectionMode) {
-      if (initialIndex != null) {
+      if (initialPath != null) {
+        toggleSelection(initialPath);
+      } else if (initialIndex != null) {
         toggleSelection(initialIndex);
       }
       return;
     }
     _isSelectionMode = true;
-    _selectedIndices.clear();
-    if (initialIndex != null) {
-      _selectedIndices.add(initialIndex);
+    _selectedPaths.clear();
+    if (initialPath != null) {
+      _selectedPaths.add(normalizePathKey(initialPath));
+    } else if (initialIndex != null) {
+      if (initialIndex >= 0 && initialIndex < _files.length) {
+        _selectedPaths.add(normalizePathKey(_files[initialIndex]));
+      } else if (_files.isEmpty) {
+        _selectedPaths.add('#index_$initialIndex');
+      }
     }
     notifyListeners();
   }
@@ -445,38 +466,51 @@ class GalleryViewModel extends ChangeNotifier {
   void exitSelectionMode() {
     if (_isSelectionMode) {
       _isSelectionMode = false;
-      _selectedIndices.clear();
+      _selectedPaths.clear();
       notifyListeners();
     }
   }
 
-  void toggleSelection(int index) {
+  void toggleSelection(dynamic item) {
     if (!_isSelectionMode) return;
-    
-    if (_selectedIndices.contains(index)) {
-      _selectedIndices.remove(index);
+    String? path;
+    if (item is String) {
+      path = item;
+    } else if (item is int) {
+      if (item >= 0 && item < _files.length) {
+        path = _files[item];
+      } else if (_files.isEmpty) {
+        path = '#index_$item';
+      }
+    }
+    if (path == null) return;
+
+    final key = path.startsWith('#index_') ? path : normalizePathKey(path);
+    if (_selectedPaths.contains(key)) {
+      _selectedPaths.remove(key);
     } else {
-      _selectedIndices.add(index);
+      _selectedPaths.add(key);
     }
     notifyListeners();
   }
 
   void selectAll() {
     if (!_isSelectionMode) return;
-    _selectedIndices.clear();
-    _selectedIndices.addAll(List.generate(_files.length, (i) => i));
+    _selectedPaths.clear();
+    for (final f in _files) {
+      _selectedPaths.add(normalizePathKey(f));
+    }
     notifyListeners();
   }
 
   void clearSelection() {
-    _selectedIndices.clear();
+    _selectedPaths.clear();
     notifyListeners();
   }
 
   List<String> getSelectedFiles() {
-    return _selectedIndices
-        .where((i) => i >= 0 && i < _files.length)
-        .map((i) => _files[i])
+    return _files
+        .where((f) => _selectedPaths.contains(normalizePathKey(f)))
         .toList();
   }
 
@@ -527,10 +561,9 @@ class GalleryViewModel extends ChangeNotifier {
 
       // Optimistic removal when viewing current folder without subfolders
       if (!_includeSubfolders && !isMovingToRoot) {
-        for (final f in filesToMove) {
-          _files.remove(f);
-        }
-        _selectedIndices.clear();
+        final movedKeys = filesToMove.map(normalizePathKey).toSet();
+        _files.removeWhere((f) => movedKeys.contains(normalizePathKey(f)));
+        _selectedPaths.clear();
         notifyListeners();
       }
 
@@ -562,12 +595,10 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteFile(String filePath) async {
-    final index = _files.indexOf(filePath);
-    if (index != -1) {
-      _files.removeAt(index);
-      _selectedIndices.remove(index);
-      notifyListeners();
-    }
+    final key = normalizePathKey(filePath);
+    _files.removeWhere((f) => normalizePathKey(f) == key);
+    _selectedPaths.remove(key);
+    notifyListeners();
 
     try {
       final success = await _fileService.deleteFile(filePath);
@@ -583,9 +614,9 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<bool> moveToBin(List<String> files) async {
-    final toRemove = Set<String>.from(files);
-    _files = _files.where((f) => !toRemove.contains(f)).toList();
-    _selectedIndices.clear();
+    final removedKeys = files.map(normalizePathKey).toSet();
+    _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
+    _selectedPaths.clear();
     notifyListeners();
 
     try {
@@ -602,9 +633,9 @@ class GalleryViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteFilesPermanently(List<String> files) async {
-    final toRemove = Set<String>.from(files);
-    _files = _files.where((f) => !toRemove.contains(f)).toList();
-    _selectedIndices.clear();
+    final removedKeys = files.map(normalizePathKey).toSet();
+    _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
+    _selectedPaths.clear();
     notifyListeners();
 
     try {

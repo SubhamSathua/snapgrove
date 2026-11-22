@@ -353,6 +353,35 @@ void main() {
       expect(selected.any((f) => f.endsWith('test0.png')), true);
       expect(selected.any((f) => f.endsWith('test2.png')), true);
     });
+
+    test('sorting preserves exact selected files by identity even when index shifts', () async {
+      final fA = File('${tempDir.path}\\a_file.png');
+      final fZ = File('${tempDir.path}\\z_file.png');
+      await fA.create();
+      await fZ.create();
+      await viewModel.loadFiles();
+
+      // Sort A to Z so a_file is index 0
+      viewModel.setSort(SortField.name, SortOrder.ascending);
+      expect(viewModel.files.first, fA.path);
+
+      // Select a_file.png
+      viewModel.enterSelectionMode(initialPath: fA.path);
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(fA.path), true);
+      expect(viewModel.isPathSelected(fZ.path), false);
+
+      // Change sort order to descending: z_file becomes index 0, a_file becomes index 1
+      viewModel.setSort(SortField.name, SortOrder.descending);
+      expect(viewModel.files.first, fZ.path);
+      expect(viewModel.files.last, fA.path);
+
+      // VERIFY: The selected file is STILL a_file (NOT z_file, preventing wrong item deletion)
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(fA.path), true);
+      expect(viewModel.isPathSelected(fZ.path), false);
+      expect(viewModel.getSelectedFiles().single, fA.path);
+    });
   });
 
   group('Sorting', () {
@@ -695,6 +724,51 @@ void main() {
       final undoSuccess = await viewModel.undoMoveFiles([f1.path], 'UndoTarget');
       expect(undoSuccess, true);
       expect(viewModel.files.contains(f1.path), true);
+    });
+
+    test('normalizePathKey normalizes paths correctly across Windows and URIs', () {
+      expect(GalleryViewModel.normalizePathKey('C:\\Path\\To\\IMAGE.PNG'), 'c:\\path\\to\\image.png');
+      expect(GalleryViewModel.normalizePathKey('content://media/external/images%201'), 'content://media/external/images 1');
+    });
+
+    test('loadFiles retains selected files that still exist and purges deleted files', () async {
+      final f1 = File('${tempDir.path}\\keep.png');
+      final f2 = File('${tempDir.path}\\todelete.png');
+      await f1.create();
+      await f2.create();
+      await viewModel.loadFiles();
+
+      viewModel.enterSelectionMode(initialPath: f1.path);
+      viewModel.toggleSelection(f2.path);
+      expect(viewModel.selectedCount, 2);
+      expect(viewModel.isPathSelected(f1.path), true);
+      expect(viewModel.isPathSelected(f2.path), true);
+
+      // Externally delete f2
+      await f2.delete();
+      await viewModel.loadFiles();
+
+      // f1 should remain selected, f2 purged from selection
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(f1.path), true);
+      expect(viewModel.isPathSelected(f2.path), false);
+    });
+
+    test('toggleSelection supports toggling by file path string directly', () async {
+      final f1 = File('${tempDir.path}\\toggle1.png');
+      await f1.create();
+      await viewModel.loadFiles();
+
+      viewModel.enterSelectionMode();
+      expect(viewModel.selectedCount, 0);
+
+      viewModel.toggleSelection(f1.path);
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(f1.path), true);
+
+      viewModel.toggleSelection(f1.path);
+      expect(viewModel.selectedCount, 0);
+      expect(viewModel.isPathSelected(f1.path), false);
     });
   });
 }

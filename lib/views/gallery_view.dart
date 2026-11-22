@@ -58,9 +58,8 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   // Grid Configuration
   int? _userSelectedColumns;
 
-  // Selection Mode
-  bool _isSelectionMode = false;
-  final Set<int> _selectedIndices = <int>{};
+  // Selection Mode (delegated to GalleryViewModel as single source of truth)
+  bool get _isSelectionMode => _viewModel.isSelectionMode;
 
   // Floating progress card state during file moving in selection mode
   bool _isMovingFiles = false;
@@ -331,51 +330,27 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
 
 
-  void _enterSelectionMode({int? initialIndex}) {
-    if (_isSelectionMode) {
-      if (initialIndex != null) {
-        _toggleSelection(initialIndex);
-      }
-      return;
-    }
-    setState(() {
-      _isSelectionMode = true;
-      _selectedIndices.clear();
-      if (initialIndex != null) {
-        _selectedIndices.add(initialIndex);
-      }
-    });
+  void _enterSelectionMode({int? initialIndex, String? initialPath}) {
+    _viewModel.enterSelectionMode(
+      initialIndex: initialIndex,
+      initialPath: initialPath,
+    );
   }
 
   void _exitSelectionMode() {
-    setState(() {
-      _isSelectionMode = false;
-      _selectedIndices.clear();
-    });
+    _viewModel.exitSelectionMode();
   }
 
-  void _toggleSelection(int index) {
-    setState(() {
-      if (_selectedIndices.contains(index)) {
-        _selectedIndices.remove(index);
-      } else {
-        _selectedIndices.add(index);
-      }
-    });
+  void _toggleSelection(dynamic item) {
+    _viewModel.toggleSelection(item);
   }
 
   void _selectAll() {
-    setState(() {
-      _isSelectionMode = true;
-      _selectedIndices.clear();
-      _selectedIndices.addAll(List.generate(_viewModel.files.length, (i) => i));
-    });
+    _viewModel.selectAll();
   }
 
   void _unselectAll() {
-    setState(() {
-      _selectedIndices.clear();
-    });
+    _viewModel.clearSelection();
   }
 
   Future<void> _showContextMenu(BuildContext context, Offset position, int index) async {
@@ -1114,7 +1089,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   Future<void> _confirmExitSelectionMode(BuildContext context) async {
-    if (_selectedIndices.isEmpty) {
+    if (_viewModel.selectedCount == 0) {
       _exitSelectionMode();
       return;
     }
@@ -1165,7 +1140,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Your current selection of ${_selectedIndices.length} item(s) will be lost.',
+                        'Your current selection of ${_viewModel.selectedCount} item(s) will be lost.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: 'Lora',
@@ -1422,7 +1397,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                               ),
                             ),
                             _RightSideSelectionPane(
-                              selectedCount: _selectedIndices.length,
+                              selectedCount: _viewModel.selectedCount,
                               subfolders: _viewModel.subfolders,
                               isTagsLoading: _viewModel.isTagsLoading,
                               onCreateFolder: _showCreateFolderDialog,
@@ -1492,21 +1467,21 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       _SelectionActionButton(
                         icon: SnapSymbols.done_all,
                         label: 'Select All',
-                        isEnabled: _viewModel.files.isNotEmpty && _selectedIndices.length < _viewModel.files.length,
+                        isEnabled: _viewModel.files.isNotEmpty && _viewModel.selectedCount < _viewModel.files.length,
                         onTap: _selectAll,
                       ),
                       const SizedBox(width: 8),
                       _SelectionActionButton(
                         icon: SnapSymbols.deselect,
                         label: 'Unselect',
-                        isEnabled: _selectedIndices.isNotEmpty,
+                        isEnabled: _viewModel.selectedCount > 0,
                         onTap: _unselectAll,
                       ),
                       const SizedBox(width: 8),
                       _SelectionActionButton(
                         icon: SnapSymbols.delete_outline_rounded,
                         label: 'Delete',
-                        isEnabled: _selectedIndices.isNotEmpty,
+                        isEnabled: _viewModel.selectedCount > 0,
                         onTap: _showDeleteConfirmationDialog,
                       ),
                       const SizedBox(width: 8),
@@ -1522,11 +1497,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         icon: Icon(
                           SnapSymbols.delete_outline_rounded,
                           size: 22,
-                          color: _selectedIndices.isNotEmpty
+                          color: _viewModel.selectedCount > 0
                               ? (isDark ? Colors.white : Colors.black)
                               : sc.muted.withValues(alpha: 0.4),
                         ),
-                        onPressed: _selectedIndices.isNotEmpty ? _showDeleteConfirmationDialog : null,
+                        onPressed: _viewModel.selectedCount > 0 ? _showDeleteConfirmationDialog : null,
                       ),
                       const SizedBox(width: 4),
                       PopupMenuButton<String>(
@@ -1556,7 +1531,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           return [
                             PopupMenuItem(
                               value: 'select_all',
-                              enabled: _viewModel.files.isNotEmpty && _selectedIndices.length < _viewModel.files.length,
+                              enabled: _viewModel.files.isNotEmpty && _viewModel.selectedCount < _viewModel.files.length,
                               child: Row(
                                 children: [
                                   Icon(
@@ -1578,7 +1553,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             ),
                             PopupMenuItem(
                               value: 'unselect_all',
-                              enabled: _selectedIndices.isNotEmpty,
+                              enabled: _viewModel.selectedCount > 0,
                               child: Row(
                                 children: [
                                   Icon(
@@ -1598,7 +1573,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                 ],
                               ),
                             ),
-                            if (_selectedIndices.isNotEmpty) ...[
+                            if (_viewModel.selectedCount > 0) ...[
                               const PopupMenuDivider(height: 1),
                               PopupMenuItem(
                                 value: 'delete',
@@ -1670,12 +1645,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       child: _IconSquare(
                         icon: SnapSymbols.folder_open,
                         onTap: () {
-                          final selectedPaths = _isSelectionMode
-                              ? _selectedIndices
-                                  .where((i) => i < _viewModel.files.length)
-                                  .map((i) => _viewModel.files[i])
-                                  .toSet()
-                              : <String>{};
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => ManageFoldersView(
@@ -1686,16 +1655,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                           ).then((_) async {
                             if (!mounted) return;
                             await _viewModel.loadFiles();
-                            if (mounted && _isSelectionMode && selectedPaths.isNotEmpty) {
-                              setState(() {
-                                _selectedIndices.clear();
-                                for (int i = 0; i < _viewModel.files.length; i++) {
-                                  if (selectedPaths.contains(_viewModel.files[i])) {
-                                    _selectedIndices.add(i);
-                                  }
-                                }
-                              });
-                            }
                           });
                         },
                       ),
@@ -1793,7 +1752,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           SliverPersistentHeader(
             pinned: true,
             delegate: _TopSelectionPaneDelegate(
-              selectedCount: _selectedIndices.length,
+              selectedCount: _viewModel.selectedCount,
               subfolders: _viewModel.subfolders,
               isTagsLoading: _viewModel.isTagsLoading,
               onCreateFolder: _showCreateFolderDialog,
@@ -1858,12 +1817,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   final path = _viewModel.files[index];
                   final subfolderTag = _viewModel.getSubfolderTag(path);
                   return _GalleryItem(
+                    key: ValueKey<String>(path),
                     path: path,
                     subfolderTag: subfolderTag,
                     thumbnailManager: _thumbnailManager,
                     isSelectionMode: _isSelectionMode,
-                    isSelected: _selectedIndices.contains(index),
-                    onSelectionTap: () => _toggleSelection(index),
+                    isSelected: _viewModel.isPathSelected(path),
+                    onSelectionTap: () => _toggleSelection(path),
                     onOpenPreview: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -1882,15 +1842,25 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                     },
                     onLongPress: () {
                       if (_isSelectionMode) {
-                        _toggleSelection(index);
+                        _toggleSelection(path);
                       } else {
-                        _enterSelectionMode(initialIndex: index);
+                        _enterSelectionMode(initialPath: path);
                       }
                     },
                     onRightClick: (position) => _showContextMenu(context, position, index),
                   );
                 },
                 childCount: _viewModel.files.length,
+                findChildIndexCallback: (Key key) {
+                  if (key is ValueKey<String>) {
+                    final normalizedKey = GalleryViewModel.normalizePathKey(key.value);
+                    final idx = _viewModel.files.indexWhere(
+                      (f) => GalleryViewModel.normalizePathKey(f) == normalizedKey,
+                    );
+                    return idx != -1 ? idx : null;
+                  }
+                  return null;
+                },
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: true,
               ),
@@ -2024,8 +1994,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   bool _isFolderActionEnabled(String folderName) {
-    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
-    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
+    final selectedFiles = _viewModel.getSelectedFiles();
     if (selectedFiles.isEmpty) return false;
     final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
     if (isMovingToRoot) {
@@ -2039,8 +2008,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   String? _getFolderActionTooltip(String folderName) {
-    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
-    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
+    final selectedFiles = _viewModel.getSelectedFiles();
     if (selectedFiles.isEmpty) return null;
     final enabled = _isFolderActionEnabled(folderName);
     if (enabled) return null;
@@ -2052,8 +2020,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   // Move selected files to the specified folder
   Future<void> _moveSelectedToFolder(String folderName) async {
-    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
-    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
+    final selectedFiles = _viewModel.getSelectedFiles();
     if (selectedFiles.isEmpty) return;
 
     // Check if the target folder has children
@@ -2420,8 +2387,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   }
 
   Future<void> _showDeleteConfirmationDialog() async {
-    final validIndices = _selectedIndices.where((i) => i >= 0 && i < _viewModel.files.length);
-    final selectedFiles = validIndices.map((i) => _viewModel.files[i]).toList();
+    final selectedFiles = _viewModel.getSelectedFiles();
     if (selectedFiles.isEmpty) return;
 
     final sc = context.snapgroveColors;
@@ -2855,6 +2821,7 @@ class _GalleryItem extends StatefulWidget {
   final void Function(Offset)? onRightClick;
 
   const _GalleryItem({
+    super.key,
     required this.path, 
     this.subfolderTag,
     required this.thumbnailManager,
