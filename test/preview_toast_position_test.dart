@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,6 +81,8 @@ class MockFileService implements FileService {
   Future<int?> getFolderSizeBytes(String folderPath) async => null;
   @override
   Future<DateTime?> getFolderModifiedDate(String folderPath) async => null;
+  @override
+  Stream<FileSystemEvent>? watchDirectory(String path, {bool recursive = false}) => null;
 }
 
 class MockShareService implements ShareService {

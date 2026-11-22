@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:snapgrove/models/folder_node.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -250,6 +251,13 @@ class MockFileService implements FileService {
 
   @override
   Future<DateTime?> getFolderModifiedDate(String folderPath) async => null;
+
+  Stream<FileSystemEvent>? mockWatcherStream;
+
+  @override
+  Stream<FileSystemEvent>? watchDirectory(String path, {bool recursive = false}) {
+    return mockWatcherStream;
+  }
 }
 
 void main() {
@@ -769,6 +777,97 @@ void main() {
       viewModel.toggleSelection(f1.path);
       expect(viewModel.selectedCount, 0);
       expect(viewModel.isPathSelected(f1.path), false);
+    });
+
+    test('refreshLiveFiles detects external file creation non-destructively without loading flash', () async {
+      final f1 = File('${tempDir.path}\\live1.png');
+      await f1.create();
+      await viewModel.loadFiles();
+      expect(viewModel.files.length, 1);
+      expect(viewModel.isLoading, false);
+
+      // Externally add a file
+      final f2 = File('${tempDir.path}\\live2.png');
+      await f2.create();
+
+      // Trigger refreshLiveFiles
+      await viewModel.refreshLiveFiles();
+
+      expect(viewModel.files.length, 2);
+      expect(viewModel.files.contains(f2.path), true);
+      // Verify isLoading was NEVER flipped to true during live sync
+      expect(viewModel.isLoading, false);
+    });
+
+    test('refreshLiveFiles preserves active selection when external changes occur', () async {
+      final f1 = File('${tempDir.path}\\sel_live1.png');
+      await f1.create();
+      await viewModel.loadFiles();
+
+      viewModel.enterSelectionMode(initialPath: f1.path);
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(f1.path), true);
+
+      // Externally add a second file
+      final f2 = File('${tempDir.path}\\sel_live2.png');
+      await f2.create();
+
+      await viewModel.refreshLiveFiles();
+
+      expect(viewModel.files.length, 2);
+      expect(viewModel.selectedCount, 1);
+      expect(viewModel.isPathSelected(f1.path), true);
+      expect(viewModel.isPathSelected(f2.path), false);
+    });
+
+    test('directory watcher debounces events and triggers refreshLiveFiles', () async {
+      final streamController = StreamController<FileSystemEvent>.broadcast();
+      mockFileService.mockWatcherStream = streamController.stream;
+
+      final f1 = File('${tempDir.path}\\watch1.png');
+      await f1.create();
+      await viewModel.loadFiles();
+      expect(viewModel.files.length, 1);
+
+      // Start watching with mock stream
+      viewModel.startWatching();
+
+      // Externally add another file on disk
+      final f2 = File('${tempDir.path}\\watch2.png');
+      await f2.create();
+
+      // Emit file system create event into watcher
+      streamController.add(FileSystemCreateEvent(f2.path, false));
+
+      // Before 350ms debounce, files should not have updated yet
+      expect(viewModel.files.length, 1);
+
+      // Wait past debounce threshold
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      expect(viewModel.files.length, 2);
+      expect(viewModel.files.contains(f2.path), true);
+
+      await streamController.close();
+    });
+
+    test('dispose halts directory watcher and safely handles subsequent calls', () async {
+      final streamController = StreamController<FileSystemEvent>.broadcast();
+      mockFileService.mockWatcherStream = streamController.stream;
+
+      await viewModel.loadFiles();
+      viewModel.startWatching();
+
+      viewModel.dispose();
+
+      // Emitting event after disposal should not throw or cause notifyListeners crash
+      streamController.add(FileSystemCreateEvent('dummy.png', false));
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // notifyListeners should be a safe no-op after disposal
+      expect(() => viewModel.notifyListeners(), returnsNormally);
+
+      await streamController.close();
     });
   });
 }

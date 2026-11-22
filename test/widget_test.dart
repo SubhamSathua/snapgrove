@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:snapgrove/models/folder_node.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -96,6 +97,9 @@ class MockFileService implements FileService {
 
   @override
   Future<DateTime?> getFolderModifiedDate(String folderPath) async => null;
+
+  @override
+  Stream<FileSystemEvent>? watchDirectory(String path, {bool recursive = false}) => null;
 }
 
 class MockShareService implements ShareService {

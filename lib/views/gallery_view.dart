@@ -96,6 +96,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     _ambienceDebounceTimer?.cancel();
     _scrollController.removeListener(_handleGalleryScroll);
     _scrollController.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 

@@ -37,6 +37,10 @@ abstract class FileService {
   /// Returns null when unavailable.
   Future<DateTime?> getFolderModifiedDate(String folderPath);
 
+  /// Returns a live stream of filesystem change events for [path] on desktop.
+  /// Returns null on unsupported platforms (Web, Android SAF).
+  Stream<FileSystemEvent>? watchDirectory(String path, {bool recursive = false});
+
   /// Human-readable string for a byte count, e.g. "3.4 MB", "120 KB".
   static String formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -605,5 +609,19 @@ foreach (\$p in \$paths) {
       debugPrint('Error removing EXIF data: $e');
     }
     return false;
+  }
+
+  @override
+  Stream<FileSystemEvent>? watchDirectory(String path, {bool recursive = false}) {
+    if (kIsWeb || Platform.isAndroid || path.isEmpty) return null;
+    try {
+      final dir = Directory(path);
+      if (dir.existsSync()) {
+        return dir.watch(recursive: recursive);
+      }
+    } catch (e) {
+      debugPrint('Error creating Directory.watch: $e');
+    }
+    return null;
   }
 }

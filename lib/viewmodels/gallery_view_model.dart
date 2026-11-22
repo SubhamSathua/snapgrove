@@ -1,6 +1,8 @@
 import '../models/folder_node.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import '../core/locator.dart';
 import '../services/file_service.dart';
@@ -20,7 +22,8 @@ enum SortOrder {
 
 class GalleryViewModel extends ChangeNotifier {
   final String path;
-  final FileService _fileService;
+  final FileService fileService;
+  FileService get _fileService => fileService;
   
   List<String> _files = [];
   bool _isLoading = false;
@@ -45,10 +48,27 @@ class GalleryViewModel extends ChangeNotifier {
   String _folderSortOrder = 'name_asc';
   bool _isTagsLoading = false;
 
+  // Live folder watching and lifecycle synchronization
+  StreamSubscription<FileSystemEvent>? _watcherSubscription;
+  Timer? _watcherDebounceTimer;
+  AppLifecycleListener? _lifecycleListener;
+  bool _isInternalFileOperation = false;
+  bool _isDisposed = false;
+
   GalleryViewModel({
     required this.path,
-    required this._fileService,
-  });
+    required this.fileService,
+  }) {
+    try {
+      _lifecycleListener = AppLifecycleListener(
+        onResume: () async {
+          await refreshLiveFiles();
+        },
+      );
+    } catch (_) {
+      // Handled in headless test environments where WidgetsBinding is not initialized
+    }
+  }
 
   List<String> get files => _files;
   bool get isLoading => _isLoading;
@@ -186,6 +206,7 @@ class GalleryViewModel extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+    startWatching();
   }
 
   Future<void> setIncludeSubfolders(bool enabled) async {
@@ -514,6 +535,74 @@ class GalleryViewModel extends ChangeNotifier {
         .toList();
   }
 
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
+  void startWatching() {
+    stopWatching();
+    if (path.isEmpty || _isDisposed) return;
+    try {
+      final stream = _fileService.watchDirectory(path, recursive: _includeSubfolders);
+      if (stream != null) {
+        _watcherSubscription = stream.listen(
+          (event) {
+            if (_isInternalFileOperation || _isDisposed) return;
+            _watcherDebounceTimer?.cancel();
+            _watcherDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
+              if (!_isDisposed && !_isInternalFileOperation) {
+                await refreshLiveFiles();
+              }
+            });
+          },
+          onError: (e) {
+            debugPrint('Directory watcher error: $e');
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('Error starting directory watcher: $e');
+    }
+  }
+
+  void stopWatching() {
+    _watcherDebounceTimer?.cancel();
+    _watcherDebounceTimer = null;
+    _watcherSubscription?.cancel();
+    _watcherSubscription = null;
+  }
+
+  Future<void> refreshLiveFiles() async {
+    if (path.isEmpty || _isLoading || _isInternalFileOperation || _isDisposed) return;
+
+    try {
+      final newFiles = await _fileService.listImages(path, includeSubfolders: _includeSubfolders);
+      if (_isDisposed) return;
+
+      final currentKeys = _files.map(normalizePathKey).toSet();
+      final newKeys = newFiles.map(normalizePathKey).toSet();
+
+      if (currentKeys.length == newKeys.length && currentKeys.containsAll(newKeys)) {
+        return;
+      }
+
+      _files = newFiles;
+      _applySort();
+      await _loadSubfolders();
+
+      if (_isSelectionMode && _selectedPaths.isNotEmpty) {
+        _selectedPaths.retainAll(newKeys);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error syncing live files: $e');
+    }
+  }
+
   Future<bool> createSubfolder(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return false;
@@ -521,12 +610,13 @@ class GalleryViewModel extends ChangeNotifier {
       return false;
     }
 
-    // Optimistically update subfolders list in memory
-    _subfolders = [..._subfolders, trimmed];
-    _applyFolderSort();
-    notifyListeners();
-
+    _isInternalFileOperation = true;
     try {
+      // Optimistically update subfolders list in memory
+      _subfolders = [..._subfolders, trimmed];
+      _applyFolderSort();
+      notifyListeners();
+
       final success = await _fileService.createSubfolder(path, trimmed);
       if (!success) {
         _subfolders = _subfolders.where((s) => s != trimmed).toList();
@@ -540,10 +630,13 @@ class GalleryViewModel extends ChangeNotifier {
       _applyFolderSort();
       notifyListeners();
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
   }
 
   Future<bool> moveFilesToFolder(List<String> files, String folderName) async {
+    _isInternalFileOperation = true;
     try {
       final bool isMovingToRoot = (folderName == 'ROOT' || folderName.isEmpty);
       final filesToMove = files.where((f) {
@@ -580,10 +673,13 @@ class GalleryViewModel extends ChangeNotifier {
       debugPrint('Error moving files: $e');
       await loadFiles();
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
   }
 
   Future<bool> undoMoveFiles(List<String> files, String folderName) async {
+    _isInternalFileOperation = true;
     try {
       final success = await _fileService.undoMoveFiles(path, folderName, files);
       if (success) await loadFiles();
@@ -591,10 +687,13 @@ class GalleryViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error undoing move files: $e');
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
   }
 
   Future<bool> deleteFile(String filePath) async {
+    _isInternalFileOperation = true;
     final key = normalizePathKey(filePath);
     _files.removeWhere((f) => normalizePathKey(f) == key);
     _selectedPaths.remove(key);
@@ -610,10 +709,13 @@ class GalleryViewModel extends ChangeNotifier {
       debugPrint('Error deleting file: $e');
       await loadFiles();
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
   }
 
   Future<bool> moveToBin(List<String> files) async {
+    _isInternalFileOperation = true;
     final removedKeys = files.map(normalizePathKey).toSet();
     _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
     _selectedPaths.clear();
@@ -629,10 +731,13 @@ class GalleryViewModel extends ChangeNotifier {
       debugPrint('Error moving files to bin: $e');
       await loadFiles();
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
   }
 
   Future<bool> deleteFilesPermanently(List<String> files) async {
+    _isInternalFileOperation = true;
     final removedKeys = files.map(normalizePathKey).toSet();
     _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
     _selectedPaths.clear();
@@ -648,6 +753,18 @@ class GalleryViewModel extends ChangeNotifier {
       debugPrint('Error permanently deleting files: $e');
       await loadFiles();
       return false;
+    } finally {
+      _isInternalFileOperation = false;
     }
+  }
+
+  @override
+  void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    stopWatching();
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
+    super.dispose();
   }
 }
