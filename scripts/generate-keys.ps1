@@ -8,6 +8,11 @@ param (
     [string]$ValidityDays = "10000"
 )
 
+if ((Test-Path "signing-config.json") -or (Test-Path "publisher-info.txt")) {
+    & "$PSScriptRoot\generate-keys-from-config.ps1"
+    exit $LASTEXITCODE
+}
+
 Write-Host "===============================================" -ForegroundColor Cyan
 Write-Host "   Snapgrove Keypair & Credentials Generator   " -ForegroundColor Cyan
 Write-Host "===============================================" -ForegroundColor Cyan

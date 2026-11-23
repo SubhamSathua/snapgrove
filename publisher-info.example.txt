@@ -1,0 +1,16 @@
+# Plain text alternative configuration for signing keys
+# Rename this file to publisher-info.txt or use signing-config.json
+
+WIN_PUBLISHER_NAME=Your Name or Company
+WIN_ORGANIZATION=Snapgrove
+WIN_COUNTRY=US
+WIN_PASSWORD=ChangeMe123!
+WIN_PFX_FILE=snapgrove-windows.pfx
+
+ANDROID_KEYSTORE_FILE=upload-keystore.jks
+ANDROID_KEY_ALIAS=snapgrove
+ANDROID_STORE_PASS=ChangeMe123!
+ANDROID_KEY_PASS=ChangeMe123!
+ANDROID_CN=Snapgrove
+ANDROID_ORG=Snapgrove
+ANDROID_COUNTRY=US

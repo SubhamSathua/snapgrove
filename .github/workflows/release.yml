@@ -146,9 +146,18 @@ jobs:
             
             $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" -Filter "signtool.exe" -Recurse | Select-Object -First 1).FullName
             if ($signtool) {
-              $exePath = "build\windows\x64\runner\Release\snapgrove.exe"
-              Write-Host "Signing $exePath with Authenticode..."
-              & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $exePath
+              $releaseDir = "build\windows\x64\runner\Release"
+              Write-Host "Found signtool at: $signtool"
+              
+              # Sign main executable and all DLLs
+              $targets = Get-ChildItem -Path $releaseDir -Include "snapgrove.exe", "*.dll" -Recurse
+              foreach ($target in $targets) {
+                Write-Host "Signing $($target.FullName)..."
+                & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /d "Snapgrove" $target.FullName
+              }
+              
+              Write-Host "Verifying signature on snapgrove.exe..."
+              & $signtool verify /pa "$releaseDir\snapgrove.exe"
             } else {
               Write-Warning "signtool.exe not found on runner."
             }

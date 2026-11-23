@@ -1,0 +1,23 @@
+{
+  "windows": {
+    "publisherName": "Your Name or Company",
+    "organization": "Snapgrove",
+    "country": "US",
+    "pfxFileName": "snapgrove-windows.pfx",
+    "password": "ChangeMe123!",
+    "validityDays": 10000
+  },
+  "android": {
+    "keystoreFileName": "upload-keystore.jks",
+    "keyAlias": "snapgrove",
+    "storePassword": "ChangeMe123!",
+    "keyPassword": "ChangeMe123!",
+    "commonName": "Snapgrove",
+    "organizationUnit": "Mobile",
+    "organization": "Snapgrove",
+    "city": "City",
+    "state": "State",
+    "country": "US",
+    "validityDays": 10000
+  }
+}

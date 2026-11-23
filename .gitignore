@@ -56,6 +56,9 @@ key.properties
 keystore_base64.txt
 windows_cert_base64.txt
 verify-private.pem
+signing-config.json
+signing-config.local.json
+publisher-info.txt
 
 # Others
 Scratchpad
