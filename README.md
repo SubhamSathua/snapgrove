@@ -6,9 +6,9 @@
 </p>
 
 
-**Organize screenshots with a single tap.** Open an image, select a target folder tag (a real sub-folder), and Snapgrove moves the file immediately without complicated menus.
+**Organize screenshots instantly.** Open an image, select a target folder tag (a real sub-folder), and Snapgrove moves the file immediately without complicated menus.
 
-- Organize screenshots directly in your **local storage** with a single tap. 
+- Organize screenshots directly in your **local storage** instantly. 
 - Snapgrove is a cross-platform organizer for **Windows, Android, and Web** that files images straight into your device's actual folders.
 - Reflects changes in your **system gallery** without proprietary locks.
 - [Jump to Screenshots](#-screenshots)
