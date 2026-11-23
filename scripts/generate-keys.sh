@@ -21,7 +21,34 @@ fi
 base64 -w 0 "$KEYSTORE_NAME" > keystore_base64.txt 2>/dev/null || base64 "$KEYSTORE_NAME" > keystore_base64.txt
 echo "✓ Keystore base64 saved to keystore_base64.txt"
 
-# 2. Verification keypair
+cat <<EOF > android/key.properties
+storePassword=$KEY_PASS
+keyPassword=$KEY_PASS
+keyAlias=$KEY_ALIAS
+storeFile=../$KEYSTORE_NAME
+EOF
+echo "✓ Local config written to android/key.properties"
+
+# 2. Windows Code-Signing Certificate (PFX)
+WIN_CERT_NAME="${4:-snapgrove-windows.pfx}"
+if [ ! -f "$WIN_CERT_NAME" ]; then
+  echo "Generating Windows code-signing PFX ($WIN_CERT_NAME)..."
+  keytool -genkeypair -v -keystore "$WIN_CERT_NAME" -storetype PKCS12 \
+    -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+    -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
+    -dname "CN=Snapgrove Open Source, O=Snapgrove, C=US" \
+    -ext "EKU=codeSigning"
+fi
+
+keytool -exportcert -keystore "$WIN_CERT_NAME" -storetype PKCS12 \
+  -alias "$KEY_ALIAS" -storepass "$KEY_PASS" \
+  -file "snapgrove-windows.cer" -rfc 2>/dev/null || true
+echo "✓ Public certificate exported to snapgrove-windows.cer"
+
+base64 -w 0 "$WIN_CERT_NAME" > windows_cert_base64.txt 2>/dev/null || base64 "$WIN_CERT_NAME" > windows_cert_base64.txt
+echo "✓ Windows PFX base64 saved to windows_cert_base64.txt"
+
+# 3. Verification keypair
 echo "Generating verification keypair..."
 mkdir -p scripts
 openssl genrsa -out verify-private.pem 2048

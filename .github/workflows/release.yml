@@ -1,4 +1,4 @@
-name: Android Release CI/CD
+name: Release CI/CD (Android & Windows)
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build, Sign, Verify & Publish APK
+  build-android:
+    name: Build & Sign Android APKs
     runs-on: ubuntu-latest
 
     steps:
@@ -24,40 +24,9 @@ jobs:
         id: release_info
         run: |
           RAW_TAG="${GITHUB_REF#refs/tags/}"
-          # Strip leading 'v' if present for version matching
           CLEAN_VERSION="${RAW_TAG#v}"
           echo "tag=$RAW_TAG" >> $GITHUB_OUTPUT
           echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
-          
-          # Detect Alpha vs Stable
-          if [[ "$RAW_TAG" =~ (alpha|beta|rc|preview) ]]; then
-            echo "channel=alpha" >> $GITHUB_OUTPUT
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            echo "channel_label=Alpha Release" >> $GITHUB_OUTPUT
-          else
-            echo "channel=stable" >> $GITHUB_OUTPUT
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-            echo "channel_label=Stable Release" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Locate Release Notes
-        id: release_notes
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-          NOTE_FILE=".github/releases/${VERSION}.md"
-          
-          if [ -f "$NOTE_FILE" ]; then
-            echo "Using release notes from $NOTE_FILE"
-            echo "note_path=$NOTE_FILE" >> $GITHUB_OUTPUT
-          else
-            echo "Release note $NOTE_FILE not found, searching fallback..."
-            ALT_FILE=".github/releases/v${VERSION}.md"
-            if [ -f "$ALT_FILE" ]; then
-              echo "note_path=$ALT_FILE" >> $GITHUB_OUTPUT
-            else
-              echo "note_path=" >> $GITHUB_OUTPUT
-            fi
-          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -100,11 +69,6 @@ jobs:
           if [ -f "build/app/outputs/flutter-apk/app-x86_64-release.apk" ]; then
             cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/Snapgrove-${VERSION}-x86_64.apk
           fi
-          
-          # Compute SHA-256 Checksums
-          cd dist
-          sha256sum Snapgrove-*.apk > SHA256SUMS.txt
-          cd ..
 
       - name: Sign APKs (If Keystore Secret Provided)
         if: env.KEYSTORE_BASE64 != ''
@@ -130,12 +94,152 @@ jobs:
                 --key-pass pass:"$KEY_PASSWORD" \
                 "$apk"
             done
-            # Recompute SHA256 sums after signing
-            cd dist
-            sha256sum Snapgrove-*.apk > SHA256SUMS.txt
-            cd ..
           fi
           rm -f release.jks
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-dist
+          path: dist/*.apk
+
+  build-windows:
+    name: Build & Sign Windows Desktop
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse Release Tag
+        id: release_info
+        shell: bash
+        run: |
+          RAW_TAG="${GITHUB_REF#refs/tags/}"
+          CLEAN_VERSION="${RAW_TAG#v}"
+          echo "tag=$RAW_TAG" >> $GITHUB_OUTPUT
+          echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Sign Windows Binary (If PFX Secret Provided)
+        shell: powershell
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if ($env:WINDOWS_CERT_BASE64) {
+            Write-Host "Decoding Windows code-signing certificate..."
+            [IO.File]::WriteAllBytes("windows-cert.pfx", [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+            
+            $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" -Filter "signtool.exe" -Recurse | Select-Object -First 1).FullName
+            if ($signtool) {
+              $exePath = "build\windows\x64\runner\Release\snapgrove.exe"
+              Write-Host "Signing $exePath with Authenticode..."
+              & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $exePath
+            } else {
+              Write-Warning "signtool.exe not found on runner."
+            }
+            Remove-Item windows-cert.pfx -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "No WINDOWS_CERT_BASE64 secret provided; building unsigned binary."
+          }
+
+      - name: Package Windows Zip
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $version = "${{ steps.release_info.outputs.version }}"
+          $sourceDir = "build\windows\x64\runner\Release"
+          $zipPath = "dist\Snapgrove-$version-windows-x64.zip"
+          Compress-Archive -Path "$sourceDir\*" -DestinationPath $zipPath -Force
+          Write-Host "Packaged Windows distribution: $zipPath"
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          path: dist/*.zip
+
+  publish-release:
+    name: Verify, Sign Checksums & Publish Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse Release Tag & Channel
+        id: release_info
+        run: |
+          RAW_TAG="${GITHUB_REF#refs/tags/}"
+          CLEAN_VERSION="${RAW_TAG#v}"
+          echo "tag=$RAW_TAG" >> $GITHUB_OUTPUT
+          echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+          
+          # Detect Alpha vs Stable
+          if [[ "$RAW_TAG" =~ (alpha|beta|rc|preview) ]]; then
+            echo "channel=alpha" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "channel_label=Alpha Release" >> $GITHUB_OUTPUT
+          else
+            echo "channel=stable" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "channel_label=Stable Release" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Locate Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          NOTE_FILE=".github/releases/${VERSION}.md"
+          
+          if [ -f "$NOTE_FILE" ]; then
+            echo "Using release notes from $NOTE_FILE"
+            echo "note_path=$NOTE_FILE" >> $GITHUB_OUTPUT
+          else
+            echo "Release note $NOTE_FILE not found, searching fallback..."
+            ALT_FILE=".github/releases/v${VERSION}.md"
+            if [ -f "$ALT_FILE" ]; then
+              echo "note_path=$ALT_FILE" >> $GITHUB_OUTPUT
+            else
+              echo "note_path=" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-dist
+          path: dist
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-dist
+          path: dist
+
+      - name: Compute Cryptographic Checksums
+        id: checksums
+        run: |
+          cd dist
+          sha256sum Snapgrove-* > SHA256SUMS.txt
+          cd ..
 
       - name: Cryptographically Sign Release Checksums
         run: |
@@ -162,6 +266,7 @@ jobs:
           draft: false
           files: |
             dist/Snapgrove-*.apk
+            dist/Snapgrove-*.zip
             dist/SHA256SUMS.txt
             dist/SHA256SUMS.txt.sig
             dist/snapgrove-release.pub

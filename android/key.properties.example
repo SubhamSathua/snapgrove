@@ -1,0 +1,4 @@
+storePassword=YourKeystorePassword
+keyPassword=YourKeyPassword
+keyAlias=snapgrove
+storeFile=../upload-keystore.jks

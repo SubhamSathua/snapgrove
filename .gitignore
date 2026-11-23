@@ -49,7 +49,12 @@ build
 # Release credentials and keys
 *.jks
 *.keystore
+*.pfx
+*.p12
+*.cer
+key.properties
 keystore_base64.txt
+windows_cert_base64.txt
 verify-private.pem
 
 # Others
