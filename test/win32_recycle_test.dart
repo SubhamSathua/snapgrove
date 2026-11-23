@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:snapgrove/services/win32/win32_recycle_stub.dart'
     if (dart.library.io) 'package:snapgrove/services/win32/win32_recycle_native.dart';
 
@@ -22,7 +23,7 @@ void main() {
 
       final tempDir = await Directory.systemTemp.createTemp('snapgrove_win32_test_');
       try {
-        final testFile = File('${tempDir.path}\\recycle_me.png');
+        final testFile = File(p.join(tempDir.path, 'recycle_me.png'));
         await testFile.writeAsString('test screenshot content');
         expect(await testFile.exists(), isTrue);
 
@@ -43,8 +44,8 @@ void main() {
 
       final tempDir = await Directory.systemTemp.createTemp('snapgrove_win32_batch_');
       try {
-        final f1 = File('${tempDir.path}\\batch1.png');
-        final f2 = File('${tempDir.path}\\batch2.png');
+        final f1 = File(p.join(tempDir.path, 'batch1.png'));
+        final f2 = File(p.join(tempDir.path, 'batch2.png'));
         await f1.writeAsString('f1');
         await f2.writeAsString('f2');
         expect(await f1.exists(), isTrue);

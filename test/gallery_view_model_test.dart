@@ -377,7 +377,7 @@ void main() {
     test('selectAll selects all files', () async {
       // Create some test files
       for (int i = 0; i < 3; i++) {
-        await File('${tempDir.path}\\test$i.png').create();
+        await File(p.join(tempDir.path, 'test$i.png')).create();
       }
       await viewModel.loadFiles();
 
@@ -395,7 +395,7 @@ void main() {
 
     test('getSelectedFiles returns correct paths', () async {
       for (int i = 0; i < 3; i++) {
-        await File('${tempDir.path}\\test$i.png').create();
+        await File(p.join(tempDir.path, 'test$i.png')).create();
       }
       await viewModel.loadFiles();
 
@@ -409,8 +409,8 @@ void main() {
     });
 
     test('sorting preserves exact selected files by identity even when index shifts', () async {
-      final fA = File('${tempDir.path}\\a_file.png');
-      final fZ = File('${tempDir.path}\\z_file.png');
+      final fA = File(p.join(tempDir.path, 'a_file.png'));
+      final fZ = File(p.join(tempDir.path, 'z_file.png'));
       await fA.create();
       await fZ.create();
       await viewModel.loadFiles();
@@ -440,9 +440,9 @@ void main() {
 
   group('Sorting', () {
     test('sorts by name ascending and descending', () async {
-      await File('${tempDir.path}\\b.png').create();
-      await File('${tempDir.path}\\a.png').create();
-      await File('${tempDir.path}\\c.png').create();
+      await File(p.join(tempDir.path, 'b.png')).create();
+      await File(p.join(tempDir.path, 'a.png')).create();
+      await File(p.join(tempDir.path, 'c.png')).create();
       await viewModel.loadFiles();
 
       viewModel.setSort(SortField.name, SortOrder.ascending);
@@ -492,9 +492,9 @@ void main() {
     test('moves selected files to target subfolder', () async {
       // Create source files
       final srcFiles = [
-        '${tempDir.path}\\img1.png',
-        '${tempDir.path}\\img2.png',
-        '${tempDir.path}\\readme.txt',
+        p.join(tempDir.path, 'img1.png'),
+        p.join(tempDir.path, 'img2.png'),
+        p.join(tempDir.path, 'readme.txt'),
       ];
       for (final f in srcFiles) {
         await File(f).create();
@@ -511,14 +511,14 @@ void main() {
       expect(result.isSuccess, true);
 
       // Files should be in subfolder
-      final movedDir = Directory('${tempDir.path}\\Moved');
+      final movedDir = Directory(p.join(tempDir.path, 'Moved'));
       expect(await movedDir.exists(), true);
       final movedFiles = await movedDir.list().toList();
       expect(movedFiles.length, 2);
     });
 
     test('moveFilesToFolder creates target folder if not exists', () async {
-      final file = File('${tempDir.path}\\test.png');
+      final file = File(p.join(tempDir.path, 'test.png'));
       await file.create();
 
       final result = await viewModel.moveFilesToFolder(
@@ -527,13 +527,13 @@ void main() {
       );
       expect(result.isSuccess, true);
 
-      final target = Directory('${tempDir.path}\\NewFolder');
+      final target = Directory(p.join(tempDir.path, 'NewFolder'));
       expect(await target.exists(), true);
-      expect(await File('${tempDir.path}\\NewFolder\\test.png').exists(), true);
+      expect(await File(p.join(tempDir.path, 'NewFolder', 'test.png')).exists(), true);
     });
 
     test('undoMoveFiles restores moved files back to source directory', () async {
-      final file = File('${tempDir.path}\\to_undo.png');
+      final file = File(p.join(tempDir.path, 'to_undo.png'));
       await file.create();
 
       await viewModel.loadFiles();
@@ -541,7 +541,7 @@ void main() {
 
       final moveResult = await viewModel.moveFilesToFolder([file.path], 'Archive');
       expect(moveResult.isSuccess, true);
-      expect(await File('${tempDir.path}\\Archive\\to_undo.png').exists(), true);
+      expect(await File(p.join(tempDir.path, 'Archive', 'to_undo.png')).exists(), true);
 
       final undoResult = await viewModel.undoMoveFiles([file.path], 'Archive');
       expect(undoResult, true);
@@ -549,7 +549,7 @@ void main() {
     });
 
     test('deleteFile removes file from disk and updates file list', () async {
-      final file = File('${tempDir.path}\\to_delete.png');
+      final file = File(p.join(tempDir.path, 'to_delete.png'));
       await file.create();
 
       await viewModel.loadFiles();
@@ -562,11 +562,11 @@ void main() {
     });
 
     test('includeSubfolders toggles subfolder image loading and computes getSubfolderTag', () async {
-      final rootImg = File('${tempDir.path}\\root.png');
+      final rootImg = File(p.join(tempDir.path, 'root.png'));
       await rootImg.create();
-      final subDir = Directory('${tempDir.path}\\Tools');
+      final subDir = Directory(p.join(tempDir.path, 'Tools'));
       await subDir.create();
-      final subImg = File('${subDir.path}\\tool.png');
+      final subImg = File(p.join(subDir.path, 'tool.png'));
       await subImg.create();
 
       // By default, includeSubfolders is false
@@ -583,19 +583,19 @@ void main() {
     });
 
     test('CASE-1: moving files from A, B, Y and root to Y skips files already in Y', () async {
-      final rootFile = File('${tempDir.path}\\root_img.png');
+      final rootFile = File(p.join(tempDir.path, 'root_img.png'));
       await rootFile.create();
 
-      final dirA = await Directory('${tempDir.path}\\FolderA').create();
-      final fileA = File('${dirA.path}\\img_a.png');
+      final dirA = await Directory(p.join(tempDir.path, 'FolderA')).create();
+      final fileA = File(p.join(dirA.path, 'img_a.png'));
       await fileA.create();
 
-      final dirB = await Directory('${tempDir.path}\\FolderB').create();
-      final fileB = File('${dirB.path}\\img_b.png');
+      final dirB = await Directory(p.join(tempDir.path, 'FolderB')).create();
+      final fileB = File(p.join(dirB.path, 'img_b.png'));
       await fileB.create();
 
-      final dirY = await Directory('${tempDir.path}\\FolderY').create();
-      final fileY = File('${dirY.path}\\img_y.png');
+      final dirY = await Directory(p.join(tempDir.path, 'FolderY')).create();
+      final fileY = File(p.join(dirY.path, 'img_y.png'));
       await fileY.create();
 
       await viewModel.setIncludeSubfolders(true);
@@ -606,10 +606,10 @@ void main() {
       expect(moveSuccess.isSuccess, true);
 
       // All 4 files are now inside FolderY
-      expect(await File('${dirY.path}\\root_img.png').exists(), true);
-      expect(await File('${dirY.path}\\img_a.png').exists(), true);
-      expect(await File('${dirY.path}\\img_b.png').exists(), true);
-      expect(await File('${dirY.path}\\img_y.png').exists(), true);
+      expect(await File(p.join(dirY.path, 'root_img.png')).exists(), true);
+      expect(await File(p.join(dirY.path, 'img_a.png')).exists(), true);
+      expect(await File(p.join(dirY.path, 'img_b.png')).exists(), true);
+      expect(await File(p.join(dirY.path, 'img_y.png')).exists(), true);
 
       // Original locations in root, A, B should no longer exist
       expect(await rootFile.exists(), false);
@@ -618,15 +618,15 @@ void main() {
     });
 
     test('ROOT CASE: moving files from A, B, and root to ROOT skips files already in root', () async {
-      final rootFile = File('${tempDir.path}\\root_already.png');
+      final rootFile = File(p.join(tempDir.path, 'root_already.png'));
       await rootFile.create();
 
-      final dirA = await Directory('${tempDir.path}\\SubA').create();
-      final fileA = File('${dirA.path}\\from_a.png');
+      final dirA = await Directory(p.join(tempDir.path, 'SubA')).create();
+      final fileA = File(p.join(dirA.path, 'from_a.png'));
       await fileA.create();
 
-      final dirB = await Directory('${tempDir.path}\\SubB').create();
-      final fileB = File('${dirB.path}\\from_b.png');
+      final dirB = await Directory(p.join(tempDir.path, 'SubB')).create();
+      final fileB = File(p.join(dirB.path, 'from_b.png'));
       await fileB.create();
 
       await viewModel.setIncludeSubfolders(true);
@@ -638,8 +638,8 @@ void main() {
 
       // All 3 files are now in root
       expect(await rootFile.exists(), true);
-      expect(await File('${tempDir.path}\\from_a.png').exists(), true);
-      expect(await File('${tempDir.path}\\from_b.png').exists(), true);
+      expect(await File(p.join(tempDir.path, 'from_a.png')).exists(), true);
+      expect(await File(p.join(tempDir.path, 'from_b.png')).exists(), true);
 
       // And removed from SubA and SubB
       expect(await fileA.exists(), false);
@@ -648,13 +648,13 @@ void main() {
 
     test('COLLISION CASE: moving a file into a folder where same filename exists auto-renames without overwriting', () async {
       // Create root file A.png
-      final rootFile = File('${tempDir.path}\\A.png');
+      final rootFile = File(p.join(tempDir.path, 'A.png'));
       await rootFile.create();
       await rootFile.writeAsString('root content');
 
       // Create subfolder 'places' with existing A.png
-      final placesDir = await Directory('${tempDir.path}\\places').create();
-      final placesFile = File('${placesDir.path}\\A.png');
+      final placesDir = await Directory(p.join(tempDir.path, 'places')).create();
+      final placesFile = File(p.join(placesDir.path, 'A.png'));
       await placesFile.create();
       await placesFile.writeAsString('places content');
 
@@ -668,7 +668,7 @@ void main() {
       expect(await placesFile.readAsString(), 'places content');
 
       // The moved file should have been renamed to A (1).png
-      final renamedFile = File('${placesDir.path}\\A (1).png');
+      final renamedFile = File(p.join(placesDir.path, 'A (1).png'));
       expect(await renamedFile.exists(), true);
       expect(await renamedFile.readAsString(), 'root content');
     });
@@ -693,7 +693,7 @@ void main() {
     });
 
     test('OPTIMISTIC UPDATE: moveFilesToFolder removes items from root file list immediately when includeSubfolders is false', () async {
-      final file1 = File('${tempDir.path}\\opt_move.png');
+      final file1 = File(p.join(tempDir.path, 'opt_move.png'));
       await file1.create();
       await viewModel.loadFiles();
       expect(viewModel.files.contains(file1.path), true);
@@ -704,7 +704,7 @@ void main() {
     });
 
     test('OPTIMISTIC UPDATE: deleteFile removes item immediately from memory list', () async {
-      final file1 = File('${tempDir.path}\\opt_delete.png');
+      final file1 = File(p.join(tempDir.path, 'opt_delete.png'));
       await file1.create();
       await viewModel.loadFiles();
       expect(viewModel.files.contains(file1.path), true);
@@ -715,11 +715,11 @@ void main() {
     });
 
     test('SORTING: correctly sorts by date modified and file size', () async {
-      final fileSmall = File('${tempDir.path}\\small.png');
+      final fileSmall = File(p.join(tempDir.path, 'small.png'));
       await fileSmall.create();
       await fileSmall.writeAsString('a');
 
-      final fileLarge = File('${tempDir.path}\\large.png');
+      final fileLarge = File(p.join(tempDir.path, 'large.png'));
       await fileLarge.create();
       await fileLarge.writeAsString('aaaaaaaaaa');
 
@@ -732,8 +732,8 @@ void main() {
     });
 
     test('moveToBin removes selected files and clears selection state', () async {
-      final f1 = File('${tempDir.path}\\bin1.png');
-      final f2 = File('${tempDir.path}\\bin2.png');
+      final f1 = File(p.join(tempDir.path, 'bin1.png'));
+      final f2 = File(p.join(tempDir.path, 'bin2.png'));
       await f1.create();
       await f2.create();
       await viewModel.loadFiles();
@@ -750,8 +750,8 @@ void main() {
     });
 
     test('deleteFilesPermanently removes multiple files immediately', () async {
-      final f1 = File('${tempDir.path}\\perm1.png');
-      final f2 = File('${tempDir.path}\\perm2.png');
+      final f1 = File(p.join(tempDir.path, 'perm1.png'));
+      final f2 = File(p.join(tempDir.path, 'perm2.png'));
       await f1.create();
       await f2.create();
       await viewModel.loadFiles();
@@ -763,7 +763,7 @@ void main() {
     });
 
     test('undoMoveFiles restores moved files back to root directory', () async {
-      final f1 = File('${tempDir.path}\\undo_test.png');
+      final f1 = File(p.join(tempDir.path, 'undo_test.png'));
       await f1.create();
       await viewModel.createSubfolder('UndoTarget');
       await viewModel.loadFiles();
@@ -786,8 +786,8 @@ void main() {
     });
 
     test('loadFiles retains selected files that still exist and purges deleted files', () async {
-      final f1 = File('${tempDir.path}\\keep.png');
-      final f2 = File('${tempDir.path}\\todelete.png');
+      final f1 = File(p.join(tempDir.path, 'keep.png'));
+      final f2 = File(p.join(tempDir.path, 'todelete.png'));
       await f1.create();
       await f2.create();
       await viewModel.loadFiles();
@@ -809,7 +809,7 @@ void main() {
     });
 
     test('toggleSelection supports toggling by file path string directly', () async {
-      final f1 = File('${tempDir.path}\\toggle1.png');
+      final f1 = File(p.join(tempDir.path, 'toggle1.png'));
       await f1.create();
       await viewModel.loadFiles();
 
@@ -826,14 +826,14 @@ void main() {
     });
 
     test('refreshLiveFiles detects external file creation non-destructively without loading flash', () async {
-      final f1 = File('${tempDir.path}\\live1.png');
+      final f1 = File(p.join(tempDir.path, 'live1.png'));
       await f1.create();
       await viewModel.loadFiles();
       expect(viewModel.files.length, 1);
       expect(viewModel.isLoading, false);
 
       // Externally add a file
-      final f2 = File('${tempDir.path}\\live2.png');
+      final f2 = File(p.join(tempDir.path, 'live2.png'));
       await f2.create();
 
       // Trigger refreshLiveFiles
@@ -846,7 +846,7 @@ void main() {
     });
 
     test('refreshLiveFiles preserves active selection when external changes occur', () async {
-      final f1 = File('${tempDir.path}\\sel_live1.png');
+      final f1 = File(p.join(tempDir.path, 'sel_live1.png'));
       await f1.create();
       await viewModel.loadFiles();
 
@@ -855,7 +855,7 @@ void main() {
       expect(viewModel.isPathSelected(f1.path), true);
 
       // Externally add a second file
-      final f2 = File('${tempDir.path}\\sel_live2.png');
+      final f2 = File(p.join(tempDir.path, 'sel_live2.png'));
       await f2.create();
 
       await viewModel.refreshLiveFiles();
@@ -870,7 +870,7 @@ void main() {
       final streamController = StreamController<FileSystemEvent>.broadcast();
       mockFileService.mockWatcherStream = streamController.stream;
 
-      final f1 = File('${tempDir.path}\\watch1.png');
+      final f1 = File(p.join(tempDir.path, 'watch1.png'));
       await f1.create();
       await viewModel.loadFiles();
       expect(viewModel.files.length, 1);
@@ -879,7 +879,7 @@ void main() {
       viewModel.startWatching();
 
       // Externally add another file on disk
-      final f2 = File('${tempDir.path}\\watch2.png');
+      final f2 = File(p.join(tempDir.path, 'watch2.png'));
       await f2.create();
 
       // Emit file system create event into watcher
@@ -917,9 +917,9 @@ void main() {
     });
 
     test('MoveResult tracks partial failures and keeps failed files selected for easy retry', () async {
-      final f1 = File('${tempDir.path}\\good.png');
+      final f1 = File(p.join(tempDir.path, 'good.png'));
       await f1.create();
-      final nonExistentPath = '${tempDir.path}\\bad_does_not_exist.png';
+      final nonExistentPath = p.join(tempDir.path, 'bad_does_not_exist.png');
 
       await viewModel.loadFiles();
       viewModel.enterSelectionMode(initialPath: f1.path);
@@ -939,7 +939,7 @@ void main() {
     });
 
     test('Canonical path check prevents self-move from creating duplicate renamed files', () async {
-      final f1 = File('${tempDir.path}\\self_move.png');
+      final f1 = File(p.join(tempDir.path, 'self_move.png'));
       await f1.create();
       await viewModel.loadFiles();
 
@@ -948,18 +948,18 @@ void main() {
       expect(result.isSuccess, true);
       // File remains in place with its original name, no (1) collision duplicate created
       expect(await f1.exists(), true);
-      expect(await File('${tempDir.path}\\self_move (1).png').exists(), false);
+      expect(await File(p.join(tempDir.path, 'self_move (1).png')).exists(), false);
     });
 
     test('Exact transaction journal undo restores collision-renamed file without hijacking unrelated files', () async {
       // Create existing receipt in folder
-      final receiptsDir = await Directory('${tempDir.path}\\Receipts').create();
-      final oldReceipt = File('${receiptsDir.path}\\tax.png');
+      final receiptsDir = await Directory(p.join(tempDir.path, 'Receipts')).create();
+      final oldReceipt = File(p.join(receiptsDir.path, 'tax.png'));
       await oldReceipt.create();
       await oldReceipt.writeAsString('OLD RECEIPT 2024');
 
       // Create new receipt in root
-      final newReceipt = File('${tempDir.path}\\tax.png');
+      final newReceipt = File(p.join(tempDir.path, 'tax.png'));
       await newReceipt.create();
       await newReceipt.writeAsString('NEW RECEIPT 2026');
 
@@ -969,7 +969,7 @@ void main() {
       final moveResult = await viewModel.moveFilesToFolder([newReceipt.path], 'Receipts');
       expect(moveResult.isSuccess, true);
 
-      final renamedAtDest = File('${receiptsDir.path}\\tax (1).png');
+      final renamedAtDest = File(p.join(receiptsDir.path, 'tax (1).png'));
       expect(await renamedAtDest.exists(), true);
       expect(await oldReceipt.exists(), true);
       expect(await oldReceipt.readAsString(), 'OLD RECEIPT 2024');
@@ -983,8 +983,8 @@ void main() {
       expect(undoSuccess, true);
 
       // Verify NEW receipt is restored back to root as tax.png (or tax (1).png if root has tax.png)
-      expect(await File('${tempDir.path}\\tax.png').exists(), true);
-      expect(await File('${tempDir.path}\\tax.png').readAsString(), 'NEW RECEIPT 2026');
+      expect(await File(p.join(tempDir.path, 'tax.png')).exists(), true);
+      expect(await File(p.join(tempDir.path, 'tax.png')).readAsString(), 'NEW RECEIPT 2026');
 
       // CRITICAL: verify the OLD receipt was NOT hijacked or touched!
       expect(await oldReceipt.exists(), true);
