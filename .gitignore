@@ -59,6 +59,8 @@ verify-private.pem
 signing-config.json
 signing-config.local.json
 publisher-info.txt
+steps.md
+.github/steps.md
 
 # Others
 Scratchpad

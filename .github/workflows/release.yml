@@ -250,18 +250,20 @@ jobs:
           sha256sum Snapgrove-* > SHA256SUMS.txt
           cd ..
 
-      - name: Cryptographically Sign Release Checksums
+      - name: Cryptographically Sign Release Checksums & Prepare Verify Key
         run: |
           cd dist
           if [ -n "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" ]; then
             echo "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" > verify.key
             openssl dgst -sha256 -sign verify.key -out SHA256SUMS.txt.sig SHA256SUMS.txt
+            # Extract corresponding public verification key directly from the signing key
+            openssl rsa -in verify.key -pubout -out snapgrove-release.pub 2>/dev/null || true
             rm -f verify.key
           fi
           cd ..
           
-          # Copy public verification key if present in repo
-          if [ -f "scripts/snapgrove-release.pub" ]; then
+          # Fallback: copy public verification key if present in repo
+          if [ ! -f "dist/snapgrove-release.pub" ] && [ -f "scripts/snapgrove-release.pub" ]; then
             cp scripts/snapgrove-release.pub dist/
           fi
 
