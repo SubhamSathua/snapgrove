@@ -439,90 +439,53 @@ class _LandingPageState extends State<LandingPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, vPaddingBottom),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: _TopBar(
-                  iconBtnSize: iconBtnSize,
-                  iconSize: iconSize,
-                  layerLink: _layerLink,
-                  onMoreTap: _toggleMenu,
+      body: ListenableBuilder(
+        listenable: widget.viewModel,
+        builder: (context, _) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, vPaddingBottom),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: _TopBar(
+                    iconBtnSize: iconBtnSize,
+                    iconSize: iconSize,
+                    layerLink: _layerLink,
+                    onMoreTap: _toggleMenu,
+                  ),
                 ),
-              ),
-              SizedBox(height: width > 720 ? 30 : 20),
-              Align(
-                alignment: Alignment.topLeft,
-                child: const _Brand(),
-              ),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: contentMax),
-                    child: Text(
-                      'Tap to move screenshots into folders (tags) instantly.',
-                      textAlign: TextAlign.center,
-                      maxLines: width > 720 ? 1 : null,
-                      style: TextStyle(
-                        fontSize: instructionFontSize,
-                        height: 1.35,
-                        color: sc.muted,
-                        fontFamily: 'Lora',
+                SizedBox(height: width > 720 ? 30 : 20),
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: const _Brand(),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: contentMax),
+                      child: Text(
+                        'Tap to move screenshots into folders (tags) instantly.',
+                        textAlign: TextAlign.center,
+                        maxLines: width > 720 ? 1 : null,
+                        style: TextStyle(
+                          fontSize: instructionFontSize,
+                          height: 1.35,
+                          color: sc.muted,
+                          fontFamily: 'Lora',
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      OpenContainer(
-                        closedElevation: 0,
-                        openElevation: 0,
-                        closedColor: Colors.transparent,
-                        openColor: Theme.of(context).scaffoldBackgroundColor,
-                        transitionType: ContainerTransitionType.fadeThrough,
-                        transitionDuration: const Duration(milliseconds: 280),
-                        openBuilder: (context, action) => OrganizerGallery(
-                          path: widget.viewModel.screenshotDir ?? '',
-                          title: 'Browse Gallery',
-                        ),
-                        closedBuilder: (context, action) => Center(
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: _BrowseButton(
-                              actionFontSize: actionFontSize,
-                              buttonIconSize: buttonIconSize,
-                              browsePaddingH: browsePaddingH,
-                              browsePaddingV: browsePaddingV,
-                              onTap: () async {
-                                final dir = await PickerService.pickDirectory();
-                                if (dir != null) {
-                                  widget.viewModel.setScreenshotDir(dir);
-                                  Future.delayed(const Duration(milliseconds: 100), action);
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: actionGap),
-                      if (kIsWeb)
-                        _DownloadAppButton(
-                          actionFontSize: actionFontSize,
-                          buttonIconSize: buttonIconSize,
-                          ssPaddingH: ssPaddingH,
-                          ssPaddingV: ssPaddingV,
-                        )
-                      else
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         OpenContainer(
                           closedElevation: 0,
                           openElevation: 0,
@@ -531,32 +494,72 @@ class _LandingPageState extends State<LandingPage> {
                           transitionType: ContainerTransitionType.fadeThrough,
                           transitionDuration: const Duration(milliseconds: 280),
                           openBuilder: (context, action) => OrganizerGallery(
-                            path: widget.viewModel.permanentScreenshotDir ?? '',
-                            title: 'Screenshot Folder',
+                            path: widget.viewModel.screenshotDir ?? '',
+                            title: 'Browse Gallery',
                           ),
-                          closedBuilder: (context, action) => MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: _ScreenshotButton(
-                              actionFontSize: actionFontSize,
-                              buttonIconSize: buttonIconSize,
-                              ssPaddingH: ssPaddingH,
-                              ssPaddingV: ssPaddingV,
-                              onTap: () {
-                                if (widget.viewModel.permanentScreenshotDir == null ||
-                                    widget.viewModel.permanentScreenshotDir!.isEmpty) {
-                                  _showFolderPromptDialog(onSuccess: action);
-                                } else {
-                                  action();
-                                }
-                              },
+                          closedBuilder: (context, action) => Center(
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: _BrowseButton(
+                                actionFontSize: actionFontSize,
+                                buttonIconSize: buttonIconSize,
+                                browsePaddingH: browsePaddingH,
+                                browsePaddingV: browsePaddingV,
+                                onTap: () async {
+                                  final dir = await PickerService.pickDirectory();
+                                  if (dir != null) {
+                                    widget.viewModel.setScreenshotDir(dir);
+                                    Future.delayed(const Duration(milliseconds: 100), action);
+                                  }
+                                },
+                              ),
                             ),
                           ),
                         ),
-                    ],
+                        SizedBox(height: actionGap),
+                        if (kIsWeb)
+                          _DownloadAppButton(
+                            actionFontSize: actionFontSize,
+                            buttonIconSize: buttonIconSize,
+                            ssPaddingH: ssPaddingH,
+                            ssPaddingV: ssPaddingV,
+                          )
+                        else
+                          OpenContainer(
+                            closedElevation: 0,
+                            openElevation: 0,
+                            closedColor: Colors.transparent,
+                            openColor: Theme.of(context).scaffoldBackgroundColor,
+                            transitionType: ContainerTransitionType.fadeThrough,
+                            transitionDuration: const Duration(milliseconds: 280),
+                            openBuilder: (context, action) => OrganizerGallery(
+                              path: widget.viewModel.permanentScreenshotDir ?? '',
+                              title: 'Screenshot Folder',
+                            ),
+                            closedBuilder: (context, action) => MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: _ScreenshotButton(
+                                actionFontSize: actionFontSize,
+                                buttonIconSize: buttonIconSize,
+                                ssPaddingH: ssPaddingH,
+                                ssPaddingV: ssPaddingV,
+                                onTap: () {
+                                  if (widget.viewModel.permanentScreenshotDir == null ||
+                                      widget.viewModel.permanentScreenshotDir!.isEmpty) {
+                                    _showFolderPromptDialog(onSuccess: action);
+                                  } else {
+                                    action();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -2802,28 +2802,14 @@ class _GalleryThumbnailState extends State<_GalleryThumbnail> {
       _isError = false;
       widget.thumbnailManager.getThumbnail(widget.path).then((bytes) {
         if (!mounted) return;
-        if (bytes != null) {
-          setState(() {
-            _nativeBytes = bytes;
-            _isError = false;
-          });
-        } else {
-          locator<FileService>().readFile(widget.path).then((fullBytes) {
-            if (!mounted) return;
-            setState(() {
-              _nativeBytes = fullBytes;
-              _isError = (fullBytes == null);
-            });
-          }).catchError((_) {
-            if (!mounted) return;
-            setState(() {
-              _isError = true;
-            });
-          });
-        }
+        setState(() {
+          _nativeBytes = bytes;
+          _isError = (bytes == null);
+        });
       }).catchError((_) {
         if (!mounted) return;
         setState(() {
+          _nativeBytes = null;
           _isError = true;
         });
       });
