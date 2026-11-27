@@ -1199,6 +1199,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     required SnapgroveColors sc,
     required bool useTopPane,
   }) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final itemWidth = (width - 20 - (effectiveColumns - 1) * 6) / effectiveColumns;
+    final rowsNeeded = itemWidth > 0 ? ((screenHeight / itemWidth).ceil() + 1).clamp(4, 15) : 8;
+    final skeletonCount = effectiveColumns * rowsNeeded;
+
     return CustomScrollView(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -1538,7 +1543,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) => const SkeletonLoader(),
-                childCount: effectiveColumns * 3, // Render a few rows of skeletons
+                childCount: skeletonCount,
               ),
             ),
           )

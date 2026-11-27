@@ -133,6 +133,18 @@ $updatedPubspec = $pubspecContent -replace "version:\s*[0-9\.]+(?:\+[0-9]+)?", "
 Set-Content -Path $PubspecPath -Value $updatedPubspec -Encoding UTF8
 Write-Host "[OK] Updated pubspec.yaml" -ForegroundColor Green
 
+# 4b. Update lib/core/app_constants.dart
+$AppConstantsPath = Join-Path $ScriptDir "lib/core/app_constants.dart"
+if (Test-Path $AppConstantsPath) {
+    $cleanVersionName = "v$newMajor.$newMinor.$newPatch"
+    $appConstantsContent = Get-Content -Path $AppConstantsPath -Raw
+    $appConstantsContent = $appConstantsContent -replace "static const String appVersion = '[^']*';", "static const String appVersion = '$newFullVersion';"
+    $appConstantsContent = $appConstantsContent -replace "static const String appVersionName = '[^']*';", "static const String appVersionName = '$cleanVersionName';"
+    $appConstantsContent = $appConstantsContent -replace "static const String appBuildNumber = '[^']*';", "static const String appBuildNumber = '$newIteration';"
+    Set-Content -Path $AppConstantsPath -Value $appConstantsContent -Encoding UTF8
+    Write-Host "[OK] Updated lib/core/app_constants.dart (appVersionName: $cleanVersionName, build: $newIteration)" -ForegroundColor Green
+}
+
 # 5. Update version_history.json
 $historyEntry = [PSCustomObject]@{
     iteration     = $newIteration
