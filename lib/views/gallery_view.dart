@@ -64,14 +64,11 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
     _loadGridPreference();
 
-    // Delay loading until transition finishes for smoother entrance
+    _viewModel.loadFiles();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) {
-          setState(() => _isTransitioning = false);
-          _viewModel.loadFiles();
-        }
-      });
+      if (mounted) {
+        setState(() => _isTransitioning = false);
+      }
     });
   }
 
@@ -1612,11 +1609,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 childCount: _viewModel.files.length,
                 findChildIndexCallback: (Key key) {
                   if (key is ValueKey<String>) {
-                    final normalizedKey = GalleryViewModel.normalizePathKey(key.value);
-                    final idx = _viewModel.files.indexWhere(
-                      (f) => GalleryViewModel.normalizePathKey(f) == normalizedKey,
-                    );
-                    return idx != -1 ? idx : null;
+                    return _viewModel.indexOfPath(key.value);
                   }
                   return null;
                 },

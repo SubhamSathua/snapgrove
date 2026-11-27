@@ -27,6 +27,7 @@ class GalleryViewModel extends ChangeNotifier {
   FileService get _fileService => fileService;
   
   List<String> _files = [];
+  final Map<String, int> _pathToIndexMap = {};
   bool _isLoading = false;
   
   // Sorting state
@@ -235,8 +236,28 @@ class GalleryViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _rebuildPathIndexMap() {
+    _pathToIndexMap.clear();
+    for (int i = 0; i < _files.length; i++) {
+      _pathToIndexMap[normalizePathKey(_files[i])] = i;
+    }
+  }
+
+  /// O(1) constant-time lookup for child index in gallery scroll recycler
+  int? indexOfPath(String path) {
+    return _pathToIndexMap[normalizePathKey(path)];
+  }
+
+  /// O(1) constant-time lookup for already-normalized key
+  int? indexOfNormalizedKey(String normalizedKey) {
+    return _pathToIndexMap[normalizedKey];
+  }
+
   void _applySort() {
-    if (_files.isEmpty) return;
+    if (_files.isEmpty) {
+      _pathToIndexMap.clear();
+      return;
+    }
 
     switch (_sortField) {
       case SortField.name:
@@ -286,6 +307,8 @@ class GalleryViewModel extends ChangeNotifier {
         });
         break;
     }
+
+    _rebuildPathIndexMap();
   }
 
   static int naturalCompare(String a, String b) {
@@ -441,14 +464,13 @@ class GalleryViewModel extends ChangeNotifier {
     _isTagsLoading = true;
     notifyListeners();
 
-    // Subtle delay to allow the skeleton chip animation to render smoothly without UI freeze
-    await Future.delayed(const Duration(milliseconds: 300));
-
     try {
-      _folderTree = await _fileService.getFolderTree(path);
       final fresh = await _fileService.listSubfolders(path);
       if (fresh.isNotEmpty) {
         _subfolders = fresh;
+      }
+      if (_folderSortOrder.startsWith('items_') || _folderSortOrder.startsWith('date_')) {
+        _folderTree = await _fileService.getFolderTree(path);
       }
       _applyFolderSort();
     } catch (e) {
@@ -677,6 +699,7 @@ class GalleryViewModel extends ChangeNotifier {
       if (!_includeSubfolders && !isMovingToRoot) {
         final movedKeys = result.succeededRecords.map((r) => normalizePathKey(r.originalSource)).toSet();
         _files.removeWhere((f) => movedKeys.contains(normalizePathKey(f)));
+        _rebuildPathIndexMap();
         
         // Remove only succeeded files from selection; keep failed files selected for easy retry!
         _selectedPaths.removeWhere((p) => movedKeys.contains(p));
@@ -722,6 +745,7 @@ class GalleryViewModel extends ChangeNotifier {
     _isInternalFileOperation = true;
     final key = normalizePathKey(filePath);
     _files.removeWhere((f) => normalizePathKey(f) == key);
+    _rebuildPathIndexMap();
     _selectedPaths.remove(key);
     notifyListeners();
 
@@ -744,6 +768,7 @@ class GalleryViewModel extends ChangeNotifier {
     _isInternalFileOperation = true;
     final removedKeys = files.map(normalizePathKey).toSet();
     _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
+    _rebuildPathIndexMap();
     _selectedPaths.clear();
     notifyListeners();
 
@@ -766,6 +791,7 @@ class GalleryViewModel extends ChangeNotifier {
     _isInternalFileOperation = true;
     final removedKeys = files.map(normalizePathKey).toSet();
     _files = _files.where((f) => !removedKeys.contains(normalizePathKey(f))).toList();
+    _rebuildPathIndexMap();
     _selectedPaths.clear();
     notifyListeners();
 

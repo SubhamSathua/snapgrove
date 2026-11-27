@@ -616,18 +616,20 @@ class SafHelper {
     }
   }
 
-  static Future<FolderNode?> getFolderTree(String rootUri) async {
+  static Future<FolderNode?> getFolderTree(String rootUri, {int maxDepth = 3}) async {
     try {
-      Future<FolderNode> scanNode(String currentUri, String currentName, String relPath) async {
+      Future<FolderNode> scanNode(String currentUri, String currentName, String relPath, int depth) async {
         final contents = await SafUtil().list(currentUri);
         int directCount = 0;
         final List<FolderNode> children = [];
 
         for (final item in contents) {
           if (item.isDir) {
-            final childRel = relPath.isEmpty ? item.name : '$relPath/${item.name}';
-            final childNode = await scanNode(item.uri, item.name, childRel);
-            children.add(childNode);
+            if (depth < maxDepth) {
+              final childRel = relPath.isEmpty ? item.name : '$relPath/${item.name}';
+              final childNode = await scanNode(item.uri, item.name, childRel, depth + 1);
+              children.add(childNode);
+            }
           } else {
             final lower = item.name.toLowerCase();
             if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp')) {
@@ -653,7 +655,7 @@ class SafHelper {
       }
 
       final rootCleanName = _extractCleanFolderName(rootUri);
-      return await scanNode(rootUri, rootCleanName, '');
+      return await scanNode(rootUri, rootCleanName, '', 0);
     } catch (e) {
       debugPrint('SAF Error: getFolderTree failed: $e');
       return null;

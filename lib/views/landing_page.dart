@@ -490,7 +490,7 @@ class _LandingPageState extends State<LandingPage> {
                         closedColor: Colors.transparent,
                         openColor: Theme.of(context).scaffoldBackgroundColor,
                         transitionType: ContainerTransitionType.fadeThrough,
-                        transitionDuration: const Duration(milliseconds: 600),
+                        transitionDuration: const Duration(milliseconds: 280),
                         openBuilder: (context, action) => OrganizerGallery(
                           path: widget.viewModel.screenshotDir ?? '',
                           title: 'Browse Gallery',
@@ -529,7 +529,7 @@ class _LandingPageState extends State<LandingPage> {
                           closedColor: Colors.transparent,
                           openColor: Theme.of(context).scaffoldBackgroundColor,
                           transitionType: ContainerTransitionType.fadeThrough,
-                          transitionDuration: const Duration(milliseconds: 600),
+                          transitionDuration: const Duration(milliseconds: 280),
                           openBuilder: (context, action) => OrganizerGallery(
                             path: widget.viewModel.permanentScreenshotDir ?? '',
                             title: 'Screenshot Folder',
