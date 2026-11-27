@@ -197,11 +197,15 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     }
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     final Size size = box?.hasSize == true ? box!.size : (MediaQuery.maybeOf(context)?.size ?? Size.zero);
+    if (size.width <= 0 || size.height <= 0) return;
+
     final double cx = (focalPoint?.dx ?? (size.width / 2.0)).clamp(0.0, size.width);
     final double cy = (focalPoint?.dy ?? (size.height / 2.0)).clamp(0.0, size.height);
 
-    final double tx = (size.width / 2.0 - cx) * (targetZoom - 1.0);
-    final double ty = (size.height / 2.0 - cy) * (targetZoom - 1.0);
+    final double minTx = -(targetZoom - 1.0) * size.width;
+    final double minTy = -(targetZoom - 1.0) * size.height;
+    final double tx = (-cx * (targetZoom - 1.0)).clamp(minTx, 0.0);
+    final double ty = (-cy * (targetZoom - 1.0)).clamp(minTy, 0.0);
 
     final Matrix4 matrix = Matrix4.identity()
       ..translateByDouble(tx, ty, 0.0, 1.0)
@@ -582,12 +586,18 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
     // Optimistic removal from preview
     final currentIndex = _currentIndex;
+    _PreviewImageTileState.clearCache(currentPath);
     setState(() {
       _files.removeAt(currentIndex);
       if (_files.isEmpty) {
         Navigator.of(context).pop();
-      } else if (_currentIndex >= _files.length) {
-        _currentIndex = _files.length - 1;
+      } else {
+        if (_currentIndex >= _files.length) {
+          _currentIndex = _files.length - 1;
+        }
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(_currentIndex);
+        }
       }
     });
 
@@ -810,12 +820,18 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
     if (choice == 'bin' && mounted) {
       final currentIndex = _currentIndex;
+      _PreviewImageTileState.clearCache(currentPath);
       setState(() {
         _files.removeAt(currentIndex);
         if (_files.isEmpty) {
           Navigator.of(context).pop();
-        } else if (_currentIndex >= _files.length) {
-          _currentIndex = _files.length - 1;
+        } else {
+          if (_currentIndex >= _files.length) {
+            _currentIndex = _files.length - 1;
+          }
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(_currentIndex);
+          }
         }
       });
 
@@ -850,12 +866,18 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       }
     } else if (choice == 'permanent' && mounted) {
       final currentIndex = _currentIndex;
+      _PreviewImageTileState.clearCache(currentPath);
       setState(() {
         _files.removeAt(currentIndex);
         if (_files.isEmpty) {
           Navigator.of(context).pop();
-        } else if (_currentIndex >= _files.length) {
-          _currentIndex = _files.length - 1;
+        } else {
+          if (_currentIndex >= _files.length) {
+            _currentIndex = _files.length - 1;
+          }
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(_currentIndex);
+          }
         }
       });
 
@@ -1381,6 +1403,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
                     itemBuilder: (context, index) {
                       final path = _files[index];
                       return Listener(
+                        key: ValueKey<String>(path),
                         onPointerSignal: (pointerSignal) {
                           if (pointerSignal is PointerScrollEvent) {
                             if (HardwareKeyboard.instance.isShiftPressed) {
@@ -1847,13 +1870,13 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   }
 
   Widget _buildImage(BuildContext context, String path) {
-    return _PreviewImageTile(path: path);
+    return _PreviewImageTile(key: ValueKey<String>(path), path: path);
   }
 }
 
 class _PreviewImageTile extends StatefulWidget {
   final String path;
-  const _PreviewImageTile({required this.path});
+  const _PreviewImageTile({super.key, required this.path});
 
   @override
   State<_PreviewImageTile> createState() => _PreviewImageTileState();
@@ -1868,6 +1891,11 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
   bool _hasError = false;
 
   static bool isCached(String path) => _previewCache.containsKey(path);
+
+  static void clearCache(String key) {
+    _previewCache.remove(key);
+    _cacheKeys.remove(key);
+  }
 
   static void addToCache(String key, Uint8List bytes) {
     if (_cacheKeys.length >= _maxCacheSize) {
@@ -1945,6 +1973,9 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
         File(widget.path),
         fit: BoxFit.contain,
         gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(SnapSymbols.broken_image, size: 100, color: Colors.white);
+        },
       );
     }
 
