@@ -3038,10 +3038,10 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      itemCount: 6,
+      itemCount: 4,
       separatorBuilder: (_, _) => const SizedBox(width: 8),
       itemBuilder: (_, index) {
-        final widths = [72.0, 88.0, 78.0, 96.0, 68.0, 84.0];
+        final widths = [72.0, 88.0, 78.0, 96.0];
         final w = widths[index % widths.length];
         return _SkeletonChip(width: w, isRoot: index == 0);
       },
@@ -3213,7 +3213,7 @@ class _HorizontalChipsBarState extends State<_HorizontalChipsBar> {
         transitionBuilder: (child, animation) {
           return FadeTransition(opacity: animation, child: child);
         },
-        child: widget.isTagsLoading
+        child: (widget.isTagsLoading && widget.subfolders.isEmpty)
             ? _buildSkeletonChips(context, sc, isDark)
             : _buildRealChips(context, sc, isDark, bgColor),
       ),
@@ -3298,7 +3298,7 @@ class _RightSideSelectionPane extends StatelessWidget {
                   transitionBuilder: (child, animation) {
                     return FadeTransition(opacity: animation, child: child);
                   },
-                  child: isTagsLoading
+                  child: (isTagsLoading && subfolders.isEmpty)
                       ? GridView.builder(
                           key: const ValueKey('grid_skeleton_chips'),
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -3309,7 +3309,7 @@ class _RightSideSelectionPane extends StatelessWidget {
                             crossAxisSpacing: 8,
                             childAspectRatio: 2.6,
                           ),
-                          itemCount: 6,
+                          itemCount: 4,
                           itemBuilder: (context, index) {
                             return _SkeletonChip(
                               width: double.infinity,
