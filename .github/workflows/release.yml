@@ -181,13 +181,13 @@ jobs:
               $releaseDir = "build\windows\x64\runner\Release"
               Write-Host "Found signtool at: $signtool"
               
-              # Sign main executable and all DLLs with Authenticode SHA256 and RFC 3161 public timestamp
+              # Sign main executable and all DLLs with Authenticode SHA256
               $targets = Get-ChildItem -Path $releaseDir -Include "snapgrove.exe", "*.dll" -Recurse
               foreach ($target in $targets) {
                 Write-Host "Signing $($target.FullName)..."
-                & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /v $target.FullName
+                & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /v $target.FullName
               }
-              Write-Host "Windows binaries successfully signed with Authenticode and RFC 3161 timestamp!"
+              Write-Host "Windows binaries successfully signed with Authenticode!"
             } else {
               Write-Warning "signtool.exe not found on runner."
             }
