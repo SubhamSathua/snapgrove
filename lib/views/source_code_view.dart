@@ -1,12 +1,52 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../core/app_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/snap_symbols.dart';
 
-class SourceCodeView extends StatelessWidget {
+class SourceCodeView extends StatefulWidget {
   const SourceCodeView({super.key});
+
+  @override
+  State<SourceCodeView> createState() => _SourceCodeViewState();
+}
+
+class _SourceCodeViewState extends State<SourceCodeView> {
+  WebViewController? _webViewController;
+  bool _isLoading = true;
+  double _loadingProgress = 0.0;
+  bool _isMobile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+
+    if (_isMobile) {
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onProgress: (progress) {
+              if (mounted) {
+                setState(() => _loadingProgress = progress / 100.0);
+              }
+            },
+            onPageStarted: (url) {
+              if (mounted) setState(() => _isLoading = true);
+            },
+            onPageFinished: (url) {
+              if (mounted) setState(() => _isLoading = false);
+            },
+          ),
+        )
+        ..loadRequest(Uri.parse(AppConstants.repoUrl));
+    }
+  }
 
   Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
@@ -29,67 +69,65 @@ class SourceCodeView extends StatelessWidget {
     }
   }
 
-  void _copyToClipboard(BuildContext context, String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$label copied to clipboard',
-          style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-        ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final sc = context.snapgroveColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final width = MediaQuery.of(context).size.width;
-    final contentMax = width >= 900 ? 760.0 : (width >= 600 ? 640.0 : double.infinity);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF9F9FB),
       body: SafeArea(
-        child: SelectionArea(
-          child: Column(
-            children: [
-              // Top Bar with "Open with" action button at top
-              _buildTopBar(context, sc, isDark),
+        child: Column(
+          children: [
+            // Top Bar with Circular Back and Circular "Open in Browser" action
+            _buildTopBar(context, sc, isDark),
 
-              // Content
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: contentMax),
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        // Repo Card
-                        _buildRepoCard(context, sc, isDark),
-                        const SizedBox(height: 16),
-
-                        // Clone Command Card
-                        _buildCloneCard(context, sc, isDark),
-                        const SizedBox(height: 16),
-
-                        // Tech Stack & Architecture Card
-                        _buildTechStackCard(sc, isDark),
-                        const SizedBox(height: 16),
-
-                        // Community & Links Card
-                        _buildCommunityCard(context, sc, isDark),
-                        const SizedBox(height: 32),
+            // Main Rounded WebView Area
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF141414) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
                     ),
+                    child: _isMobile && _webViewController != null
+                        ? Stack(
+                            children: [
+                              WebViewWidget(controller: _webViewController!),
+                              if (_isLoading)
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: LinearProgressIndicator(
+                                    value: _loadingProgress > 0 ? _loadingProgress : null,
+                                    backgroundColor: Colors.transparent,
+                                    valueColor: AlwaysStoppedAnimation<Color>(sc.accent),
+                                    minHeight: 2.5,
+                                  ),
+                                ),
+                            ],
+                          )
+                        : _buildDesktopCard(context, sc, isDark),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -108,6 +146,7 @@ class SourceCodeView extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Circular Back Button
           Container(
             width: 40,
             height: 40,
@@ -135,47 +174,59 @@ class SourceCodeView extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
+          // Title
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Source Code',
+                  'GitHub Repository',
                   style: TextStyle(
                     fontFamily: 'JetBrains Mono',
-                    fontSize: 16.5,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
                 Text(
-                  'github.com/SubhamSathua/snapgrove',
+                  'SubhamSathua/snapgrove',
                   style: TextStyle(
-                    fontFamily: 'Lora',
-                    fontSize: 12,
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11.5,
                     color: sc.muted,
                   ),
                 ),
               ],
             ),
           ),
-          // Top Action Button: "Open with" / "Open in Browser"
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: sc.accent,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => _launchUrl(context, AppConstants.repoUrl),
-            icon: const Icon(SnapSymbols.open_in_new_rounded, size: 14),
-            label: const Text(
-              'Open with',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+          // Circular Open in Browser Button
+          Tooltip(
+            message: 'Open in Browser',
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF222222) : const Color(0xFFF0F0F0),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? const Color(0xFF2E2E2E) : const Color(0xFFE0E0E0),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _launchUrl(context, AppConstants.repoUrl),
+                  splashColor: sc.rippleColor,
+                  child: Center(
+                    child: Icon(
+                      SnapSymbols.open_in_new,
+                      size: 20,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -184,350 +235,99 @@ class SourceCodeView extends StatelessWidget {
     );
   }
 
-  Widget _buildRepoCard(BuildContext context, SnapgroveColors sc, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0x22FFFFFF) : const Color(0x14000000),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  Widget _buildDesktopCard(BuildContext context, SnapgroveColors sc, bool isDark) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF222222) : const Color(0xFFF3F3F3),
-                  borderRadius: BorderRadius.circular(12),
+                  color: sc.accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: sc.accent.withValues(alpha: 0.3)),
                 ),
-                child: Icon(
-                  SnapSymbols.code,
-                  size: 24,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'SubhamSathua / snapgrove',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Public Repository • main branch',
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                child: Center(
+                  child: Icon(
+                    SnapSymbols.code,
+                    size: 32,
+                    color: sc.accent,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Snapgrove is an open-source, high-performance screenshot & image organizer crafted with Flutter. Built for rapid folder triage, batch SAF management, and zero telemetry.',
-            style: TextStyle(
-              fontFamily: 'Lora',
-              fontSize: 13.5,
-              height: 1.55,
-              color: isDark ? const Color(0xFFCCCCCC) : const Color(0xFF444444),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildTag('Flutter 3.x', sc, isDark),
-              _buildTag('Dart 3.x', sc, isDark),
-              _buildTag('SAF Batching', sc, isDark),
-              _buildTag('MVVM + GetIt', sc, isDark),
-              _buildTag('MIT License', sc, isDark),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.white : Colors.black,
-                side: BorderSide(color: isDark ? const Color(0x33FFFFFF) : const Color(0x22000000)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () => _launchUrl(context, AppConstants.repoUrl),
-              icon: Icon(
-                SnapSymbols.code,
-                size: 16,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-              label: const Text(
-                'View Repository on GitHub',
+              const SizedBox(height: 20),
+              const Text(
+                'SubhamSathua/snapgrove',
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCloneCard(BuildContext context, SnapgroveColors sc, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0x1FFFFFFF) : const Color(0x10000000),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Clone Repository',
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Use git to clone and run Snapgrove locally on Windows, Android, or Web:',
-            style: TextStyle(
-              fontFamily: 'Lora',
-              fontSize: 12.5,
-              color: sc.muted,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF090909) : const Color(0xFFF3F3F5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDark ? const Color(0x20FFFFFF) : const Color(0x15000000),
+              const SizedBox(height: 8),
+              Text(
+                AppConstants.appTagline,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Lora',
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFFCCCCCC) : const Color(0xFF555555),
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'git clone ${AppConstants.repoCloneUrl}',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      color: sc.accent,
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: () => _copyToClipboard(
-                    context,
-                    'git clone ${AppConstants.repoCloneUrl}',
-                    'Clone command',
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      SnapSymbols.copy_rounded,
-                      size: 16,
-                      color: sc.muted,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTechStackCard(SnapgroveColors sc, bool isDark) {
-    const modules = [
-      {'path': 'lib/viewmodels/', 'desc': 'ChangeNotifier MVVM state management'},
-      {'path': 'lib/services/', 'desc': 'SAF helper, thumbnail manager, platform storage'},
-      {'path': 'lib/views/', 'desc': 'Gallery grid, responsive layout, full preview'},
-      {'path': 'lib/theme/', 'desc': 'SnapgroveColors extension, typography tokens'},
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0x1FFFFFFF) : const Color(0x10000000),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Architecture & Structure',
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...modules.map((m) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 18),
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '• ',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      color: sc.accent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    m['path']!,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  _buildTag('main', sc, isDark),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      m['desc']!,
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 12,
-                        color: sc.muted,
-                      ),
-                    ),
-                  ),
+                  _buildTag('MIT License', sc, isDark),
+                  const SizedBox(width: 8),
+                  _buildTag(AppConstants.appVersionName, sc, isDark),
                 ],
               ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommunityCard(BuildContext context, SnapgroveColors sc, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0x1FFFFFFF) : const Color(0x10000000),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Contribute & Issues',
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Found a bug or have a feature idea? Contributions, pull requests, and feedback are always welcome.',
-            style: TextStyle(
-              fontFamily: 'Lora',
-              fontSize: 12.5,
-              color: sc.muted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? Colors.white : Colors.black,
-                    side: BorderSide(color: isDark ? const Color(0x33FFFFFF) : const Color(0x22000000)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: () => _launchUrl(context, AppConstants.issuesUrl),
-                  child: const Text(
-                    'Report Issue',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: sc.accent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? Colors.white : Colors.black,
-                    side: BorderSide(color: isDark ? const Color(0x33FFFFFF) : const Color(0x22000000)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: () => _launchUrl(context, AppConstants.releasesUrl),
-                  child: const Text(
-                    'Releases',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                icon: const Icon(SnapSymbols.open_in_new, size: 18),
+                label: const Text(
+                  'Open on GitHub',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
                 ),
+                onPressed: () => _launchUrl(context, AppConstants.repoUrl),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildTag(String label, SnapgroveColors sc, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF222222) : const Color(0xFFECECEC),
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0x10000000),
+        ),
       ),
       child: Text(
         label,
@@ -535,7 +335,7 @@ class SourceCodeView extends StatelessWidget {
           fontFamily: 'JetBrains Mono',
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: isDark ? const Color(0xFFE0E0E0) : const Color(0xFF333333),
+          color: isDark ? const Color(0xFFDDDDDD) : const Color(0xFF444444),
         ),
       ),
     );

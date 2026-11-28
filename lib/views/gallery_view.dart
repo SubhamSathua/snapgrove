@@ -252,16 +252,27 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
     required String label,
     required bool isDark,
     required VoidCallback onTap,
+    Color? textColor,
+    Color? iconColor,
+    bool isEnabled = true,
   }) {
+    final effectiveTextColor = isEnabled
+        ? (textColor ?? (isDark ? Colors.white : Colors.black))
+        : (isDark ? Colors.white38 : Colors.black38);
+    final effectiveIconColor = isEnabled
+        ? (iconColor ?? (isDark ? Colors.white : Colors.black))
+        : (isDark ? Colors.white38 : Colors.black38);
+
     return InkWell(
-      onTap: onTap,
-      mouseCursor: SystemMouseCursors.click,
+      onTap: isEnabled ? onTap : null,
+      mouseCursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       hoverColor: isDark ? const Color(0x22FFFFFF) : const Color(0x12000000),
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: isDark ? Colors.white : Colors.black),
+            Icon(icon, size: 18, color: effectiveIconColor),
             const SizedBox(width: 10),
             Text(
               label,
@@ -269,11 +280,148 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 fontFamily: 'JetBrains Mono',
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : Colors.black,
+                color: effectiveTextColor,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showSelectionMoreMenu(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasSelection = _viewModel.selectedCount > 0;
+    final allSelected = _viewModel.files.isNotEmpty && _viewModel.selectedCount == _viewModel.files.length;
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss Selection Menu',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: anim1, curve: Curves.easeOut),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
+            ),
+            alignment: Alignment.topRight,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (ctx, anim1, anim2) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 52, right: 14),
+                child: AppBlur(
+                  borderRadius: BorderRadius.circular(12),
+                  solidColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  blurOpacity: 0.85,
+                  sigmaX: 20,
+                  sigmaY: 20,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    width: 200,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildContextMenuItem(
+                            icon: allSelected ? SnapSymbols.deselect : SnapSymbols.done_all,
+                            label: allSelected ? 'Deselect All' : 'Select All',
+                            isDark: isDark,
+                            isEnabled: _viewModel.files.isNotEmpty,
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              if (allSelected) {
+                                _unselectAll();
+                              } else {
+                                _selectAll();
+                              }
+                            },
+                          ),
+                          if (hasSelection && !allSelected)
+                            _buildContextMenuItem(
+                              icon: SnapSymbols.deselect,
+                              label: 'Deselect All',
+                              isDark: isDark,
+                              onTap: () {
+                                Navigator.of(ctx).pop();
+                                _unselectAll();
+                              },
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                            ),
+                          ),
+                          _buildContextMenuItem(
+                            icon: SnapSymbols.delete_outline_rounded,
+                            label: 'Delete',
+                            isDark: isDark,
+                            isEnabled: hasSelection,
+                            textColor: hasSelection ? const Color(0xFFEF4444) : null,
+                            iconColor: hasSelection ? const Color(0xFFEF4444) : null,
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              _showDeleteConfirmationDialog();
+                            },
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                            ),
+                          ),
+                          _buildContextMenuItem(
+                            icon: SnapSymbols.settings_outlined,
+                            label: 'Settings',
+                            isDark: isDark,
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              _openSettings();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -306,40 +454,47 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      transitionDuration: const Duration(milliseconds: 200),
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (ctx, anim1, anim2) => StatefulBuilder(
         builder: (context, setStateDropdown) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
 
-          return SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 54, right: 16),
-                child: Material(
-                  color: Colors.transparent,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: BackdropFilter(
-                      filter: AppBlur.filter(sigmaX: 20, sigmaY: 20)!,
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => Navigator.of(ctx).pop(),
+                ),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 54, right: 16),
+                    child: AppBlur(
+                      borderRadius: BorderRadius.circular(14),
+                      solidColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      blurOpacity: 0.85,
+                      sigmaX: 20,
+                      sigmaY: 20,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 30,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
                       child: Container(
                         width: 280,
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: AppBlur.getBackgroundColor((isDark ? const Color(0xFF1E1E1E) : Colors.white).withValues(alpha: 0.80)),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 30,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -458,7 +613,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                   ),
                 ),
               ),
-            ),
+            ],
           );
         },
       ),
@@ -1209,187 +1364,105 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
       physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
       slivers: [
-        SliverAppBar(
-          expandedHeight: _isSelectionMode ? kToolbarHeight : ((width < 400) ? 132.0 : 136.0),
-          floating: false,
-          pinned: true,
-          elevation: 0,
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          leading: Center(
-            child: _RoundBackButton(
-              onTap: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
+        if (useTopPane)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _UnifiedMobileSelectionHeaderDelegate(
+              selectedCount: _viewModel.selectedCount,
+              totalFiles: _viewModel.files.length,
+              subfolders: _viewModel.subfolders,
+              isTagsLoading: _viewModel.isTagsLoading,
+              topPadding: MediaQuery.paddingOf(context).top,
+              onExit: () => _confirmExitSelectionMode(context),
+              onSelectAll: _selectAll,
+              onDeselectAll: _unselectAll,
+              onDelete: _viewModel.selectedCount > 0 ? _showDeleteConfirmationDialog : null,
+              onMore: () => _showSelectionMoreMenu(context),
+              onCreateFolder: _showCreateFolderDialog,
+              onMoveToFolder: _moveSelectedToFolder,
+              onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
+              isFolderEnabled: _isFolderActionEnabled,
+              getFolderTooltip: _getFolderActionTooltip,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              borderColor: sc.border,
+              textColor: isDark ? Colors.white : Colors.black,
+              mutedColor: sc.muted,
+              accentColor: sc.accent,
             ),
-          ),
-          actions: [
-            if (_isSelectionMode)
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (width >= 720) ...[
-                      _SelectionActionButton(
-                        icon: SnapSymbols.done_all,
-                        label: 'Select All',
-                        isEnabled: _viewModel.files.isNotEmpty && _viewModel.selectedCount < _viewModel.files.length,
-                        onTap: _selectAll,
-                      ),
-                      const SizedBox(width: 8),
-                      _SelectionActionButton(
-                        icon: SnapSymbols.deselect,
-                        label: 'Unselect',
-                        isEnabled: _viewModel.selectedCount > 0,
-                        onTap: _unselectAll,
-                      ),
-                      const SizedBox(width: 8),
-                      _SelectionActionButton(
-                        icon: SnapSymbols.delete_outline_rounded,
-                        label: 'Delete',
-                        isEnabled: _viewModel.selectedCount > 0,
-                        onTap: _showDeleteConfirmationDialog,
-                      ),
-                      const SizedBox(width: 8),
-                      _SelectionActionButton(
-                        icon: SnapSymbols.settings_outlined,
-                        label: 'Settings',
-                        isEnabled: true,
-                        onTap: _openSettings,
-                      ),
-                    ] else ...[
-                      IconButton(
-                        tooltip: 'Delete selected',
-                        icon: Icon(
-                          SnapSymbols.delete_outline_rounded,
-                          size: 22,
-                          color: _viewModel.selectedCount > 0
-                              ? (isDark ? Colors.white : Colors.black)
-                              : sc.muted.withValues(alpha: 0.4),
+          )
+        else
+          SliverAppBar(
+            expandedHeight: _isSelectionMode ? kToolbarHeight : ((width < 400) ? 132.0 : 136.0),
+            floating: false,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            leading: Center(
+              child: _RoundBackButton(
+                onTap: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
+              ),
+            ),
+            actions: [
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (width >= 720) ...[
+                        _SelectionActionButton(
+                          icon: SnapSymbols.done_all,
+                          label: 'Select All',
+                          isEnabled: _viewModel.files.isNotEmpty && _viewModel.selectedCount < _viewModel.files.length,
+                          onTap: _selectAll,
                         ),
-                        onPressed: _viewModel.selectedCount > 0 ? _showDeleteConfirmationDialog : null,
-                      ),
-                      const SizedBox(width: 4),
-                      PopupMenuButton<String>(
-                        icon: Icon(
-                          SnapSymbols.more_vert,
-                          size: 22,
-                          color: isDark ? Colors.white : Colors.black,
+                        const SizedBox(width: 8),
+                        _SelectionActionButton(
+                          icon: SnapSymbols.deselect,
+                          label: 'Unselect',
+                          isEnabled: _viewModel.selectedCount > 0,
+                          onTap: _unselectAll,
                         ),
-                        color: sc.surfaceElevated,
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000)),
+                        const SizedBox(width: 8),
+                        _SelectionActionButton(
+                          icon: SnapSymbols.delete_outline_rounded,
+                          label: 'Delete',
+                          isEnabled: _viewModel.selectedCount > 0,
+                          onTap: _showDeleteConfirmationDialog,
                         ),
-                        onSelected: (val) {
-                          if (val == 'select_all') {
-                            _selectAll();
-                          } else if (val == 'unselect_all') {
-                            _unselectAll();
-                          } else if (val == 'delete') {
-                            _showDeleteConfirmationDialog();
-                          } else if (val == 'settings') {
-                            _openSettings();
-                          }
-                        },
-                        itemBuilder: (context) {
-                          return [
-                            PopupMenuItem(
-                              value: 'select_all',
-                              enabled: _viewModel.files.isNotEmpty && _viewModel.selectedCount < _viewModel.files.length,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    SnapSymbols.done_all,
-                                    size: 18,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Select All',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 13,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'unselect_all',
-                              enabled: _viewModel.selectedCount > 0,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    SnapSymbols.deselect,
-                                    size: 18,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Unselect All',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 13,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_viewModel.selectedCount > 0) ...[
-                              const PopupMenuDivider(height: 1),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      SnapSymbols.delete_outline_rounded,
-                                      size: 18,
-                                      color: Color(0xFFE53935),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Text(
-                                      'Delete',
-                                      style: TextStyle(
-                                        fontFamily: 'JetBrains Mono',
-                                        fontSize: 13,
-                                        color: Color(0xFFE53935),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            const PopupMenuDivider(height: 1),
-                            PopupMenuItem(
-                              value: 'settings',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    SnapSymbols.settings_outlined,
-                                    size: 18,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Settings',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 13,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ];
-                        },
-                      ),
+                        const SizedBox(width: 8),
+                        _SelectionActionButton(
+                          icon: SnapSymbols.settings_outlined,
+                          label: 'Settings',
+                          isEnabled: true,
+                          onTap: _openSettings,
+                        ),
+                      ] else ...[
+                        IconButton(
+                          tooltip: 'Delete selected',
+                          icon: Icon(
+                            SnapSymbols.delete_outline_rounded,
+                            size: 22,
+                            color: _viewModel.selectedCount > 0
+                                ? (isDark ? Colors.white : Colors.black)
+                                : sc.muted.withValues(alpha: 0.4),
+                          ),
+                          onPressed: _viewModel.selectedCount > 0 ? _showDeleteConfirmationDialog : null,
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'More options',
+                          icon: Icon(
+                            SnapSymbols.more_vert,
+                            size: 22,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          onPressed: () => _showSelectionMoreMenu(context),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              )
+                  ),
+                )
             else if (!isLoading && _viewModel.files.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(right: 16),
@@ -1512,25 +1585,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 )
               : null,
         ),
-        if (useTopPane)
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TopSelectionPaneDelegate(
-              selectedCount: _viewModel.selectedCount,
-              subfolders: _viewModel.subfolders,
-              isTagsLoading: _viewModel.isTagsLoading,
-              onCreateFolder: _showCreateFolderDialog,
-              onMoveToFolder: _moveSelectedToFolder,
-              onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
-              isFolderEnabled: _isFolderActionEnabled,
-              getFolderTooltip: _getFolderActionTooltip,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              borderColor: sc.border,
-              textColor: isDark ? Colors.white : Colors.black,
-              mutedColor: sc.muted,
-              accentColor: sc.accent,
-            ),
-          ),
         if (isLoading && _viewModel.files.isEmpty)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2866,10 +2920,17 @@ class _GalleryThumbnailState extends State<_GalleryThumbnail> {
   }
 }
 
-class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
+class _UnifiedMobileSelectionHeaderDelegate extends SliverPersistentHeaderDelegate {
   final int selectedCount;
+  final int totalFiles;
   final List<String> subfolders;
   final bool isTagsLoading;
+  final double topPadding;
+  final VoidCallback onExit;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDeselectAll;
+  final VoidCallback? onDelete;
+  final VoidCallback onMore;
   final VoidCallback onCreateFolder;
   final void Function(String) onMoveToFolder;
   final void Function(String folder, Offset? position)? onRenameFolder;
@@ -2881,10 +2942,17 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   final Color mutedColor;
   final Color accentColor;
 
-  _TopSelectionPaneDelegate({
+  _UnifiedMobileSelectionHeaderDelegate({
     required this.selectedCount,
+    required this.totalFiles,
     required this.subfolders,
     this.isTagsLoading = false,
+    required this.topPadding,
+    required this.onExit,
+    required this.onSelectAll,
+    required this.onDeselectAll,
+    required this.onDelete,
+    required this.onMore,
     required this.onCreateFolder,
     required this.onMoveToFolder,
     this.onRenameFolder,
@@ -2897,7 +2965,7 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
     required this.accentColor,
   });
 
-  double get _height => 92.0;
+  double get _height => topPadding + 52.0 + 44.0;
 
   @override
   double get minExtent => _height;
@@ -2908,57 +2976,106 @@ class _TopSelectionPaneDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allSelected = totalFiles > 0 && selectedCount == totalFiles;
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: AppBlur.filter(sigmaX: 24, sigmaY: 24)!,
-        child: Container(
-          height: _height,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: AppBlur.getBackgroundColor(backgroundColor.withValues(alpha: isDark ? 0.85 : 0.92)),
-            border: Border(bottom: BorderSide(color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000))),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '$selectedCount selected',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
+    return AppBlur(
+      borderRadius: BorderRadius.zero,
+      decoration: BoxDecoration(
+        color: AppBlur.getBackgroundColor(backgroundColor.withValues(alpha: isDark ? 0.85 : 0.92)),
+        border: Border(
+          bottom: BorderSide(color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000)),
+        ),
+      ),
+      child: Container(
+        height: _height,
+        padding: EdgeInsets.only(top: topPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Row 1: Actions Header
+            SizedBox(
+              height: 52.0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    _RoundBackButton(onTap: onExit),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$selectedCount selected',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: allSelected ? 'Deselect all' : 'Select all',
+                      icon: Icon(
+                        allSelected ? SnapSymbols.deselect : SnapSymbols.done_all,
+                        size: 20,
+                        color: textColor,
+                      ),
+                      onPressed: allSelected ? onDeselectAll : onSelectAll,
+                    ),
+                    IconButton(
+                      tooltip: 'Delete selected',
+                      icon: Icon(
+                        SnapSymbols.delete_outline_rounded,
+                        size: 20,
+                        color: selectedCount > 0
+                            ? (isDark ? Colors.white : Colors.black)
+                            : mutedColor.withValues(alpha: 0.4),
+                      ),
+                      onPressed: selectedCount > 0 ? onDelete : null,
+                    ),
+                    IconButton(
+                      tooltip: 'More options',
+                      icon: Icon(
+                        SnapSymbols.more_vert,
+                        size: 20,
+                        color: textColor,
+                      ),
+                      onPressed: onMore,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Row 2: Tags horizontal chips bar with create folder button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+              child: Row(
+                children: [
                   _CreateFolderButton(
                     onTap: onCreateFolder,
                     fullWidth: false,
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _HorizontalChipsBar(
+                      subfolders: subfolders,
+                      isTagsLoading: isTagsLoading,
+                      onMoveToFolder: onMoveToFolder,
+                      onRenameFolder: onRenameFolder,
+                      isFolderEnabled: isFolderEnabled,
+                      getFolderTooltip: getFolderTooltip,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 8),
-              _HorizontalChipsBar(
-                subfolders: subfolders,
-                isTagsLoading: isTagsLoading,
-                onMoveToFolder: onMoveToFolder,
-                onRenameFolder: onRenameFolder,
-                isFolderEnabled: isFolderEnabled,
-                getFolderTooltip: getFolderTooltip,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   @override
-  bool shouldRebuild(covariant _TopSelectionPaneDelegate oldDelegate) => true;
+  bool shouldRebuild(covariant _UnifiedMobileSelectionHeaderDelegate oldDelegate) => true;
 }
 
 class _HorizontalChipsBar extends StatefulWidget {

@@ -216,11 +216,11 @@ class AboutView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildBadge('Build ${AppConstants.appBuildNumber}', sc, isDark),
+              _buildBadge(AppConstants.appVersionName, sc, isDark),
+              const SizedBox(width: 8),
+              _buildBadge('Open Source', sc, isDark),
               const SizedBox(width: 8),
               _buildBadge(AppConstants.licenseType, sc, isDark),
-              const SizedBox(width: 8),
-              _buildBadge('Flutter 3.x', sc, isDark),
             ],
           ),
         ],
@@ -473,7 +473,7 @@ class AboutView extends StatelessWidget {
           IconButton(
             tooltip: 'GitHub Profile',
             icon: Icon(
-              SnapSymbols.code,
+              SnapSymbols.open_in_new,
               size: 20,
               color: isDark ? Colors.white : Colors.black,
             ),

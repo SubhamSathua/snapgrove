@@ -1320,6 +1320,13 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     final currentPath = _files[_currentIndex];
     final fileName = p.basename(currentPath).replaceAll('%2F', '/').split('/').last;
 
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+
+    final double restTop = _isFullScreen ? 0.0 : (safeTop + 98.0);
+    final double restBottom = _isFullScreen ? 0.0 : (isWide ? (safeBottom + 16.0) : (64.0 + safeBottom));
+    final double restHorizontal = (_isFullScreen || !isWide) ? 0.0 : 68.0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       extendBody: true,
@@ -1353,8 +1360,14 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         },
         child: Stack(
           children: [
-            // Main Image Viewer
-            Positioned.fill(
+            // Main Image Viewer in Rest Area (Expands edge-to-edge in Fullscreen)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              top: restTop,
+              bottom: restBottom,
+              left: restHorizontal,
+              right: restHorizontal,
               child: GestureDetector(
                 onTap: () {
                   if (_isFullScreen) _toggleFullScreen();

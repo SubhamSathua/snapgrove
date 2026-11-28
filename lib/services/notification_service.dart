@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_blur.dart';
 import '../theme/snap_symbols.dart';
 
 class NotificationService {
@@ -15,31 +17,64 @@ class NotificationService {
     final state = messengerKey.currentState;
     if (state == null) return;
 
+    final mediaQuery = state.context.mounted ? MediaQuery.maybeOf(state.context) : null;
+    final screenWidth = mediaQuery?.size.width ?? 800;
+    final isPc = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+         defaultTargetPlatform == TargetPlatform.macOS ||
+         defaultTargetPlatform == TargetPlatform.linux) &&
+        screenWidth >= 600;
+
     state.hideCurrentSnackBar();
     state.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         dismissDirection: DismissDirection.horizontal,
         duration: duration,
-        elevation: 6,
-        backgroundColor: isError ? const Color(0xFFC62828) : const Color(0xFF1E1E1E),
-        margin: bottomOffset != null
-            ? EdgeInsets.fromLTRB(16, 0, 16, bottomOffset)
-            : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: isError ? const Color(0x33FFCDD2) : const Color(0x22FFFFFF),
-            width: 1,
-          ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        margin: EdgeInsets.fromLTRB(
+          isPc ? ((screenWidth - 380).clamp(16.0, double.infinity) / 2) : 16,
+          0,
+          isPc ? ((screenWidth - 380).clamp(16.0, double.infinity) / 2) : 16,
+          bottomOffset ?? 14,
         ),
-        content: _ToastContent(
-          message: message,
-          isError: isError,
-          actionLabel: actionLabel,
-          onAction: onAction,
-          onClose: () => state.hideCurrentSnackBar(),
+        padding: EdgeInsets.zero,
+        content: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: isPc ? 380 : double.infinity),
+            child: AppBlur(
+              borderRadius: BorderRadius.circular(12),
+              solidColor: isError ? const Color(0xFFC62828) : const Color(0xFF1E1E1E),
+              blurOpacity: 0.82,
+              sigmaX: 16,
+              sigmaY: 16,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isError ? const Color(0x44FFCDD2) : const Color(0x22FFFFFF),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: _ToastContent(
+                  message: message,
+                  isError: isError,
+                  actionLabel: actionLabel,
+                  onAction: onAction,
+                  onClose: () => state.hideCurrentSnackBar(),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

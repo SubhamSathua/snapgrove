@@ -222,9 +222,9 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
@@ -358,7 +358,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
 
     // Filter checks
     final showTheme = _matchesQuery(['theme', 'dark mode', 'light mode', 'appearance', 'color']);
-    final showBlur = _matchesQuery(['blur', 'glassmorphism', 'transparency', 'disable blur', 'performance']);
+    final showBlur = _matchesQuery(['blur', 'effects', 'transparency', 'disable blur', 'performance']);
     final showBatterySaver = _matchesQuery(['battery', 'blur', 'battery saver', 'low battery', 'performance', 'power']);
     final showBatterySlider = showBatterySaver;
     final showFolderSort = _matchesQuery(['folder', 'sort', 'folder sort order', 'tags', 'alphabetical', 'items', 'date']);
@@ -547,7 +547,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               _SettingsTile(
                                 icon: SnapSymbols.blur_on_rounded,
                                 title: 'Disable Blur',
-                                subtitle: 'Turn off glassmorphism background blurs app-wide',
+                                subtitle: 'Turn off background blur effects across the app',
                                 trailing: _buildSwitch(
                                   value: _settingsService.disableBlur,
                                   sc: sc,
@@ -571,7 +571,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               _SettingsTile(
                                 icon: SnapSymbols.battery_saver_rounded,
                                 title: 'Disable Blur on Low Battery',
-                                subtitle: 'Turn off heavy blur shaders when battery drops below threshold',
+                                subtitle: 'Automatically turn off blur when battery is low to save power',
                                 trailing: _buildSwitch(
                                   value: _settingsService.disableBlurLowBattery,
                                   sc: sc,
@@ -1296,9 +1296,9 @@ class _CreateBinPasswordDialogState extends State<_CreateBinPasswordDialog> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),

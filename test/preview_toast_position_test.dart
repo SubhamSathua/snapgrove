@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snapgrove/core/locator.dart';
@@ -132,6 +132,37 @@ void main() {
 
     final SnackBar snackBar = tester.widget(snackBarFinder);
     expect(snackBar.margin, equals(const EdgeInsets.fromLTRB(16, 0, 16, 72)));
+  });
+
+  testWidgets('NotificationService showSnackBar centers and constrains width on PC', (WidgetTester tester) async {
+    final originalPlatform = debugDefaultTargetPlatformOverride;
+    try {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1.0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          scaffoldMessengerKey: notificationService.messengerKey,
+          home: const Scaffold(body: Center(child: Text('Home'))),
+        ),
+      );
+
+      notificationService.showSnackBar('PC Toast', bottomOffset: 20);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final snackBarFinder = find.byType(SnackBar);
+      expect(snackBarFinder, findsOneWidget);
+
+      final SnackBar snackBar = tester.widget(snackBarFinder);
+      expect(snackBar.margin, equals(const EdgeInsets.fromLTRB(310, 0, 310, 20)));
+    } finally {
+      debugDefaultTargetPlatformOverride = originalPlatform;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    }
   });
 
   testWidgets('SnackBar floats above bottom action bar in mobile ImagePreviewView', (WidgetTester tester) async {

@@ -66,7 +66,7 @@ class AppConstants {
   static const String licenseType = 'MIT License';
   static const String contactEmail = 'contact@snapgrove.app';
 
-  // About Features & Highlights
+  // About Features & Highlights (End-user friendly)
   static const List<FeatureItem> keyFeatures = [
     FeatureItem(
       title: 'Private & Local-First',
@@ -74,19 +74,19 @@ class AppConstants {
       icon: SnapSymbols.shield_person,
     ),
     FeatureItem(
-      title: 'Blazing SAF Performance',
-      description: 'Engineered with single-scan batching and asynchronous chunked pipelines for instantaneous multi-file moves.',
+      title: 'Instant Organization',
+      description: 'Sort and categorize screenshots into subfolders in seconds with quick folder chips and keyboard shortcuts.',
       icon: SnapSymbols.create_new_folder,
     ),
     FeatureItem(
-      title: 'Crystal-Clear Fullscreen Preview',
-      description: 'Adaptive 3-tier in-memory LRU cache with background bidirectional preloading for silky-smooth 60fps zooming.',
+      title: 'Crystal-Clear Preview',
+      description: 'Smooth zooming, gestures, and distraction-free viewing framed to never obscure your photos.',
       icon: SnapSymbols.preview,
     ),
     FeatureItem(
-      title: 'Cross-Platform Harmony',
-      description: 'Consistent design system with glassmorphism blur across Android, Windows, and modern Web platforms.',
-      icon: SnapSymbols.display_settings,
+      title: 'Lightweight & Power-Smart',
+      description: 'Built for speed and battery efficiency with automatic power-saving modes when battery is low.',
+      icon: SnapSymbols.battery_saver_rounded,
     ),
   ];
 
