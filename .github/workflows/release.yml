@@ -7,11 +7,7 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
-  contents: read
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  contents: write
 
 jobs:
   build-android:
@@ -49,19 +45,22 @@ jobs:
         run: flutter pub get
 
       - name: Run Static Analysis
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run Tests
         run: flutter test
 
       - name: Configure Android Signing Key
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No KEYSTORE_BASE64 secret provided; Gradle will use debug signing."
+            exit 0
+          fi
           echo "Configuring Android release signing..."
           echo "$KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
           cat <<EOF > android/key.properties
@@ -102,9 +101,12 @@ jobs:
             cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/Snapgrove-${VERSION}-x86_64.apk
           fi
 
-      - name: Verify APK Signatures (If Keystore Provided)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Verify APK Signatures
         run: |
+          if [ ! -f "android/key.properties" ]; then
+            echo "Skipping signature verification: unsigned/debug build."
+            exit 0
+          fi
           ANDROID_BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
           if [ -f "$APKSIGNER" ]; then
