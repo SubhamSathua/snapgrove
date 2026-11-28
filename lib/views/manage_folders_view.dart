@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/locator.dart';
+import '../core/system_ui_util.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
 import '../services/settings_service.dart';
@@ -1727,7 +1728,7 @@ class _ManageFoldersViewState extends State<ManageFoldersView> {
                     _rootTree?.children.map((c) => c.relPath).toList(),
               ),
             ),
-          );
+          ).then((_) => SystemUiUtil.restoreSystemUI());
         }
       },
       onLongPress: () {

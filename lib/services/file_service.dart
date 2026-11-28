@@ -71,21 +71,11 @@ class FileServiceImpl implements FileService {
         final dir = Directory(path);
         if (await dir.exists()) {
           final List<String> files = [];
-          await for (final f in dir.list()) {
+          await for (final f in dir.list(recursive: includeSubfolders)) {
             if (f is File) {
               final pStr = f.path.toLowerCase();
               if (pStr.endsWith('.png') || pStr.endsWith('.jpg') || pStr.endsWith('.jpeg') || pStr.endsWith('.webp')) {
                 files.add(f.path);
-              }
-            }
-          }
-          if (includeSubfolders) {
-            await for (final d in dir.list(recursive: true)) {
-              if (d is File) {
-                final pStr = d.path.toLowerCase();
-                if (pStr.endsWith('.png') || pStr.endsWith('.jpg') || pStr.endsWith('.jpeg') || pStr.endsWith('.webp')) {
-                  files.add(d.path);
-                }
               }
             }
           }

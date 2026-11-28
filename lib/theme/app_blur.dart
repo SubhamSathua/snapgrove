@@ -127,7 +127,10 @@ class AppBlur extends StatelessWidget {
         padding: padding,
         margin: margin,
         decoration: effectiveDecoration,
-        child: child,
+        child: Material(
+          type: MaterialType.transparency,
+          child: child,
+        ),
       );
 
       if (!blurDisabled && (sigmaX > 0 || sigmaY > 0)) {

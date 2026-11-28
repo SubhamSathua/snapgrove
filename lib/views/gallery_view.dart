@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import '../core/app_constants.dart';
 import '../core/locator.dart';
+import '../core/system_ui_util.dart';
 import '../models/folder_node.dart';
 import '../viewmodels/gallery_view_model.dart';
 import '../viewmodels/app_view_model.dart';
@@ -60,6 +61,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
   @override
   void initState() {
     super.initState();
+    SystemUiUtil.restoreSystemUI();
     _viewModel = locator<GalleryViewModel>(param1: widget.path);
 
     _loadGridPreference();
@@ -239,10 +241,10 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               onFolderCreated: (name) => _viewModel.createSubfolder(name),
               onFileMoved: (file, folder) async => (await _viewModel.moveFilesToFolder([file], folder)).isSuccess,
               onFileDeleted: (file) => _viewModel.deleteFilesPermanently([file]),
-                            onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
+              onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
             ),
           ),
-        );
+        ).then((_) => SystemUiUtil.restoreSystemUI());
         break;
     }
   }
@@ -495,11 +497,13 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                       child: Container(
                         width: 280,
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // 1 Toggle: Show images from sub-folders (M3 style Switch)
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // 1 Toggle: Show images from sub-folders (M3 style Switch)
                             InkWell(
                               onTap: () {
                                 final nextVal = !_viewModel.includeSubfolders;
@@ -527,6 +531,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: isDark ? Colors.white : Colors.black,
+                                          decoration: TextDecoration.none,
                                         ),
                                       ),
                                     ),
@@ -610,6 +615,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                         ),
                       ),
                     ),
+                  ),
                   ),
                 ),
               ),
@@ -1256,8 +1262,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
@@ -1286,12 +1290,6 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
           listenable: Listenable.merge([_viewModel, locator<AppViewModel>()]),
           builder: (context, child) {
             final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-            final isDesktop = !isAndroid && width >= 720;
-            final useSidePane = _isSelectionMode && isDesktop;
-            final useTopPane = _isSelectionMode && !isDesktop;
-            final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
-
-            final isLoading = _viewModel.isLoading || _isTransitioning;
             final isDark = Theme.of(context).brightness == Brightness.dark;
             final sc = context.snapgroveColors;
             final overlayStyle = SystemUiOverlayStyle(
@@ -1308,71 +1306,82 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               value: overlayStyle,
               child: Scaffold(
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                body: Stack(
-                  children: [
-                    useSidePane
-                        ? Row(
-                            children: [
-                              Expanded(
-                                child: _buildGalleryScrollView(
-                                  context: context,
-                                  width: width - 280,
-                                  effectiveColumns: effectiveColumns,
-                                  isLoading: isLoading,
-                                  isDark: isDark,
-                                  sc: sc,
-                                  useTopPane: false,
-                                ),
+                body: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final isDesktop = !isAndroid && width >= 720;
+                    final useSidePane = _isSelectionMode && isDesktop;
+                    final useTopPane = _isSelectionMode && !isDesktop;
+                    final effectiveColumns = _getEffectiveColumns(width, isRightPaneOpen: useSidePane);
+                    final isLoading = _viewModel.isLoading || _isTransitioning;
+
+                    return Stack(
+                      children: [
+                        useSidePane
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildGalleryScrollView(
+                                      context: context,
+                                      width: width - 280,
+                                      effectiveColumns: effectiveColumns,
+                                      isLoading: isLoading,
+                                      isDark: isDark,
+                                      sc: sc,
+                                      useTopPane: false,
+                                    ),
+                                  ),
+                                  _RightSideSelectionPane(
+                                    selectedCount: _viewModel.selectedCount,
+                                    subfolders: _viewModel.subfolders,
+                                    isTagsLoading: _viewModel.isTagsLoading,
+                                    onCreateFolder: _showCreateFolderDialog,
+                                    onMoveToFolder: _moveSelectedToFolder,
+                                    onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
+                                    isFolderEnabled: _isFolderActionEnabled,
+                                    getFolderTooltip: _getFolderActionTooltip,
+                                  ),
+                                ],
+                              )
+                            : _buildGalleryScrollView(
+                                context: context,
+                                width: width,
+                                effectiveColumns: effectiveColumns,
+                                isLoading: isLoading,
+                                isDark: isDark,
+                                sc: sc,
+                                useTopPane: useTopPane,
                               ),
-                              _RightSideSelectionPane(
-                                selectedCount: _viewModel.selectedCount,
-                                subfolders: _viewModel.subfolders,
-                                isTagsLoading: _viewModel.isTagsLoading,
-                                onCreateFolder: _showCreateFolderDialog,
-                                onMoveToFolder: _moveSelectedToFolder,
-                                onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
-                                isFolderEnabled: _isFolderActionEnabled,
-                                getFolderTooltip: _getFolderActionTooltip,
-                              ),
-                            ],
-                          )
-                        : _buildGalleryScrollView(
-                            context: context,
-                            width: width,
-                            effectiveColumns: effectiveColumns,
-                            isLoading: isLoading,
-                            isDark: isDark,
-                            sc: sc,
-                            useTopPane: useTopPane,
-                          ),
-                    if (_isMovingFiles)
-                      _buildMovingProgressFloatingCard(sc, isDark),
-                    if (isAndroid && MediaQuery.paddingOf(context).bottom > 0)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: MediaQuery.paddingOf(context).bottom,
-                        child: IgnorePointer(
-                          child: AppBlur(
-                            borderRadius: BorderRadius.zero,
-                            sigmaX: 20,
-                            sigmaY: 20,
-                            solidColor: Theme.of(context).scaffoldBackgroundColor,
-                            blurOpacity: isDark ? 0.75 : 0.85,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: isDark ? const Color(0x18FFFFFF) : const Color(0x10000000),
-                                  width: 0.8,
+                        if (_isMovingFiles)
+                          _buildMovingProgressFloatingCard(sc, isDark),
+                        if (isAndroid && MediaQuery.paddingOf(context).bottom > 0)
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: MediaQuery.paddingOf(context).bottom,
+                            child: IgnorePointer(
+                              child: AppBlur(
+                                borderRadius: BorderRadius.zero,
+                                sigmaX: 20,
+                                sigmaY: 20,
+                                solidColor: Theme.of(context).scaffoldBackgroundColor,
+                                blurOpacity: isDark ? 0.75 : 0.85,
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: isDark ? const Color(0x18FFFFFF) : const Color(0x10000000),
+                                      width: 0.8,
+                                    ),
+                                  ),
                                 ),
+                                child: const SizedBox.expand(),
                               ),
                             ),
-                            child: const SizedBox.expand(),
                           ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             );
@@ -1433,7 +1442,17 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             floating: false,
             pinned: true,
             elevation: 0,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            systemOverlayStyle: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarContrastEnforced: false,
+            ),
             leading: Center(
               child: _RoundBackButton(
                 onTap: () => _isSelectionMode ? _confirmExitSelectionMode(context) : _showExitConfirmation(context),
@@ -1545,82 +1564,97 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                 ),
               ),
           ],
-          flexibleSpace: !_isSelectionMode
-              ? LayoutBuilder(
-                  builder: (context, constraints) {
-                    final topPadding = MediaQuery.paddingOf(context).top;
-                    final double currentHeight = constraints.maxHeight;
-                    final double minHeight = kToolbarHeight + topPadding;
-                    final double maxHeight = ((width < 400) ? 132.0 : 136.0) + topPadding;
-                    final double delta = (maxHeight - minHeight).abs();
-                    final double t = delta > 0 ? ((currentHeight - minHeight) / delta).clamp(0.0, 1.0) : 0.0;
+          flexibleSpace: AppBlur(
+            borderRadius: BorderRadius.zero,
+            sigmaX: 20,
+            sigmaY: 20,
+            decoration: BoxDecoration(
+              color: AppBlur.getBackgroundColor(
+                Theme.of(context).scaffoldBackgroundColor.withValues(alpha: isDark ? 0.85 : 0.92),
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? const Color(0x1FFFFFFF) : const Color(0x18000000),
+                ),
+              ),
+            ),
+            child: !_isSelectionMode
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      final topPadding = MediaQuery.paddingOf(context).top;
+                      final double currentHeight = constraints.maxHeight;
+                      final double minHeight = kToolbarHeight + topPadding;
+                      final double maxHeight = ((width < 400) ? 132.0 : 136.0) + topPadding;
+                      final double delta = (maxHeight - minHeight).abs();
+                      final double t = delta > 0 ? ((currentHeight - minHeight) / delta).clamp(0.0, 1.0) : 0.0;
 
-                    final double expandedOpacity = Curves.easeIn.transform((t - 0.25).clamp(0.0, 0.75) / 0.75);
-                    final double collapsedOpacity = Curves.easeOut.transform((0.35 - t).clamp(0.0, 0.35) / 0.35);
+                      final double expandedOpacity = Curves.easeIn.transform((t - 0.25).clamp(0.0, 0.75) / 0.75);
+                      final double collapsedOpacity = Curves.easeOut.transform((0.35 - t).clamp(0.0, 0.35) / 0.35);
 
-                    final folderName = _getDisplayFolderName(widget.path, widget.title);
-                    final double rightPad = !isLoading && _viewModel.files.isNotEmpty
-                        ? (width < 600 ? 152.0 : 172.0)
-                        : 48.0;
+                      final folderName = _getDisplayFolderName(widget.path, widget.title);
+                      final double rightPad = !isLoading && _viewModel.files.isNotEmpty
+                          ? (width < 600 ? 152.0 : 172.0)
+                          : 48.0;
 
-                    return IgnorePointer(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Collapsed Title (Header row between Back button and Action buttons)
-                          if (collapsedOpacity > 0.01)
-                            Positioned(
-                              top: topPadding,
-                              left: 56.0,
-                              right: rightPad,
-                              height: kToolbarHeight,
-                              child: Opacity(
-                                opacity: collapsedOpacity,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
+                      return IgnorePointer(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Collapsed Title (Header row between Back button and Action buttons)
+                            if (collapsedOpacity > 0.01)
+                              Positioned(
+                                top: topPadding,
+                                left: 56.0,
+                                right: rightPad,
+                                height: kToolbarHeight,
+                                child: Opacity(
+                                  opacity: collapsedOpacity,
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      folderName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrains Mono',
+                                        fontSize: 16.0,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // Expanded Title (Below top action row, spanning full width as marked in user's image)
+                            if (expandedOpacity > 0.01)
+                              Positioned(
+                                left: 20.0,
+                                right: 20.0,
+                                bottom: 12.0,
+                                child: Opacity(
+                                  opacity: expandedOpacity,
                                   child: Text(
                                     folderName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: 'JetBrains Mono',
-                                      fontSize: 16.0,
+                                      fontSize: width < 380 ? 20.0 : (width < 600 ? 22.0 : 26.0),
                                       fontWeight: FontWeight.w700,
+                                      height: 1.15,
                                       color: isDark ? Colors.white : Colors.black,
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-
-                          // Expanded Title (Below top action row, spanning full width as marked in user's image)
-                          if (expandedOpacity > 0.01)
-                            Positioned(
-                              left: 20.0,
-                              right: 20.0,
-                              bottom: 12.0,
-                              child: Opacity(
-                                opacity: expandedOpacity,
-                                child: Text(
-                                  folderName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: width < 380 ? 20.0 : (width < 600 ? 22.0 : 26.0),
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.15,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                )
-              : null,
+                          ],
+                        ),
+                      );
+                    },
+                  )
+                : const SizedBox.shrink(),
+          ),
         ),
         if (isLoading && _viewModel.files.isEmpty)
           SliverPadding(
@@ -1690,7 +1724,7 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
                             onFileMoveToBin: (file) => _viewModel.moveToBin([file]),
                           ),
                         ),
-                      );
+                      ).then((_) => SystemUiUtil.restoreSystemUI());
                     },
                     onLongPress: () {
                       if (_isSelectionMode) {
@@ -2851,6 +2885,7 @@ class _GalleryItemState extends State<_GalleryItem> {
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                     ),

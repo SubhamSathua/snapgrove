@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 Color rippleColor(Color bg) {
   return bg.computeLuminance() > 0.5
@@ -142,6 +143,19 @@ class AppTheme {
       splashFactory: InkRipple.splashFactory,
       brightness: Brightness.light,
       scaffoldBackgroundColor: const Color(0xFFffffff),
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+      ),
       fontFamily: 'Lora',
       extensions: const [SnapgroveColors.light],
       colorScheme: const ColorScheme.light(
@@ -157,6 +171,19 @@ class AppTheme {
       splashFactory: InkRipple.splashFactory,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF000000),
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+      ),
       fontFamily: 'Lora',
       extensions: const [SnapgroveColors.dark],
       colorScheme: const ColorScheme.dark(

@@ -1004,5 +1004,52 @@ void main() {
       expect(root.isDescendantOrSelf('Personal'), false);
       expect(root.isDescendantOrSelf('WorkPersonal'), false);
     });
+
+    test('indexOfPath provides O(1) lookups with path slash normalization', () async {
+      final fileList = <String>[];
+      for (int i = 0; i < 20; i++) {
+        final f = File(p.join(tempDir.path, 'img_${i.toString().padLeft(3, '0')}.png'));
+        await f.writeAsString('test');
+        fileList.add(f.path);
+      }
+      await viewModel.loadFiles();
+
+      // Test direct lookup matches actual files list index
+      for (int i = 0; i < fileList.length; i++) {
+        final expectedIndex = viewModel.files.indexOf(fileList[i]);
+        expect(viewModel.indexOfPath(fileList[i]), expectedIndex);
+      }
+
+      // Test slash normalization (Windows \ vs POSIX /)
+      final sample = fileList[10];
+      final expectedIndex = viewModel.files.indexOf(sample);
+      final backslashPath = sample.replaceAll('/', '\\');
+      final forwardSlashPath = sample.replaceAll('\\', '/');
+      expect(viewModel.indexOfPath(backslashPath), expectedIndex);
+      expect(viewModel.indexOfPath(forwardSlashPath), expectedIndex);
+
+      // Non-existent path returns null
+      expect(viewModel.indexOfPath(p.join(tempDir.path, 'non_existent.png')), isNull);
+    });
+
+    test('indexOfPath updates immediately on file deletion and sorting', () async {
+      final fileA = File(p.join(tempDir.path, 'a.png'));
+      final fileB = File(p.join(tempDir.path, 'b.png'));
+      final fileC = File(p.join(tempDir.path, 'c.png'));
+      await fileA.writeAsString('a');
+      await fileB.writeAsString('b');
+      await fileC.writeAsString('c');
+      await viewModel.loadFiles();
+
+      expect(viewModel.indexOfPath(fileA.path), viewModel.files.indexOf(fileA.path));
+      expect(viewModel.indexOfPath(fileB.path), viewModel.files.indexOf(fileB.path));
+      expect(viewModel.indexOfPath(fileC.path), viewModel.files.indexOf(fileC.path));
+
+      // Delete fileB
+      await viewModel.deleteFile(fileB.path);
+      expect(viewModel.indexOfPath(fileA.path), viewModel.files.indexOf(fileA.path));
+      expect(viewModel.indexOfPath(fileB.path), isNull);
+      expect(viewModel.indexOfPath(fileC.path), viewModel.files.indexOf(fileC.path));
+    });
   });
 }

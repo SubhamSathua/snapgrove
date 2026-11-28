@@ -245,7 +245,7 @@ class GalleryViewModel extends ChangeNotifier {
 
   /// O(1) constant-time lookup for child index in gallery scroll recycler
   int? indexOfPath(String path) {
-    return _pathToIndexMap[normalizePathKey(path)];
+    return _pathToIndexMap[path] ?? _pathToIndexMap[normalizePathKey(path)];
   }
 
   /// O(1) constant-time lookup for already-normalized key

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../viewmodels/app_view_model.dart';
 import '../theme/app_theme.dart';
 import '../services/notification_service.dart';
@@ -30,11 +31,22 @@ class SnapgroveApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           builder: (context, child) {
-            return AnimatedTheme(
-              data: theme,
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOutQuart,
-              child: child!,
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+                statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+                systemNavigationBarColor: Colors.transparent,
+                systemNavigationBarDividerColor: Colors.transparent,
+                systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+                systemNavigationBarContrastEnforced: false,
+              ),
+              child: AnimatedTheme(
+                data: theme,
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOutQuart,
+                child: child!,
+              ),
             );
           },
           home: Stack(

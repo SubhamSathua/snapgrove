@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/locator.dart';
+import 'core/system_ui_util.dart';
 import 'viewmodels/app_view_model.dart';
 import 'views/app_view.dart';
 
@@ -34,6 +35,7 @@ void main() async {
 
   final appViewModel = locator<AppViewModel>();
   await appViewModel.init();
+  await SystemUiUtil.restoreSystemUI();
 
   runApp(SnapgroveApp(viewModel: appViewModel));
 }

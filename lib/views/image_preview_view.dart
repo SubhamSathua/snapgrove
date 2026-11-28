@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import '../core/app_constants.dart';
 import '../core/locator.dart';
+import '../core/system_ui_util.dart';
 import '../models/folder_node.dart';
 import '../services/file_service.dart';
 import '../services/notification_service.dart';
@@ -157,9 +158,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   @override
   void dispose() {
-    if (_isFullScreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
+    SystemUiUtil.restoreSystemUI();
     _slowOperationTimer?.cancel();
     _pageController.dispose();
     _transformController.dispose();
@@ -205,10 +204,10 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     final double cx = (focalPoint?.dx ?? (size.width / 2.0)).clamp(0.0, size.width);
     final double cy = (focalPoint?.dy ?? (size.height / 2.0)).clamp(0.0, size.height);
 
-    final double minTx = -(targetZoom - 1.0) * size.width;
-    final double minTy = -(targetZoom - 1.0) * size.height;
-    final double tx = (-cx * (targetZoom - 1.0)).clamp(minTx, 0.0);
-    final double ty = (-cy * (targetZoom - 1.0)).clamp(minTy, 0.0);
+    final double minTx = -size.width * (targetZoom - 1.0);
+    final double minTy = -size.height * (targetZoom - 1.0);
+    final double tx = ((size.width / 2.0) - (cx * targetZoom)).clamp(minTx, 0.0);
+    final double ty = ((size.height / 2.0) - (cy * targetZoom)).clamp(minTy, 0.0);
 
     final Matrix4 matrix = Matrix4.identity()
       ..translateByDouble(tx, ty, 0.0, 1.0)
@@ -242,7 +241,7 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
       if (_isFullScreen) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemUiUtil.restoreSystemUI();
       }
     });
   }
@@ -603,9 +602,13 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
         if (_currentIndex >= _files.length) {
           _currentIndex = _files.length - 1;
         }
+        _transformController.value = Matrix4.identity();
+        _currentZoom = 1.0;
+        _isInteracting = false;
         if (_pageController.hasClients) {
           _pageController.jumpToPage(_currentIndex);
         }
+        _preloadAdjacent(_currentIndex);
       }
     });
 
@@ -837,9 +840,13 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
           if (_currentIndex >= _files.length) {
             _currentIndex = _files.length - 1;
           }
+          _transformController.value = Matrix4.identity();
+          _currentZoom = 1.0;
+          _isInteracting = false;
           if (_pageController.hasClients) {
             _pageController.jumpToPage(_currentIndex);
           }
+          _preloadAdjacent(_currentIndex);
         }
       });
 
@@ -883,9 +890,13 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
           if (_currentIndex >= _files.length) {
             _currentIndex = _files.length - 1;
           }
+          _transformController.value = Matrix4.identity();
+          _currentZoom = 1.0;
+          _isInteracting = false;
           if (_pageController.hasClients) {
             _pageController.jumpToPage(_currentIndex);
           }
+          _preloadAdjacent(_currentIndex);
         }
       });
 
@@ -1335,8 +1346,19 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
     final double restBottom = _isFullScreen ? 0.0 : (isWide ? (safeBottom + 16.0) : (64.0 + safeBottom));
     final double restHorizontal = (_isFullScreen || !isWide) ? 0.0 : 68.0;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
+    return PopScope(
+      canPop: !_isFullScreen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          SystemUiUtil.restoreSystemUI();
+          return;
+        }
+        if (_isFullScreen) {
+          _toggleFullScreen();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
       extendBody: true,
       bottomNavigationBar: (!_isFullScreen && !isWide) ? _buildBottomActionBar() : null,
       body: Focus(
@@ -1764,8 +1786,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSlowOperationFloatingCard() {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -1949,6 +1972,8 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
   void didUpdateWidget(_PreviewImageTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.path != widget.path) {
+      _bytes = null;
+      _hasError = false;
       _loadImage();
     }
   }
@@ -1968,13 +1993,14 @@ class _PreviewImageTileState extends State<_PreviewImageTile> {
     }
 
     setState(() {
+      _bytes = null;
       _hasError = false;
     });
 
     final targetPath = widget.path;
     locator<FileService>().readFile(targetPath).then((bytes) {
       if (!mounted || widget.path != targetPath) return;
-      if (bytes != null) {
+      if (bytes != null && bytes.isNotEmpty) {
         addToCache(targetPath, bytes);
         setState(() {
           _bytes = bytes;
