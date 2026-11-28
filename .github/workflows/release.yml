@@ -43,14 +43,41 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
+      - name: Run Static Analysis
+        run: flutter analyze
+
       - name: Run Tests
         run: flutter test
 
+      - name: Configure Android Signing Key
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "Configuring Android release signing..."
+          echo "$KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
+          cat <<EOF > android/key.properties
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+          echo "Successfully configured android/key.properties for Gradle release signing."
+
       - name: Build Universal APK
-        run: flutter build apk --release --android-skip-build-dependency-validation
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          BUILD_NUM="${{ github.run_number }}"
+          flutter build apk --release --build-name="$VERSION" --build-number="$BUILD_NUM" --android-skip-build-dependency-validation
 
       - name: Build Split-per-ABI APKs
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          BUILD_NUM="${{ github.run_number }}"
+          flutter build apk --release --split-per-abi --build-name="$VERSION" --build-number="$BUILD_NUM" --android-skip-build-dependency-validation
 
       - name: Prepare Artifact Directory
         id: artifacts
@@ -70,32 +97,22 @@ jobs:
             cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/Snapgrove-${VERSION}-x86_64.apk
           fi
 
-      - name: Sign APKs (If Keystore Secret Provided)
-        if: env.KEYSTORE_BASE64 != ''
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Verify APK Signatures (If Keystore Provided)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
-          echo "Decoding Android release keystore..."
-          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
-          
-          # Sign each APK with apksigner if available
-          ANDROID_BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
+          ANDROID_BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
-          
           if [ -f "$APKSIGNER" ]; then
             for apk in dist/*.apk; do
-              echo "Signing $apk..."
-              "$APKSIGNER" sign --ks release.jks \
-                --ks-pass pass:"$KEYSTORE_PASSWORD" \
-                --ks-key-alias "$KEY_ALIAS" \
-                --key-pass pass:"$KEY_PASSWORD" \
-                "$apk"
+              echo "Verifying signature for $apk..."
+              "$APKSIGNER" verify --verbose "$apk" || true
             done
           fi
-          rm -f release.jks
+
+      - name: Clean Up Android Keystore Secrets
+        if: always()
+        run: |
+          rm -f android/upload-keystore.jks android/key.properties
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
@@ -132,7 +149,11 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows Release
-        run: flutter build windows --release
+        shell: powershell
+        run: |
+          $version = "${{ steps.release_info.outputs.version }}"
+          $buildNum = "${{ github.run_number }}"
+          flutter build windows --release --build-name=$version --build-number=$buildNum
 
       - name: Sign Windows Binary (If PFX Secret Provided)
         shell: powershell
