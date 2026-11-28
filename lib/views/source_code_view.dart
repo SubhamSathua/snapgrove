@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../core/app_constants.dart';
@@ -46,6 +47,20 @@ class _SourceCodeViewState extends State<SourceCodeView> {
         )
         ..loadRequest(Uri.parse(AppConstants.repoUrl));
     }
+  }
+
+  void _copyLink(BuildContext context) {
+    Clipboard.setData(const ClipboardData(text: AppConstants.repoUrl));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Repository link copied to clipboard',
+          style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+        ),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _launchUrl(BuildContext context, String url) async {
@@ -200,6 +215,37 @@ class _SourceCodeViewState extends State<SourceCodeView> {
               ],
             ),
           ),
+          // Circular Copy Link Button
+          Tooltip(
+            message: 'Copy Link',
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF222222) : const Color(0xFFF0F0F0),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? const Color(0xFF2E2E2E) : const Color(0xFFE0E0E0),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _copyLink(context),
+                  splashColor: sc.rippleColor,
+                  child: Center(
+                    child: Icon(
+                      SnapSymbols.copy_rounded,
+                      size: 19,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           // Circular Open in Browser Button
           Tooltip(
             message: 'Open in Browser',
@@ -292,25 +338,54 @@ class _SourceCodeViewState extends State<SourceCodeView> {
                 ],
               ),
               const SizedBox(height: 28),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: sc.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: sc.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(SnapSymbols.open_in_new, size: 18),
+                    label: const Text(
+                      'Open on GitHub',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onPressed: () => _launchUrl(context, AppConstants.repoUrl),
                   ),
-                ),
-                icon: const Icon(SnapSymbols.open_in_new, size: 18),
-                label: const Text(
-                  'Open on GitHub',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      side: BorderSide(
+                        color: isDark ? const Color(0x33FFFFFF) : const Color(0x22000000),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(SnapSymbols.copy_rounded, size: 18),
+                    label: const Text(
+                      'Copy Link',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onPressed: () => _copyLink(context),
                   ),
-                ),
-                onPressed: () => _launchUrl(context, AppConstants.repoUrl),
+                ],
               ),
             ],
           ),

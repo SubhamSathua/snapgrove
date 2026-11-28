@@ -1294,49 +1294,86 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
             final isLoading = _viewModel.isLoading || _isTransitioning;
             final isDark = Theme.of(context).brightness == Brightness.dark;
             final sc = context.snapgroveColors;
+            final overlayStyle = SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarContrastEnforced: false,
+            );
             
-            return Scaffold(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              body: Stack(
-                children: [
-                  useSidePane
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: _buildGalleryScrollView(
-                                context: context,
-                                width: width - 280,
-                                effectiveColumns: effectiveColumns,
-                                isLoading: isLoading,
-                                isDark: isDark,
-                                sc: sc,
-                                useTopPane: false,
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: overlayStyle,
+              child: Scaffold(
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                body: Stack(
+                  children: [
+                    useSidePane
+                        ? Row(
+                            children: [
+                              Expanded(
+                                child: _buildGalleryScrollView(
+                                  context: context,
+                                  width: width - 280,
+                                  effectiveColumns: effectiveColumns,
+                                  isLoading: isLoading,
+                                  isDark: isDark,
+                                  sc: sc,
+                                  useTopPane: false,
+                                ),
+                              ),
+                              _RightSideSelectionPane(
+                                selectedCount: _viewModel.selectedCount,
+                                subfolders: _viewModel.subfolders,
+                                isTagsLoading: _viewModel.isTagsLoading,
+                                onCreateFolder: _showCreateFolderDialog,
+                                onMoveToFolder: _moveSelectedToFolder,
+                                onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
+                                isFolderEnabled: _isFolderActionEnabled,
+                                getFolderTooltip: _getFolderActionTooltip,
+                              ),
+                            ],
+                          )
+                        : _buildGalleryScrollView(
+                            context: context,
+                            width: width,
+                            effectiveColumns: effectiveColumns,
+                            isLoading: isLoading,
+                            isDark: isDark,
+                            sc: sc,
+                            useTopPane: useTopPane,
+                          ),
+                    if (_isMovingFiles)
+                      _buildMovingProgressFloatingCard(sc, isDark),
+                    if (isAndroid && MediaQuery.paddingOf(context).bottom > 0)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: MediaQuery.paddingOf(context).bottom,
+                        child: IgnorePointer(
+                          child: AppBlur(
+                            borderRadius: BorderRadius.zero,
+                            sigmaX: 20,
+                            sigmaY: 20,
+                            solidColor: Theme.of(context).scaffoldBackgroundColor,
+                            blurOpacity: isDark ? 0.75 : 0.85,
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: isDark ? const Color(0x18FFFFFF) : const Color(0x10000000),
+                                  width: 0.8,
+                                ),
                               ),
                             ),
-                            _RightSideSelectionPane(
-                              selectedCount: _viewModel.selectedCount,
-                              subfolders: _viewModel.subfolders,
-                              isTagsLoading: _viewModel.isTagsLoading,
-                              onCreateFolder: _showCreateFolderDialog,
-                              onMoveToFolder: _moveSelectedToFolder,
-                              onRenameFolder: (folder, pos) => _showRenameFolderMenu(context, folder, pos),
-                              isFolderEnabled: _isFolderActionEnabled,
-                              getFolderTooltip: _getFolderActionTooltip,
-                            ),
-                          ],
-                        )
-                      : _buildGalleryScrollView(
-                          context: context,
-                          width: width,
-                          effectiveColumns: effectiveColumns,
-                          isLoading: isLoading,
-                          isDark: isDark,
-                          sc: sc,
-                          useTopPane: useTopPane,
+                            child: const SizedBox.expand(),
+                          ),
                         ),
-                  if (_isMovingFiles)
-                    _buildMovingProgressFloatingCard(sc, isDark),
-                ],
+                      ),
+                  ],
+                ),
               ),
             );
           },
@@ -1677,7 +1714,66 @@ class _OrganizerGalleryState extends State<OrganizerGallery> with SingleTickerPr
               ),
             ),
           ),
+        if (!isLoading && _viewModel.files.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _buildGalleryFooter(context, sc, isDark),
+          ),
       ],
+    );
+  }
+
+  Widget _buildGalleryFooter(BuildContext context, SnapgroveColors sc, bool isDark) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final fileCount = _viewModel.files.length;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 28, 16, 75.0 + bottomInset),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0x1AFFFFFF) : const Color(0x0F000000),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? const Color(0x18FFFFFF) : const Color(0x12000000),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    SnapSymbols.check,
+                    size: 14,
+                    color: sc.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "That's all",
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: sc.muted,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$fileCount ${fileCount == 1 ? 'image' : 'images'}',
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 11,
+                color: sc.muted.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

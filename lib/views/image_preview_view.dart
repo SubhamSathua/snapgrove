@@ -157,6 +157,9 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
 
   @override
   void dispose() {
+    if (_isFullScreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _slowOperationTimer?.cancel();
     _pageController.dispose();
     _transformController.dispose();
@@ -236,6 +239,11 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
   void _toggleFullScreen() {
     setState(() {
       _isFullScreen = !_isFullScreen;
+      if (_isFullScreen) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
     });
   }
 
@@ -1478,10 +1486,16 @@ class _ImagePreviewViewState extends State<ImagePreviewView> {
             // Exit Fullscreen Button
             if (_isFullScreen)
               Positioned(
-                top: 16,
-                right: 16,
+                bottom: 24,
+                left: 0,
+                right: 0,
                 child: SafeArea(
-                  child: _ExitFullScreenButton(onTap: _toggleFullScreen),
+                  child: Center(
+                    child: Opacity(
+                      opacity: 0.5,
+                      child: _ExitFullScreenButton(onTap: _toggleFullScreen),
+                    ),
+                  ),
                 ),
               ),
 
