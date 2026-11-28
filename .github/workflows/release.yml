@@ -7,12 +7,17 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-android:
     name: Build & Sign Android APKs
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Code
@@ -123,6 +128,7 @@ jobs:
   build-windows:
     name: Build & Sign Windows Desktop
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Code
@@ -165,25 +171,35 @@ jobs:
             Write-Host "Decoding Windows code-signing certificate..."
             [IO.File]::WriteAllBytes("windows-cert.pfx", [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
             
-            $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" -Filter "signtool.exe" -Recurse | Select-Object -First 1).FullName
+            # Fast detection targeting modern 64-bit Windows SDK signtool
+            $signtool = (Get-Item 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+            if (-not $signtool) {
+              $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+            }
+
             if ($signtool) {
               $releaseDir = "build\windows\x64\runner\Release"
               Write-Host "Found signtool at: $signtool"
               
-              # Sign main executable and all DLLs with Authenticode SHA256
+              # Sign main executable and all DLLs with Authenticode SHA256 and RFC 3161 public timestamp
               $targets = Get-ChildItem -Path $releaseDir -Include "snapgrove.exe", "*.dll" -Recurse
               foreach ($target in $targets) {
                 Write-Host "Signing $($target.FullName)..."
-                & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /v $target.FullName
+                & $signtool sign /f windows-cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /v $target.FullName
               }
-              Write-Host "Windows binaries successfully signed with Authenticode!"
+              Write-Host "Windows binaries successfully signed with Authenticode and RFC 3161 timestamp!"
             } else {
               Write-Warning "signtool.exe not found on runner."
             }
-            Remove-Item windows-cert.pfx -Force -ErrorAction SilentlyContinue
           } else {
             Write-Host "No WINDOWS_CERT_BASE64 secret provided; building unsigned binary."
           }
+
+      - name: Clean Up Windows Certificate Secrets
+        if: always()
+        shell: powershell
+        run: |
+          Remove-Item windows-cert.pfx -Force -ErrorAction SilentlyContinue
 
       - name: Package Windows Zip
         shell: powershell
@@ -205,6 +221,9 @@ jobs:
     name: Verify, Sign Checksums & Publish Release
     needs: [build-android, build-windows]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -236,18 +255,28 @@ jobs:
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
           NOTE_FILE=".github/releases/${VERSION}.md"
+          ALT_FILE=".github/releases/v${VERSION}.md"
           
           if [ -f "$NOTE_FILE" ]; then
             echo "Using release notes from $NOTE_FILE"
             echo "note_path=$NOTE_FILE" >> $GITHUB_OUTPUT
+          elif [ -f "$ALT_FILE" ]; then
+            echo "Using release notes from $ALT_FILE"
+            echo "note_path=$ALT_FILE" >> $GITHUB_OUTPUT
           else
-            echo "Release note $NOTE_FILE not found, searching fallback..."
-            ALT_FILE=".github/releases/v${VERSION}.md"
-            if [ -f "$ALT_FILE" ]; then
-              echo "note_path=$ALT_FILE" >> $GITHUB_OUTPUT
-            else
-              echo "note_path=" >> $GITHUB_OUTPUT
-            fi
+            echo "Release note file not found; generating fallback release notes..."
+            mkdir -p dist
+            FALLBACK_NOTE="dist/RELEASE_NOTES_FALLBACK.md"
+            cat <<EOF > "$FALLBACK_NOTE"
+Hey everyone! Welcome to Snapgrove ${VERSION}. 🥳
+
+### What's New
+- Automated multi-platform build with signed binaries & cryptographic checksums.
+- Performance optimizations and stability improvements.
+
+Enjoy organizing! 😎
+EOF
+            echo "note_path=$FALLBACK_NOTE" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Android Artifacts
@@ -270,10 +299,12 @@ jobs:
           cd ..
 
       - name: Cryptographically Sign Release Checksums & Prepare Verify Key
+        env:
+          RELEASE_VERIFY_PRIVATE_KEY: ${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}
         run: |
           cd dist
-          if [ -n "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" ]; then
-            echo "${{ secrets.RELEASE_VERIFY_PRIVATE_KEY }}" > verify.key
+          if [ -n "$RELEASE_VERIFY_PRIVATE_KEY" ]; then
+            printf "%s\n" "$RELEASE_VERIFY_PRIVATE_KEY" > verify.key
             openssl dgst -sha256 -sign verify.key -out SHA256SUMS.txt.sig SHA256SUMS.txt
             # Extract corresponding public verification key directly from the signing key
             openssl rsa -in verify.key -pubout -out snapgrove-release.pub 2>/dev/null || true
@@ -286,12 +317,18 @@ jobs:
             cp scripts/snapgrove-release.pub dist/
           fi
 
+      - name: Clean Up Verification Key Secrets
+        if: always()
+        run: |
+          rm -f dist/verify.key
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag }}
           name: "Snapgrove ${{ steps.release_info.outputs.version }} (${{ steps.release_info.outputs.channel_label }})"
           body_path: ${{ steps.release_notes.outputs.note_path }}
+          generate_release_notes: true
           prerelease: ${{ steps.release_info.outputs.is_prerelease == 'true' }}
           draft: false
           files: |
